@@ -1,25 +1,26 @@
-// Port of compiler/rustc_codegen_ssa/src/back/link.rs up to `exec_linker` (:2105, lane ssa-link-a, wave 40q); the rest of the
-// file (`exec_linker` onwards, with link/raw_dylib.rs) is lane ssa-link-b's. Earlier lanes ported `link_binary`/`link_rlib`
+// Port of compiler/rustc_codegen_ssa/src/back/link.rs: up to `exec_linker` (:2105) lane ssa-link-a (wave 40q), from
+// `exec_linker` to the end lane ssa-link-b (wave 40r; link/raw_dylib.rs is link/raw_dylib.ts). Earlier lanes ported `link_binary`/`link_rlib`
 // (plan-m6 D4, miri-sysroot), the native library search (link-rlib-native), `ignored_for_lto`, `each_linked_rlib`,
 // `preserve_objects_for_their_debuginfo`, `are_upstream_rust_objects_already_included` and `warn_if_linked_with_gold`.
 //
 // PORT:
 // - Calls into other lanes' functions (link.rs :2105-end, back/linker.rs, back/command.rs, back/archive.rs) go through the
-//   `xlane` table at the end of this file (mir/mod.ts convention): forwarders to back/linker.ts, back/command.ts and
-//   back/archive.ts (root at integ-w57), stubs for ssa-link-b's. `Command`, `dyn Linker` (`DynLinker`), `ArchiveSymbols`
-//   and `process::Output` are imported; `jobserver::Acquired` is an interface stand-in until ssa-link-b.
+//   `xlane` table at the end of this file (mir/mod.ts convention): forwarders to back/linker.ts, back/command.ts,
+//   back/archive.ts, back/apple.ts, vendor object's writer, and to this file's own `exec_linker`, `self_contained_components`,
+//   `linker_with_args`, `relevant_lib` and raw_dylib's `create_raw_dylib_dll_import_libs`. `Command`, `dyn Linker`
+//   (`DynLinker`), `ArchiveSymbols` and `process::Output` are imported; `jobserver::Acquired` is an interface stand-in.
 // - `thorin` (split DWARF packaging), `find_msvc_tools` and the Windows API (`mod win`) are not vendored: their uses stop.
 // - `LinkingFailed`, `ProcessingDymutilFailed` and `StrippingDebugInfoFailed` are not generated (their `ExitStatus` /
 //   `Command` fields): emitting them stops.
 import * as tracing from "../../rust_ts/tracing.ts";
-import { readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import type { DiagCtxtHandle } from "../../rustc_errors/lib.ts";
 import { DuplicateEiiImpls_diagnostic } from "../../rustc_middle/diagnostics.gen.ts";
 import { emit_lint_base, LevelSpec } from "../../rustc_middle/lint.ts";
 import { LINKER_INFO, LINKER_MESSAGES } from "../../rustc_lint_defs/builtin.gen.ts";
 import { copy_to_stdout, emit_wrapper_file, MaybeTempDir, METADATA_FILENAME, TempDirBuilder } from "../../rustc_metadata/fs.ts";
 import type { LinkerFeaturesCli, OutputFilenames } from "../../rustc_session/config.ts";
-import { LinkerPluginLto, OutFileName, OutputType } from "../../rustc_session/config.ts";
+import { LinkerPluginLto, OutFileName, OutputType, SwitchWithOptPath } from "../../rustc_session/config.ts";
 import { make_target_lib_path } from "../../rustc_session/filesearch.ts";
 import { check_file_is_writeable, invalid_output_for_target, out_filename } from "../../rustc_session/output.ts";
 import type { Session } from "../../rustc_session/session.ts";
@@ -36,7 +37,7 @@ import { debug_list, debug_str, PLAIN } from "../../std/fmt.ts";
 import { Err, Ok, type Result, unwrap_result } from "../../std/result.ts";
 import type { MutRef } from "../../std/mut_ref.ts";
 import { from_utf8, str_lines, string_trim, string_trim_end } from "../../std/str.ts";
-import { split_paths, to_string_lossy, var_os } from "../../std/env.ts";
+import { split_paths, to_string_lossy, var_, var_os } from "../../std/env.ts";
 import { debug_CrateType, type CrateType } from "../../rustc_structures/crate_type.ts";
 import { debug_Linkage } from "../../rustc_middle/middle/dependency_format.ts";
 import {
@@ -48,18 +49,23 @@ import {
   CreateTempDir_diagnostic,
   type ExtractBundledLibsError,
   ExtractBundledLibsError_diagnostic,
+  FailedToWrite_diagnostic,
   InsufficientVSCodeProduct_diagnostic,
   LinkerFileStem_diagnostic,
   LinkerNotFound_diagnostic,
   LinkExeUnexpectedError_diagnostic,
   LinkRlibError,
   LinkRlibError_diagnostic,
+  LinkScriptUnavailable_diagnostic,
+  LinkScriptWriteFailure_diagnostic,
   MissingCppBuildToolComponent_diagnostic,
   MissingNativeLibrary_diagnostic,
   MsvcMissingLinker_diagnostic,
   ReadFileError_diagnostic,
   RepairVSBuildTools_diagnostic,
+  RlibArchiveBuildFailure_diagnostic,
   SelectCppBuildToolWorkload_diagnostic,
+  SelfContainedLinkerMissing_diagnostic,
   StaticlibHideInternalSymbolsUnsupported_diagnostic,
   StaticlibRenameInternalSymbolsUnsupported_diagnostic,
   StaticLibraryNativeArtifacts_diagnostic,
@@ -68,28 +74,49 @@ import {
   UnableToExeLinker_diagnostic,
   UnableToRun_diagnostic,
   UnableToRunDsymutil_diagnostic,
+  UnableToWriteDebuggerVisualizer_diagnostic,
+  UnsupportedLinkSelfContained_diagnostic,
   VisualStudioNotInstalled_diagnostic,
 } from "../diagnostics.gen.ts";
 import { CopyPath, LinkExeStatusStackBufferOverrun_diagnostic, LinkingFailed_into_diag, MissingNativeLibrary, ThorinErrorWrapper_into_diag } from "../diagnostics.ts";
-import { path_components, path_file_name, path_file_stem, path_join, path_parent } from "../../std/path.ts";
-import { debug_IoError, io_error_from_node, IoError_kind, type IoResult } from "../../std/io.ts";
+import { absolute, path_components, path_eq, path_extension, path_file_name, path_file_stem, path_is_absolute, path_join, path_parent, path_strip_prefix } from "../../std/path.ts";
+import { debug_IoError, display_IoError, type ErrorKind, type IoError, io_error_from_node, IoError_kind, IoError_raw_os_error, type IoResult } from "../../std/io.ts";
 import { ControlFlow } from "../../rustc_ast_ir/visit.ts";
 // Load order: rustc_target through its crate root first. spec/mod.ts imports lib.ts, which evaluates spec/json.ts and
 // target_features.ts, and both read spec/mod.ts's bindings at their top level: entered from spec/mod.ts, the cycle reads `Os`
 // before it exists (lanes unit-parallel, fixers-48).
 import "../../rustc_target/lib.ts";
-import { debug_LinkerFlavor, LinkerFeatures, LinkerFlavor, type LinkOutputKind, LinkSelfContainedComponents } from "../../rustc_target/spec/mod.ts";
+import { debug_LinkerFlavor, Env, LinkerFeatures, LinkerFlavor, LinkOutputKind, LinkSelfContainedComponents, LinkSelfContainedDefault, Os, type Target } from "../../rustc_target/spec/mod.ts";
 import type { CrtObjects } from "../../rustc_target/spec/crt_objects.ts";
 import { SanitizerSet } from "../../rustc_target/stand_ins.ts";
-import { FileHeader32_impl, FileHeader64_impl, FileHeader_provided } from "../../vendor/object/read/elf/file.ts";
+import { type FileHeader, FileHeader32_impl, FileHeader64_impl, FileHeader_provided, type FileHeaderValue } from "../../vendor/object/read/elf/file.ts";
+import { ArchiveFile } from "../../vendor/object/read/archive.ts";
+import { File as ReadFile } from "../../vendor/object/read/any.ts";
+import { display_Error as display_ReadError } from "../../vendor/object/read/mod.ts";
+import { SectionKind } from "../../vendor/object/common.ts";
+import { type Error as WriteError, type Object as WriteObject, type SectionId as WriteSectionId, Symbol as WriteSymbol } from "../../vendor/object/write/mod.ts";
+import { eval_config_entry, EvalConfigResult } from "../../rustc_attr_parsing/attributes/cfg.ts";
+import type { CrateSource } from "../../rustc_crate_store/cstore.gen.ts";
+import * as jobserver from "../../rustc_data_structures/jobserver.ts";
+import { try_canonicalize } from "../../rustc_fs_util/lib.ts";
+import type { DebuggerVisualizerFile } from "../../rustc_middle/middle/debugger_visualizer.ts";
+import type { SymbolExportKind } from "../../rustc_middle/middle/exported_symbols.ts";
+import { str_cmp } from "../../rustc_session/options.ts";
+import { NativeLibKind, NativeLibKind_eq } from "../../rustc_structures/native_lib_kind.ts";
+import { needs_allocator_shim_for_linking } from "../base.ts";
+import { add_data_and_relocation, get_sdk_root, sdk_name } from "./apple.ts";
+import { versioned_llvm_target } from "./mod.ts";
+import { get_rpath_linker_args, type RPathConfig } from "./rpath.ts";
+import { coff_machine_for_arch, undecorate_coff_symbol } from "./symbol_export.ts";
+import * as raw_dylib from "./link/raw_dylib.ts";
 import { type ArchiveBuilder, type ArchiveBuilderBuilder, type ArchiveEntryKind, type ArchiveSymbols, ArchiveBuilderBuilder_provided } from "./archive.ts";
 import { Command, debug_Command, type ExitStatus, type Output } from "./command.ts";
-import { type DynLinker as Linker, disable_localization, get_tools_search_paths } from "./linker.ts";
-import { create_wrapper_file } from "./metadata.ts";
+import { type DynLinker as Linker, disable_localization, get_linker, get_tools_search_paths } from "./linker.ts";
+import { create_object_file, create_wrapper_file } from "./metadata.ts";
 import * as rmeta_link from "./rmeta_link.ts";
 import { RmetaLinkCache } from "./rmeta_link.ts";
 import { LinkerOutput_diagnostic } from "./link.gen.ts";
-import type { CodegenLintLevelSpecs, CompiledModule, CompiledModules, CrateInfo, NativeLib } from "../lib.ts";
+import type { CodegenLintLevelSpecs, CompiledModule, CompiledModules, CrateInfo, NativeLib, SymbolExport } from "../lib.ts";
 
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:68 ensure_removed
 export function ensure_removed(dcx: DiagCtxtHandle, path: string): void {
@@ -111,9 +138,7 @@ function eii_impl_crate_name(crate_info: CrateInfo, cnum: CrateNum): Symbol {
   if (cnum === LOCAL_CRATE) {
     return crate_info.local_crate_name;
   } else {
-    const name = crate_info.crate_name.get(cnum);
-    if (name === undefined) return bug("CrateInfo::crate_name: no entry for the crate");
-    return name;
+    return crate_info_crate_name(crate_info, cnum);
   }
 }
 
@@ -537,8 +562,8 @@ export function each_linked_rlib(info: CrateInfo, crate_type: CrateType | undefi
     const fmt = fmts[cnum];
     if (fmt === "NotLinked" || fmt === "Dynamic" || fmt === "IncludedFromDylib") continue;
     if (fmt === undefined) return Err(LinkRlibError.MissingFormat);
-    const crate_name = info.crate_name.get(cnum)!;
-    const used_crate_source = info.used_crate_source.get(cnum)!;
+    const crate_name = crate_info_crate_name(info, cnum);
+    const used_crate_source = crate_info_used_crate_source(info, cnum);
     if (used_crate_source.rlib !== undefined) {
       f(cnum, used_crate_source.rlib);
     } else if (used_crate_source.rmeta !== undefined) {
@@ -764,7 +789,7 @@ export function link_rlib(
 /// There's no need to include metadata in a static archive, so ensure to not link in the metadata
 /// object file (and also don't prepare the archive with a metadata file).
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:754 link_staticlib
-function link_staticlib(
+export function link_staticlib(
   sess: Session,
   archive_builder_builder: ArchiveBuilderBuilder,
   rmeta_link_cache: RmetaLinkCache,
@@ -895,8 +920,8 @@ function link_staticlib(
     if (fmts[cnum] !== "Dynamic") {
       continue;
     }
-    const crate_name = crate_info.crate_name.get(cnum)!;
-    const used_crate_source = crate_info.used_crate_source.get(cnum)!;
+    const crate_name = crate_info_crate_name(crate_info, cnum);
+    const used_crate_source = crate_info_used_crate_source(crate_info, cnum);
     if (used_crate_source.dylib !== undefined) {
       all_rust_dylibs.push(used_crate_source.dylib);
     } else if (used_crate_source.rmeta !== undefined) {
@@ -1225,7 +1250,7 @@ export function report_linker_output(sess: Session, levels: CodegenLintLevelSpec
 /// This will invoke the system linker/cc to create the resulting file. This links to all upstream
 /// files as well.
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:1232 link_natively
-function link_natively(
+export function link_natively(
   sess: Session,
   archive_builder_builder: ArchiveBuilderBuilder,
   rmeta_link_cache: RmetaLinkCache,
@@ -2036,6 +2061,1582 @@ function get_object_file_path(sess: Session, name: string, self_contained: boole
   return name;
 }
 
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2105 exec_linker
+export function exec_linker(sess: Session, cmd: Command, out_filename: string, flavor: LinkerFlavor, tmpdir: string): IoResult<Output> {
+  // When attempting to spawn the linker we run a risk of blowing out the
+  // size limits for spawning a new process with respect to the arguments
+  // we pass on the command line.
+  //
+  // Here we attempt to handle errors from the OS saying "your list of
+  // arguments is too big" by reinvoking the linker again with an `@`-file
+  // that contains all the arguments (aka 'response' files).
+  // The theory is that this is then accepted on all linkers and the linker
+  // will read all its options out of there instead of looking at the command line.
+  if (!cmd.very_likely_to_exceed_some_spawn_limit()) {
+    // match cmd.command().stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() { Ok(child) => child.wait_with_output() .. }
+    // PORT: `spawn` + `wait_with_output` with piped stdout and stderr is `ProcessCommand::output` (`Bun.spawnSync`, plan-m7
+    // D15): a spawn error is the same `io::Error`. The child's stdin is null there, where `spawn` would inherit rustc's; a
+    // linker reads no stdin.
+    const output = cmd.command().output();
+    if (output.$ === "Ok") {
+      const r = flush_linked_file(output, out_filename);
+      if (r.$ === "Err") return r;
+      return output;
+    }
+    const e = output._0;
+    if (command_line_too_big(e)) {
+      tracing.info(TARGET, () => `command line to linker was too big: ${display_IoError(e)}`);
+    } else {
+      return Err(e);
+    }
+  }
+
+  tracing.info(TARGET, () => "falling back to passing arguments to linker via an @-file");
+  const cmd2 = cmd.clone();
+  let args = "";
+  for (const arg of cmd2.take_args()) {
+    args += new Escape(
+      // arg: arg.to_str().unwrap(),
+      arg,
+      // Windows-style escaping for @-files is used by
+      // - all linkers targeting MSVC-like targets, including LLD
+      // - all LLD flavors running on Windows hosts
+      // С/С++ compilers use Posix-style escaping (except clang-cl, which we do not use).
+      sess.target.options.is_like_msvc || (CFG_WINDOWS && LinkerFlavor.uses_lld(flavor) && !LinkerFlavor.uses_cc(flavor)),
+    ).fmt();
+    args += "\n";
+  }
+  const file = path_join(tmpdir, "linker-arguments");
+  let bytes: Uint8Array;
+  if (sess.target.options.is_like_msvc) {
+    const out: number[] = [];
+    // start the stream with a UTF-16 BOM
+    const units = [0xfeff];
+    for (let i = 0; i < args.length; i++) units.push(args.charCodeAt(i)); // `args.encode_utf16()`
+    for (const c of units) {
+      // encode in little endian
+      out.push(c & 0xff);
+      out.push((c >> 8) & 0xff);
+    }
+    bytes = new Uint8Array(out);
+  } else {
+    bytes = encoder.encode(args);
+  }
+  const w = fs_write(file, bytes);
+  if (w.$ === "Err") return w;
+  cmd2.arg(`@${file}`);
+  tracing.info(TARGET, () => `invoking linker ${xlane.debug_Command(cmd2)}`);
+  const output = cmd2.output();
+  const r = flush_linked_file(output, out_filename);
+  if (r.$ === "Err") return r;
+  return output;
+}
+
+// #[cfg(not(windows))]
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2174 flush_linked_file
+function flush_linked_file_not_windows(_: IoResult<Output>, __: string): IoResult<null> {
+  return Ok(null);
+}
+
+// #[cfg(windows)]
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2179 flush_linked_file
+function flush_linked_file_windows(command_output: IoResult<Output>, out_filename: string): IoResult<null> {
+  // On Windows, under high I/O load, output buffers are sometimes not flushed,
+  // even long after process exit, causing nasty, non-reproducible output bugs.
+  //
+  // File::sync_all() calls FlushFileBuffers() down the line, which solves the problem.
+  //
+  // А full writeup of the original Chrome bug can be found at
+  // randomascii.wordpress.com/2018/02/25/compiler-bug-linker-bug-windows-kernel-bug/amp
+
+  if (command_output.$ === "Ok") {
+    const out = command_output._0;
+    if (out.status.success()) {
+      // if let Ok(of) = fs::OpenOptions::new().write(true).open(out_filename) { of.sync_all()?; }
+      void out_filename;
+      return unported("std::fs::File::sync_all (exec_linker's flush_linked_file, Windows host)");
+    }
+  }
+
+  return Ok(null);
+}
+
+/** PORT: the `flush_linked_file` of the host `cfg` (as `escape_linker_output`). */
+function flush_linked_file(command_output: IoResult<Output>, out_filename: string): IoResult<null> {
+  return CFG_WINDOWS ? flush_linked_file_windows(command_output, out_filename) : flush_linked_file_not_windows(command_output, out_filename);
+}
+
+// #[cfg(unix)]
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2203 command_line_too_big
+function command_line_too_big_unix(err: IoError): boolean {
+  return IoError_raw_os_error(err) === LIBC_E2BIG;
+}
+
+// #[cfg(windows)]
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2208 command_line_too_big
+function command_line_too_big_windows(err: IoError): boolean {
+  const ERROR_FILENAME_EXCED_RANGE = 206;
+  return IoError_raw_os_error(err) === ERROR_FILENAME_EXCED_RANGE;
+}
+
+// #[cfg(not(any(unix, windows)))]
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2214 command_line_too_big
+function command_line_too_big_other(_: IoError): boolean {
+  return false;
+}
+
+/** PORT: the `command_line_too_big` of the host `cfg` (every host the port runs on is unix or Windows). */
+function command_line_too_big(err: IoError): boolean {
+  void command_line_too_big_other;
+  return CFG_WINDOWS ? command_line_too_big_windows(err) : command_line_too_big_unix(err);
+}
+
+/** `exec_linker`'s local `struct Escape<'a> { arg: &'a str, is_like_msvc: bool }`. */
+class Escape {
+  constructor(
+    readonly arg: string,
+    readonly is_like_msvc: boolean,
+  ) {}
+
+  /** `impl fmt::Display for Escape<'_>`. */
+  // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2224 fmt
+  fmt(): string {
+    let f = "";
+    if (this.is_like_msvc) {
+      // This is "documented" at
+      // https://docs.microsoft.com/en-us/cpp/build/reference/at-specify-a-linker-response-file
+      //
+      // Unfortunately there's not a great specification of the
+      // syntax I could find online (at least) but some local
+      // testing showed that this seemed sufficient-ish to catch
+      // at least a few edge cases.
+      f += '"';
+      for (const c of this.arg) {
+        switch (c) {
+          case '"':
+            f += `\\${c}`;
+            break;
+          default:
+            f += c;
+        }
+      }
+      f += '"';
+    } else {
+      // This is documented at https://linux.die.net/man/1/ld, namely:
+      //
+      // > Options in file are separated by whitespace. A whitespace
+      // > character may be included in an option by surrounding the
+      // > entire option in either single or double quotes. Any
+      // > character (including a backslash) may be included by
+      // > prefixing the character to be included with a backslash.
+      //
+      // We put an argument on each line, so all we need to do is
+      // ensure the line is interpreted as one whole argument.
+      for (const c of this.arg) {
+        switch (c) {
+          case "\\":
+          case " ":
+            f += `\\${c}`;
+            break;
+          default:
+            f += c;
+        }
+      }
+    }
+    return f;
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2264 link_output_kind
+export function link_output_kind(sess: Session, crate_type: CrateType): LinkOutputKind {
+  const crt_static = sess.crt_static(crate_type);
+  const reloc = sess.relocation_model();
+  let kind: LinkOutputKind;
+  if (crate_type === "Executable" && Session_is_wasi_reactor(sess)) {
+    kind = "WasiReactorExe";
+  } else if (crate_type === "Executable" && !crt_static && (reloc === "Pic" || reloc === "Pie")) {
+    kind = "DynamicPicExe";
+  } else if (crate_type === "Executable" && !crt_static) {
+    kind = "DynamicNoPicExe";
+  } else if (crate_type === "Executable" && crt_static && (reloc === "Pic" || reloc === "Pie")) {
+    kind = "StaticPicExe";
+  } else if (crate_type === "Executable" && crt_static) {
+    kind = "StaticNoPicExe";
+  } else if (crt_static) {
+    kind = "StaticDylib";
+  } else {
+    kind = "DynamicDylib";
+  }
+
+  // Adjust the output kind to target capabilities.
+  const opts = sess.target.options;
+  const pic_exe_supported = opts.position_independent_executables;
+  const static_pic_exe_supported = opts.static_position_independent_executables;
+  const static_dylib_supported = opts.crt_static_allows_dylibs;
+  if (kind === "DynamicPicExe" && !pic_exe_supported) return "DynamicNoPicExe";
+  if (kind === "StaticPicExe" && !static_pic_exe_supported) return "StaticNoPicExe";
+  if (kind === "StaticDylib" && !static_dylib_supported) return "DynamicDylib";
+  return kind;
+}
+
+// Returns true if linker is located within sysroot
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2293 detect_self_contained_mingw
+function detect_self_contained_mingw(sess: Session, linker: string): boolean {
+  const linker_with_extension = CFG_WINDOWS && path_extension(linker) === undefined ? path_with_extension(linker, "exe") : linker;
+  // PORT: the paths are UTF-8 strings here (`to_string_lossy`).
+  for (const dir of split_paths(var_os("PATH") ?? new Uint8Array(0)).map(to_string_lossy)) {
+    const full_path = path_join(dir, linker_with_extension);
+    // If linker comes from sysroot assume self-contained mode
+    if (path_is_file(full_path) && path_strip_prefix(full_path, sess.opts.sysroot.path()) === undefined) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// Various toolchain components used during linking are used from rustc distribution
+/// instead of being found somewhere on the host system.
+/// We only provide such support for a very limited number of targets.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2312 self_contained_components
+export function self_contained_components(sess: Session, crate_type: CrateType, linker: string): LinkSelfContainedComponents {
+  // Turn the backwards compatible bool values for `self_contained` into fully inferred
+  // `LinkSelfContainedComponents`.
+  let self_contained: boolean;
+  const explicitly_set = sess.opts.cg.link_self_contained.explicitly_set;
+  if (explicitly_set !== undefined) {
+    // Emit an error if the user requested self-contained mode on the CLI but the target
+    // explicitly refuses it.
+    if (LinkSelfContainedDefault.is_disabled(sess.target.options.link_self_contained)) {
+      sess.dcx().emit_err(UnsupportedLinkSelfContained_diagnostic({}));
+    }
+    self_contained = explicitly_set;
+  } else {
+    const d = sess.target.options.link_self_contained;
+    switch (d.$) {
+      case "False":
+        self_contained = false;
+        break;
+      case "True":
+        self_contained = true;
+        break;
+
+      case "WithComponents":
+        // For target specs with explicitly enabled components, we can return them
+        // directly.
+        return d._0;
+
+      // FIXME: Find a better heuristic for "native musl toolchain is available",
+      // based on host and linker path, for example.
+      // (https://github.com/rust-lang/rust/pull/71769#issuecomment-626330237).
+      case "InferredForMusl":
+        self_contained = sess.crt_static(crate_type);
+        break;
+      case "InferredForMingw":
+        self_contained = Target_eq(sess.host, sess.target) && sess.target.cfg_abi.$ !== "Uwp" && detect_self_contained_mingw(sess, linker);
+        break;
+    }
+  }
+  if (self_contained) {
+    return LinkSelfContainedComponents.all();
+  } else {
+    return LinkSelfContainedComponents.empty();
+  }
+}
+
+/// Add pre-link object files defined by the target spec.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2357 add_pre_link_objects
+function add_pre_link_objects(cmd: Linker, sess: Session, flavor: LinkerFlavor, link_output_kind: LinkOutputKind, self_contained: boolean): void {
+  // FIXME: we are currently missing some infra here (per-linker-flavor CRT objects),
+  // so Fuchsia has to be special-cased.
+  const opts = sess.target.options;
+  const empty: CrtObjects = new Map();
+  let objects: CrtObjects;
+  if (self_contained) {
+    objects = opts.pre_link_objects_self_contained;
+  } else if (!(sess.target.os.$ === "Fuchsia" && flavor.$ === "Gnu" && flavor._0 === "Yes")) {
+    objects = opts.pre_link_objects;
+  } else {
+    objects = empty;
+  }
+  for (const obj of objects.get(link_output_kind) ?? []) {
+    cmd.add_object(get_object_file_path(sess, obj, self_contained));
+  }
+}
+
+/// Add post-link object files defined by the target spec.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2381 add_post_link_objects
+function add_post_link_objects(cmd: Linker, sess: Session, link_output_kind: LinkOutputKind, self_contained: boolean): void {
+  const objects = self_contained ? sess.target.options.post_link_objects_self_contained : sess.target.options.post_link_objects;
+  for (const obj of objects.get(link_output_kind) ?? []) {
+    cmd.add_object(get_object_file_path(sess, obj, self_contained));
+  }
+}
+
+/// Add arbitrary "pre-link" args defined by the target spec or from command line.
+/// FIXME: Determine where exactly these args need to be inserted.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2399 add_pre_link_args
+function add_pre_link_args(cmd: Linker, sess: Session, flavor: LinkerFlavor): void {
+  const args = sess.target.options.pre_link_args.get(flavor);
+  if (args !== undefined) {
+    cmd.verbatim_args(args);
+  }
+
+  cmd.verbatim_args(sess.opts.unstable_opts.pre_link_args);
+}
+
+/// Add a link script embedded in the target, if applicable.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2408 add_link_script
+function add_link_script(cmd: Linker, sess: Session, tmpdir: string, crate_type: CrateType): void {
+  const script = sess.target.options.link_script;
+  if ((crate_type === "Cdylib" || crate_type === "Executable") && script !== undefined) {
+    if (!LinkerFlavor.is_gnu(sess.target.options.linker_flavor)) {
+      sess.dcx().emit_fatal(LinkScriptUnavailable_diagnostic({}));
+    }
+
+    const file_name = ["rustc", sess.target.llvm_target, "linkfile.ld"].join("-");
+
+    const path = path_join(tmpdir, file_name);
+    const r = fs_write(path, encoder.encode(script));
+    if (r.$ === "Err") {
+      sess.dcx().emit_fatal(LinkScriptWriteFailure_diagnostic({ path, error: r._0 }));
+    }
+
+    cmd.link_arg("--script").link_arg(path);
+  }
+}
+
+/// Add arbitrary "user defined" args defined from command line.
+/// FIXME: Determine where exactly these args need to be inserted.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2430 add_user_defined_link_args
+function add_user_defined_link_args(cmd: Linker, sess: Session): void {
+  cmd.verbatim_args(sess.opts.cg.link_args);
+}
+
+/// Add arbitrary "late link" args defined by the target spec.
+/// FIXME: Determine where exactly these args need to be inserted.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2436 add_late_link_args
+function add_late_link_args(cmd: Linker, sess: Session, flavor: LinkerFlavor, crate_type: CrateType, crate_info: CrateInfo): void {
+  const any_dynamic_crate =
+    crate_type === "Dylib" ||
+    crate_type === "Sdylib" ||
+    [...crate_info.dependency_formats].some(([ty, list]) => ty === crate_type && list.some((linkage) => linkage === "Dynamic"));
+  if (any_dynamic_crate) {
+    const args = sess.target.options.late_link_args_dynamic.get(flavor);
+    if (args !== undefined) {
+      cmd.verbatim_args(args);
+    }
+  } else {
+    const args = sess.target.options.late_link_args_static.get(flavor);
+    if (args !== undefined) {
+      cmd.verbatim_args(args);
+    }
+  }
+  const args = sess.target.options.late_link_args.get(flavor);
+  if (args !== undefined) {
+    cmd.verbatim_args(args);
+  }
+}
+
+/// Add arbitrary "post-link" args defined by the target spec.
+/// FIXME: Determine where exactly these args need to be inserted.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2462 add_post_link_args
+function add_post_link_args(cmd: Linker, sess: Session, flavor: LinkerFlavor): void {
+  const args = sess.target.options.post_link_args.get(flavor);
+  if (args !== undefined) {
+    cmd.verbatim_args(args);
+  }
+}
+
+/// Add a synthetic object file that contains reference to all symbols that we want to expose to
+/// the linker.
+///
+/// Background: we implement rlibs as static library (archives). Linkers treat archives
+/// differently from object files: all object files participate in linking, while archives will
+/// only participate in linking if they can satisfy at least one undefined reference (version
+/// scripts doesn't count). This causes `#[no_mangle]` or `#[used]` items to be ignored by the
+/// linker, and since they never participate in the linking, using `KEEP` in the linker scripts
+/// can't keep them either. This causes #47384.
+///
+/// To keep them around, we could use `--whole-archive`, `-force_load` and equivalents to force rlib
+/// to participate in linking like object files, but this proves to be expensive (#93791). Therefore
+/// we instead just introduce an undefined reference to them. This could be done by `-u` command
+/// line option to the linker or `EXTERN(...)` in linker scripts, however they does not only
+/// introduce an undefined reference, but also make them the GC roots, preventing `--gc-sections`
+/// from removing them, and this is especially problematic for embedded programming where every
+/// byte counts.
+///
+/// This method creates a synthetic object file, which contains undefined references to all symbols
+/// that are necessary for the linking. They are only present in symbol table but not actually
+/// used in any sections, so the linker will therefore pick relevant rlibs for linking, but
+/// unused `#[no_mangle]` or `#[used(compiler)]` can still be discard by GC sections.
+///
+/// There's a few internal crates in the standard library (aka libcore and
+/// libstd) which actually have a circular dependence upon one another. This
+/// currently arises through "weak lang items" where libcore requires things
+/// like `rust_begin_unwind` but libstd ends up defining it. To get this
+/// circular dependence to work correctly we declare some of these things
+/// in this synthetic object.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2497 add_linked_symbol_object
+function add_linked_symbol_object(
+  cmd: Linker,
+  sess: Session,
+  tmpdir: string,
+  crate_type: CrateType,
+  linked_symbols: readonly [string, SymbolExportKind][],
+  exported_symbols: readonly SymbolExport[],
+): void {
+  const should_export_symbols =
+    sess.target.options.is_like_msvc && exported_symbols.length !== 0 && (crate_type !== "Executable" || sess.opts.unstable_opts.export_executable_symbols);
+  if (linked_symbols.length === 0 && !should_export_symbols) {
+    return;
+  }
+
+  const file = create_object_file(sess);
+  if (file === undefined) {
+    return;
+  }
+
+  if (file.format() === "Coff") {
+    // NOTE(nbdd0121): MSVC will hang if the input object file contains no sections,
+    // so add an empty section.
+    file.add_section(new Uint8Array(0), encoder.encode(".text"), SectionKind.Text);
+
+    // We handle the name decoration of COFF targets in `symbol_export.rs`, so disable the
+    // default mangler in `object` crate.
+    file.set_mangling("None");
+  }
+
+  if (file.format() === "MachO") {
+    // Divide up the sections into sub-sections via symbols for dead code stripping.
+    // Without this flag, unused `#[no_mangle]` or `#[used(compiler)]` cannot be
+    // discard on MachO targets.
+    xlane.Object_set_subsections_via_symbols(file);
+  }
+
+  // ld64 requires a relocation to load undefined symbols, see below.
+  // Not strictly needed if linking with lld, but might as well do it there too.
+  const ld64_section_helper =
+    file.format() === "MachO" ? file.add_section(file.segment_name("Data").slice(), encoder.encode("__data"), SectionKind.Data) : undefined;
+
+  for (const [sym, kind] of linked_symbols) {
+    const symbol = xlane.Object_add_symbol(
+      file,
+      new WriteSymbol(
+        encoder.encode(sym),
+        0,
+        0,
+        kind === "Text" ? "Text" : kind === "Data" ? "Data" : "Tls",
+        "Unknown",
+        false,
+        { $: "Undefined" },
+        { $: "None" },
+      ),
+    );
+
+    // The linker shipped with Apple's Xcode, ld64, works a bit differently from other linkers.
+    //
+    // Code-wise, the relevant parts of ld64 are roughly:
+    // 1. Find the `ArchiveLoadMode` based on commandline options, default to `parseObjects`.
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/Options.cpp#L924-L932
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/Options.h#L55
+    //
+    // 2. Read the archive table of contents (__.SYMDEF file).
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/parsers/archive_file.cpp#L294-L325
+    //
+    // 3. Begin linking by loading "atoms" from input files.
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/doc/design/linker.html
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/InputFiles.cpp#L1349
+    //
+    //   a. Directly specified object files (`.o`) are parsed immediately.
+    //      https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/parsers/macho_relocatable_file.cpp#L4611-L4627
+    //
+    //     - Undefined symbols are not atoms (`n_value > 0` denotes a common symbol).
+    //       https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/parsers/macho_relocatable_file.cpp#L2455-L2468
+    //       https://maskray.me/blog/2022-02-06-all-about-common-symbols
+    //
+    //     - Relocations/fixups are atoms.
+    //       https://github.com/apple-oss-distributions/ld64/blob/ce6341ae966b3451aa54eeb049f2be865afbd578/src/ld/parsers/macho_relocatable_file.cpp#L2088-L2114
+    //
+    //   b. Archives are not parsed yet.
+    //      https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/parsers/archive_file.cpp#L467-L577
+    //
+    // 4. When a symbol is needed by an atom, parse the object file that contains the symbol.
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/InputFiles.cpp#L1417-L1491
+    //    https://github.com/apple-oss-distributions/ld64/blob/ld64-954.16/src/ld/parsers/archive_file.cpp#L579-L597
+    //
+    // All of the steps above are fairly similar to other linkers, except that **it completely
+    // ignores undefined symbols**.
+    //
+    // So to make this trick work on ld64, we need to do something else to load the relevant
+    // object files. We do this by inserting a relocation (fixup) for each symbol.
+    if (ld64_section_helper !== undefined) {
+      const section = ld64_section_helper;
+      const r = xlane.apple_add_data_and_relocation(file, section, symbol, sess.target, kind);
+      if (r.$ === "Err") panic(`failed adding relocation: ${debug_WriteError(r._0)}`);
+    }
+  }
+
+  if (should_export_symbols) {
+    // Currently the compiler doesn't use `dllexport` (an LLVM attribute) to
+    // export symbols from a dynamic library. When building a dynamic library,
+    // however, we're going to want some symbols exported, so this adds a
+    // `.drectve` section which lists all the symbols using /EXPORT arguments.
+    //
+    // The linker will read these arguments from the `.drectve` section and
+    // export all the symbols from the dynamic library. Note that this is not
+    // as simple as just exporting all the symbols in the current crate (as
+    // specified by `codegen.reachable`) but rather we also need to possibly
+    // export the symbols of upstream crates. Upstream rlibs may be linked
+    // statically to this dynamic library, in which case they may continue to
+    // transitively be used and hence need their symbols exported.
+    // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2617 msvc_drectve_export
+    const msvc_drectve_export = (symbol: SymbolExport): string => {
+      const data = symbol.kind === "Data" ? ",DATA" : "";
+
+      const link_name = symbol.link_name;
+      if (link_name !== undefined) {
+        // The first name is the decorated symbol used by the import library, while
+        // EXPORTAS gives the public name written to the DLL export table.
+        return ` /EXPORT:"${link_name}"${data},EXPORTAS,"${symbol.name}"`;
+      } else {
+        return ` /EXPORT:"${symbol.name}"${data}`;
+      }
+    };
+
+    const drectve = exported_symbols.map(msvc_drectve_export).join("");
+
+    const section = file.add_section(new Uint8Array(0), encoder.encode(".drectve"), SectionKind.Linker);
+    file.append_section_data(section, encoder.encode(drectve), 1);
+  }
+
+  const path = path_join(tmpdir, "symbols.o");
+  const written = file.write();
+  if (written.$ === "Err") panic(`called \`Result::unwrap()\` on an \`Err\` value: ${debug_WriteError(written._0)}`);
+  const result = fs_write(path, written._0);
+  if (result.$ === "Err") {
+    sess.dcx().emit_fatal(FailedToWrite_diagnostic({ path, error: result._0 }));
+  }
+  cmd.add_object(path);
+}
+
+/// Add object files containing code from the current crate.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2644 add_local_crate_regular_objects
+function add_local_crate_regular_objects(cmd: Linker, compiled_modules: CompiledModules): void {
+  for (const m of compiled_modules.modules) {
+    if (m.object !== undefined) {
+      cmd.add_object(m.object);
+    }
+    if (m.global_asm_object !== undefined) {
+      cmd.add_object(m.global_asm_object);
+    }
+  }
+}
+
+/// Add object files for allocator code linked once for the whole crate tree.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2656 add_local_crate_allocator_objects
+function add_local_crate_allocator_objects(cmd: Linker, compiled_modules: CompiledModules, crate_info: CrateInfo, crate_type: CrateType): void {
+  const m = compiled_modules.allocator_module;
+  if (needs_allocator_shim_for_linking(crate_info.dependency_formats, crate_type) && m !== undefined) {
+    if (m.object !== undefined) {
+      cmd.add_object(m.object);
+    }
+    if (m.global_asm_object !== undefined) {
+      cmd.add_object(m.global_asm_object);
+    }
+  }
+}
+
+/// Add object files containing metadata for the current crate.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2675 add_local_crate_metadata_objects
+function add_local_crate_metadata_objects(
+  cmd: Linker,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  crate_type: CrateType,
+  tmpdir: string,
+  crate_info: CrateInfo,
+  metadata: EncodedMetadata,
+): void {
+  // When linking a dynamic library, we put the metadata into a section of the
+  // executable. This metadata is in a separate object file from the main
+  // object file, so we create and link it in here.
+  if (crate_type === "Dylib" || crate_type === "ProcMacro") {
+    const data = xlane.create_dylib_metadata_wrapper(archive_builder_builder, sess, metadata, crate_info.metadata_symbol);
+    const obj = emit_wrapper_file(sess, data, tmpdir, "rmeta.o");
+
+    cmd.add_object(obj);
+  }
+}
+
+/// Add sysroot and other globally set directories to the directory search list.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2700 add_library_search_dirs
+function add_library_search_dirs(
+  cmd: Linker,
+  sess: Session,
+  self_contained_components: LinkSelfContainedComponents,
+  apple_sdk_root: string | undefined,
+): void {
+  if (!sess.opts.unstable_opts.link_native_libraries) {
+    return;
+  }
+
+  const fallback: NativeLibSearchFallback = { self_contained_components, apple_sdk_root };
+  walk_native_lib_search_dirs<null>(sess, fallback, (dir, is_framework) => {
+    if (is_framework) {
+      cmd.framework_path(dir);
+    } else {
+      cmd.include_path(fix_windows_verbatim_for_gcc(dir));
+    }
+    return ControlFlow.Continue(null);
+  });
+}
+
+/// Add options making relocation sections in the produced ELF files read-only
+/// and suppressing lazy binding.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2723 add_relro_args
+function add_relro_args(cmd: Linker, sess: Session): void {
+  switch (sess.opts.cg.relro_level ?? sess.target.options.relro_level) {
+    case "Full":
+      cmd.full_relro();
+      break;
+    case "Partial":
+      cmd.partial_relro();
+      break;
+    case "Off":
+      cmd.no_relro();
+      break;
+    case "None":
+      break;
+  }
+}
+
+/// Add library search paths used at runtime by dynamic linkers.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2733 add_rpath_args
+function add_rpath_args(cmd: Linker, sess: Session, crate_info: CrateInfo, out_filename: string): void {
+  if (!sess.target.options.has_rpath) {
+    return;
+  }
+
+  // FIXME (#2397): At some point we want to rpath our guesses as to
+  // where extern libraries might live, based on the
+  // add_lib_search_paths
+  if (sess.opts.cg.rpath) {
+    const libs: string[] = [];
+    for (const cnum of crate_info.used_crates) {
+      const dylib = crate_info_used_crate_source(crate_info, cnum).dylib;
+      if (dylib !== undefined) libs.push(dylib);
+    }
+    const rpath_config: RPathConfig = {
+      libs,
+      out_filename,
+      is_like_darwin: sess.target.options.is_like_darwin,
+      linker_is_gnu: LinkerFlavor.is_gnu(sess.target.options.linker_flavor),
+    };
+    cmd.link_args(get_rpath_linker_args(rpath_config));
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2762 undecorate_c_symbol
+function undecorate_c_symbol(name: string, sess: Session, kind: SymbolExportKind): string | undefined {
+  switch (sess.target.options.binary_format) {
+    case "MachO":
+      // Mach-O: strip the leading underscore that all external symbols have.
+      // The Darwin linker's export_symbols will add it back.
+      return name.startsWith("_") ? name.slice(1) : undefined;
+    case "Coff": {
+      // COFF undecoration is shared with `symbol_edit`'s binary-level matching.
+      const machine = coff_machine_for_arch(sess.target.arch);
+      if (machine !== undefined) {
+        return undecorate_coff_symbol(name, machine, kind);
+      } else {
+        return name;
+      }
+    }
+    // ELF: no decoration
+    default:
+      return name;
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2785 add_c_staticlib_symbols
+function add_c_staticlib_symbols(sess: Session, lib: NativeLib, out: SymbolExport[]): IoResult<null> {
+  const file_path = find_native_static_library(Symbol.as_str(lib.name), lib.verbatim, sess);
+
+  const opened = FsFile.open(file_path);
+  if (opened.$ === "Err") return opened;
+  const mapped = Mmap.map(opened._0);
+  if (mapped.$ === "Err") return mapped;
+  const archive_map = mapped._0._0;
+
+  const parsed = ArchiveFile.parse(archive_map);
+  if (parsed.$ === "Err") return Err(io_error_new("InvalidData", display_ReadError(parsed._0)));
+  const archive = parsed._0;
+
+  for (const member_ of archive.members()) {
+    if (member_.$ === "Err") return Err(io_error_new("InvalidData", display_ReadError(member_._0)));
+    const member = member_._0;
+
+    const data_ = member.data(archive_map);
+    if (data_.$ === "Err") return Err(io_error_new("InvalidData", display_ReadError(data_._0)));
+    const data = data_._0;
+
+    // clang LTO: raw LLVM bitcode
+    if (data.length >= 4 && data[0] === 0x42 && data[1] === 0x43 && data[2] === 0xc0 && data[3] === 0xde) {
+      return Err(io_error_new("InvalidData", "LLVM bitcode object in C static library (LTO not supported)"));
+    }
+
+    const object_ = ReadFile.parse(data);
+    if (object_.$ === "Err") return Err(io_error_new("InvalidData", display_ReadError(object_._0)));
+    const object = object_._0;
+
+    // gcc / clang ELF / Mach-O LTO
+    // if object.sections().any(|s| s.name().map(|n| n.starts_with(".gnu.lto_") || n == ".llvm.lto").unwrap_or(false)) { .. }
+    void object;
+    return unported("object::read::File::sections (vendor object: add_c_staticlib_symbols, a cdylib with `-l static:+export-symbols`)");
+  }
+
+  return Ok(null);
+}
+
+/// Produce the linker command line containing linker path and arguments.
+///
+/// When comments in the function say "order-(in)dependent" they mean order-dependence between
+/// options and libraries/object files. For example `--whole-archive` (order-dependent) applies
+/// to specific libraries passed after it, and `-o` (output file, order-independent) applies
+/// to the linking process as a whole.
+/// Order-independent options may still override each other in order-dependent fashion,
+/// e.g `--foo=yes --foo=no` may be equivalent to `--foo=no`.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:2870 linker_with_args
+export function linker_with_args(
+  path: string,
+  flavor: LinkerFlavor,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  rmeta_link_cache: RmetaLinkCache,
+  crate_type: CrateType,
+  tmpdir: string,
+  out_filename: string,
+  compiled_modules: CompiledModules,
+  crate_info: CrateInfo,
+  metadata: EncodedMetadata,
+  self_contained_components: LinkSelfContainedComponents,
+  codegen_backend: string,
+): [Command, JobserverAcquired[]] {
+  const self_contained_crt_objects = LinkSelfContainedComponents.is_crt_objects_enabled(self_contained_components);
+  const cmd = get_linker(
+    sess,
+    path,
+    flavor,
+    LinkSelfContainedComponents.are_any_components_enabled(self_contained_components),
+    crate_info.target_cpu,
+    codegen_backend,
+  );
+  const link_output_kind_ = link_output_kind(sess, crate_type);
+
+  const export_symbols = [...index_map_get(crate_info.exported_symbols, crate_type, "no entry found for key")];
+
+  if (crate_type === "Cdylib") {
+    // `FxHashSet<(Symbol, bool)>`
+    const seen = new Set<string>();
+
+    for (const lib of crate_info.used_libraries) {
+      if (lib.kind.$ === "Static" && lib.kind.export_symbols === true) {
+        const key = `${lib.name}:${lib.verbatim}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const err = add_c_staticlib_symbols(sess, lib, export_symbols);
+        if (err.$ === "Err") {
+          sess.dcx().fatal(`failed to process C static library \`${Symbol.as_str(lib.name)}\`: ${display_IoError(err._0)}`);
+        }
+      }
+    }
+  }
+
+  // ------------ Early order-dependent options ------------
+
+  // If we're building something like a dynamic library then some platforms
+  // need to make sure that all symbols are exported correctly from the
+  // dynamic library.
+  // Must be passed before any libraries to prevent the symbols to export from being thrown away,
+  // at least on some platforms (e.g. windows-gnu).
+  cmd.export_symbols(tmpdir, crate_type, export_symbols);
+
+  // Can be used for adding custom CRT objects or overriding order-dependent options above.
+  // FIXME: In practice built-in target specs use this for arbitrary order-independent options,
+  // introduce a target spec option for order-independent linker options and migrate built-in
+  // specs to it.
+  add_pre_link_args(cmd, sess, flavor);
+
+  // ------------ Object code and libraries, order-dependent ------------
+
+  // Pre-link CRT objects.
+  add_pre_link_objects(cmd, sess, flavor, link_output_kind_, self_contained_crt_objects);
+
+  add_linked_symbol_object(
+    cmd,
+    sess,
+    tmpdir,
+    crate_type,
+    index_map_get(crate_info.linked_symbols, crate_type, "IndexMap: key not found"),
+    export_symbols,
+  );
+
+  // Sanitizer libraries.
+  add_sanitizer_libraries(sess, flavor, crate_type, cmd);
+
+  // Object code from the current crate.
+  // Take careful note of the ordering of the arguments we pass to the linker
+  // here. Linkers will assume that things on the left depend on things to the
+  // right. Things on the right cannot depend on things on the left. This is
+  // all formally implemented in terms of resolving symbols (libs on the right
+  // resolve unknown symbols of libs on the left, but not vice versa).
+  //
+  // For this reason, we have organized the arguments we pass to the linker as
+  // such:
+  //
+  // 1. The local object that LLVM just generated
+  // 2. Local native libraries
+  // 3. Upstream rust libraries
+  // 4. Upstream native libraries
+  //
+  // The rationale behind this ordering is that those items lower down in the
+  // list can't depend on items higher up in the list. For example nothing can
+  // depend on what we just generated (e.g., that'd be a circular dependency).
+  // Upstream rust libraries are not supposed to depend on our local native
+  // libraries as that would violate the structure of the DAG, in that
+  // scenario they are required to link to them as well in a shared fashion.
+  //
+  // Note that upstream rust libraries may contain native dependencies as
+  // well, but they also can't depend on what we just started to add to the
+  // link line. And finally upstream native libraries can't depend on anything
+  // in this DAG so far because they can only depend on other native libraries
+  // and such dependencies are also required to be specified.
+  add_local_crate_regular_objects(cmd, compiled_modules);
+  add_local_crate_metadata_objects(cmd, sess, archive_builder_builder, crate_type, tmpdir, crate_info, metadata);
+  add_local_crate_allocator_objects(cmd, compiled_modules, crate_info, crate_type);
+
+  // Avoid linking to dynamic libraries unless they satisfy some undefined symbols
+  // at the point at which they are specified on the command line.
+  // Must be passed before any (dynamic) libraries to have effect on them.
+  // On Solaris-like systems, `-z ignore` acts as both `--as-needed` and `--gc-sections`
+  // so it will ignore unreferenced ELF sections from relocatable objects.
+  // For that reason, we put this flag after metadata objects as they would otherwise be removed.
+  // FIXME: Support more fine-grained dead code removal on Solaris/illumos
+  // and move this option back to the top.
+  cmd.add_as_needed();
+
+  // Local native libraries of all kinds.
+  add_local_native_libraries(cmd, sess, archive_builder_builder, rmeta_link_cache, crate_info, tmpdir, link_output_kind_);
+
+  if (sess.opts.unstable_opts.offload.some((o) => o.$ === "Host")) {
+    cmd.link_dylib_by_name("omptarget", false, true);
+    cmd.link_dylib_by_name("omp", false, true);
+    cmd.link_args(["-z", "nostart-stop-gc"]);
+    cmd.link_arg("-rpath");
+    cmd.link_arg(unwrap_result(absolute(sess.target_tlib_path.dir), debug_IoError));
+  }
+
+  // Upstream rust crates and their non-dynamic native libraries.
+  add_upstream_rust_crates(cmd, sess, archive_builder_builder, rmeta_link_cache, crate_info, crate_type, tmpdir, link_output_kind_);
+
+  // Dynamic native libraries from upstream crates.
+  add_upstream_native_libraries(cmd, sess, archive_builder_builder, rmeta_link_cache, crate_info, tmpdir, link_output_kind_);
+
+  // Raw-dylibs from all crates.
+  const raw_dylib_dir = path_join(tmpdir, "raw-dylibs");
+  if (sess.target.options.binary_format === "Elf") {
+    // On ELF we can't pass the raw-dylibs stubs to the linker as a path,
+    // instead we need to pass them via -l. To find the stub, we need to add
+    // the directory of the stub to the linker search path.
+    // We make an extra directory for this to avoid polluting the search path.
+    const r = fs_create_dir(raw_dylib_dir);
+    if (r.$ === "Err") {
+      sess.dcx().emit_fatal(CreateTempDir_diagnostic({ error: r._0 }));
+    }
+    cmd.include_path(raw_dylib_dir);
+  }
+
+  // Link with the import library generated for any raw-dylib functions.
+  if (sess.target.options.is_like_windows) {
+    for (const output_path of xlane.create_raw_dylib_dll_import_libs(sess, archive_builder_builder, crate_info.used_libraries, tmpdir, true)) {
+      cmd.add_object(output_path);
+    }
+  } else {
+    for (const [link_path, as_needed] of raw_dylib.create_raw_dylib_elf_stub_shared_objects(sess, crate_info.used_libraries, raw_dylib_dir)) {
+      // Always use verbatim linkage, see comments in create_raw_dylib_elf_stub_shared_objects.
+      cmd.link_dylib_by_name(link_path, true, as_needed);
+    }
+  }
+  // As with add_upstream_native_libraries, we need to add the upstream raw-dylib symbols in case
+  // they are used within inlined functions or instantiated generic functions. We do this *after*
+  // handling the raw-dylib symbols in the current crate to make sure that those are chosen first
+  // by the linker.
+  const dependency_linkage = crate_info.dependency_formats.get(crate_type);
+  if (dependency_linkage === undefined) panic("failed to find crate type in dependency format list");
+
+  // We sort the libraries below
+  // #[allow(rustc::potential_query_instability)]
+  const native_libraries_from_nonstatics: NativeLib[] = [];
+  for (const [cnum, libraries] of crate_info.native_libraries) {
+    if (sess.target.options.is_like_windows) {
+      if (vec_index(dependency_linkage, cnum) !== "Static") native_libraries_from_nonstatics.push(...libraries);
+    } else {
+      native_libraries_from_nonstatics.push(...libraries);
+    }
+  }
+  sort_native_libraries_by_name(native_libraries_from_nonstatics);
+
+  if (sess.target.options.is_like_windows) {
+    for (const output_path of xlane.create_raw_dylib_dll_import_libs(sess, archive_builder_builder, native_libraries_from_nonstatics, tmpdir, false)) {
+      cmd.add_object(output_path);
+    }
+  } else {
+    for (const [link_path, as_needed] of raw_dylib.create_raw_dylib_elf_stub_shared_objects(sess, native_libraries_from_nonstatics, raw_dylib_dir)) {
+      // Always use verbatim linkage, see comments in create_raw_dylib_elf_stub_shared_objects.
+      cmd.link_dylib_by_name(link_path, true, as_needed);
+    }
+  }
+
+  // Library linking above uses some global state for things like `-Bstatic`/`-Bdynamic` to make
+  // command line shorter, reset it to default here before adding more libraries.
+  cmd.reset_per_library_state();
+
+  // FIXME: Built-in target specs occasionally use this for linking system libraries,
+  // eliminate all such uses by migrating them to `#[link]` attributes in `lib(std,c,unwind)`
+  // and remove the option.
+  add_late_link_args(cmd, sess, flavor, crate_type, crate_info);
+
+  // ------------ Arbitrary order-independent options ------------
+
+  // Add order-independent options determined by rustc from its compiler options,
+  // target properties and source code.
+  add_order_independent_options(cmd, sess, link_output_kind_, self_contained_components, flavor, crate_type, crate_info, out_filename, tmpdir);
+
+  // Can be used for arbitrary order-independent options.
+  // In practice may also be occasionally used for linking native libraries.
+  // Passed after compiler-generated options to support manual overriding when necessary.
+  add_user_defined_link_args(cmd, sess);
+
+  // ------------ Builtin configurable linker scripts ------------
+  // The user's link args should be able to overwrite symbols in the compiler's
+  // linker script that were weakly defined (i.e. defined with `PROVIDE()`). For this
+  // to work correctly, the user needs to be able to specify linker arguments like
+  // `--defsym` and `--script` *before* any builtin linker scripts are evaluated.
+  add_link_script(cmd, sess, tmpdir, crate_type);
+
+  // ------------ Object code and libraries, order-dependent ------------
+
+  // Post-link CRT objects.
+  add_post_link_objects(cmd, sess, link_output_kind_, self_contained_crt_objects);
+
+  // ------------ Late order-dependent options ------------
+
+  // Doesn't really make sense.
+  // FIXME: In practice built-in target specs use this for arbitrary order-independent options.
+  // Introduce a target spec option for order-independent linker options, migrate built-in specs
+  // to it and remove the option. Currently the last holdout is wasm32-unknown-emscripten.
+  add_post_link_args(cmd, sess, flavor);
+
+  // Only LLD supports controlling parallelism at the moment.
+  const tokens: JobserverAcquired[] = [];
+  const linker_jobs = sess.opts.jobs.linker;
+  if (linker_jobs.$ === "Explicit" && LinkerFlavor.uses_lld(flavor)) {
+    const limit = linker_jobs._0;
+    // Try obtaining as many jobserver tokens as possible (within the limit) to run parallel
+    // linking. One token is available implicitly since we are running on the main thread.
+    const client = jobserver.client();
+
+    let unsupported = false;
+    for (let i = 0; i < limit - 1; i++) {
+      const r: IoResult<JobserverAcquired | undefined> = (client as { try_acquire(): IoResult<JobserverAcquired | undefined> }).try_acquire();
+      if (r.$ === "Ok") {
+        if (r._0 !== undefined) tokens.push(r._0);
+      } else if (IoError_kind(r._0) === "Unsupported") {
+        assert(tokens.length === 0, "assertion failed: tokens.is_empty()");
+        unsupported = true;
+        break;
+      } else {
+        bug(`IO error when acquiring jobserver token: ${display_IoError(r._0)}`);
+      }
+    }
+
+    const prefix = sess.target.options.is_like_windows ? "/threads:" : "--threads=";
+    // Error on the side of oversubscription if non-blocking token acquiring is unsupported.
+    // Linking is typically the last step in a multi-crate project build,
+    // so the resources should usually be free.
+    const threads = unsupported ? limit : 1 + tokens.length;
+    cmd.link_arg(`${prefix}${threads}`);
+  }
+
+  return [cmd.take_cmd(), tokens];
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3202 add_order_independent_options
+function add_order_independent_options(
+  cmd: Linker,
+  sess: Session,
+  link_output_kind: LinkOutputKind,
+  self_contained_components: LinkSelfContainedComponents,
+  flavor: LinkerFlavor,
+  crate_type: CrateType,
+  crate_info: CrateInfo,
+  out_filename: string,
+  tmpdir: string,
+): void {
+  // Take care of the flavors and CLI options requesting the `lld` linker.
+  add_lld_args(cmd, sess, flavor, self_contained_components);
+
+  add_apple_link_args(cmd, sess, flavor);
+
+  const apple_sdk_root = add_apple_sdk(cmd, sess, flavor);
+
+  if (sess.target.os.$ === "Fuchsia" && crate_type === "Executable" && !(flavor.$ === "Gnu" && flavor._0 === "Yes")) {
+    const prefix = SanitizerSet.contains(sess.sanitizers(), SanitizerSet.ADDRESS) ? "asan/" : "";
+    cmd.link_arg(`--dynamic-linker=${prefix}ld.so.1`);
+  }
+
+  if (sess.target.options.eh_frame_header) {
+    cmd.add_eh_frame_header();
+  }
+
+  // Make the binary compatible with data execution prevention schemes.
+  cmd.add_no_exec();
+
+  if (LinkSelfContainedComponents.is_crt_objects_enabled(self_contained_components)) {
+    cmd.no_crt_objects();
+  }
+
+  if (sess.target.os.$ === "Emscripten") {
+    cmd.cc_arg("-fwasm-exceptions");
+  }
+
+  if (flavor === LinkerFlavor.Llbc) {
+    cmd.link_args(["--target", versioned_llvm_target(sess.early_sess), "--target-cpu", crate_info.target_cpu]);
+    if (crate_info.target_features.length > 0) {
+      cmd.link_arg(`--target-feature=${crate_info.target_features.join(",")}`);
+    }
+  } else if (flavor === LinkerFlavor.Bpf) {
+    cmd.link_args(["--cpu", crate_info.target_cpu]);
+    const feat = [sess.opts.cg.target_feature, sess.target.options.features].find((feat) => feat !== "");
+    if (feat !== undefined) {
+      cmd.link_args(["--cpu-features", feat]);
+    }
+  }
+
+  cmd.linker_plugin_lto();
+
+  add_library_search_dirs(cmd, sess, self_contained_components, apple_sdk_root);
+
+  cmd.output_filename(out_filename);
+
+  const s = crate_info.windows_subsystem;
+  if (crate_type === "Executable" && sess.target.options.is_like_windows && s !== undefined) {
+    cmd.windows_subsystem(s);
+  }
+
+  // Try to strip as much out of the generated object by removing unused
+  // sections if possible. See more comments in linker.rs
+  if (!sess.link_dead_code()) {
+    // If PGO is enabled sometimes gc_sections will remove the profile data section
+    // as it appears to be unused. This can then cause the PGO profile file to lose
+    // some functions. If we are generating a profile we shouldn't strip those metadata
+    // sections to ensure we have all the data for PGO.
+    const keep_metadata = crate_type === "Dylib" || SwitchWithOptPath.enabled(sess.opts.cg.profile_generate);
+    cmd.gc_sections(keep_metadata);
+  }
+
+  cmd.set_output_kind(link_output_kind, crate_type, out_filename);
+
+  add_relro_args(cmd, sess);
+
+  // Pass optimization flags down to the linker.
+  cmd.optimize();
+
+  // Gather the set of NatVis files, if any, and write them out to a temp directory.
+  const natvis_visualizers = collect_natvis_visualizers(tmpdir, sess, crate_info.local_crate_name, crate_info.natvis_debugger_visualizers);
+
+  // Pass debuginfo, NatVis debugger visualizers and strip flags down to the linker.
+  cmd.debuginfo(sess.opts.cg.strip, natvis_visualizers);
+
+  // We want to prevent the compiler from accidentally leaking in any system libraries,
+  // so by default we tell linkers not to link to any default libraries.
+  if (!sess.opts.cg.default_linker_libraries && sess.target.options.no_default_libraries) {
+    cmd.no_default_libraries();
+  }
+
+  if (SwitchWithOptPath.enabled(sess.opts.cg.profile_generate) || sess.instrument_coverage()) {
+    cmd.pgo_gen();
+  }
+
+  if (sess.opts.unstable_opts.instrument_mcount.$ !== "Disabled") {
+    cmd.enable_profiling();
+  }
+
+  if (sess.opts.cg.control_flow_guard !== "Disabled") {
+    cmd.control_flow_guard();
+  }
+
+  // OBJECT-FILES-NO, AUDIT-ORDER
+  if (sess.opts.unstable_opts.ehcont_guard) {
+    cmd.ehcont_guard();
+  }
+
+  add_rpath_args(cmd, sess, crate_info, out_filename);
+}
+
+// Write the NatVis debugger visualizer files for each crate to the temp directory and gather the file paths.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3333 collect_natvis_visualizers
+function collect_natvis_visualizers(
+  tmpdir: string,
+  sess: Session,
+  crate_name: Symbol,
+  natvis_debugger_visualizers: readonly DebuggerVisualizerFile[],
+): string[] {
+  const visualizer_paths: string[] = [];
+
+  natvis_debugger_visualizers.forEach((visualizer, index) => {
+    const visualizer_out_file = path_join(tmpdir, `${Symbol.as_str(crate_name)}-${index}.natvis`);
+
+    const r = fs_write(visualizer_out_file, visualizer.src);
+    if (r.$ === "Ok") {
+      visualizer_paths.push(visualizer_out_file);
+    } else {
+      sess.dcx().emit_warn(UnableToWriteDebuggerVisualizer_diagnostic({ path: visualizer_out_file, error: r._0 }));
+    }
+  });
+  return visualizer_paths;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3359 add_native_libs_from_crate
+function add_native_libs_from_crate(
+  cmd: Linker,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  rmeta_link_cache: RmetaLinkCache,
+  crate_info: CrateInfo,
+  tmpdir: string,
+  bundled_libs: ReadonlySet<Symbol>,
+  cnum: CrateNum,
+  link_static: boolean,
+  link_dynamic: boolean,
+  link_output_kind: LinkOutputKind,
+): void {
+  if (!sess.opts.unstable_opts.link_native_libraries) {
+    // If `-Zlink-native-libraries=false` is set, then the assumption is that an
+    // external build system already has the native dependencies defined, and it
+    // will provide them to the linker itself.
+    return;
+  }
+
+  if (link_static && cnum !== LOCAL_CRATE && bundled_libs.size !== 0) {
+    // If rlib contains native libs as archives, unpack them to tmpdir.
+    const rlib = unwrap(crate_info_used_crate_source(crate_info, cnum).rlib);
+    const r = xlane.extract_bundled_libs(archive_builder_builder, rlib, tmpdir, bundled_libs);
+    if (r.$ === "Err") sess.dcx().emit_fatal(ExtractBundledLibsError_diagnostic(r._0));
+  }
+
+  let native_libs: readonly NativeLib[];
+  let bundled_filenames: readonly (Symbol | undefined)[];
+  if (cnum === LOCAL_CRATE) {
+    // Bundled libraries are only linked by path for upstream crates, so the local crate
+    // never needs their filenames.
+    native_libs = crate_info.used_libraries;
+    bundled_filenames = [];
+  } else {
+    native_libs = crate_info_native_libraries(crate_info, cnum);
+    const rlib_path = crate_info_used_crate_source(crate_info, cnum).rlib;
+    bundled_filenames = rlib_path !== undefined ? rmeta_link_cache.native_lib_filenames(sess.target, rlib_path, native_libs) : [];
+  }
+
+  // `let mut last = (None, NativeLibKind::Unspecified, false);`
+  let last: [Symbol | undefined, NativeLibKind, boolean] = [undefined, NativeLibKind.Unspecified, false];
+  for (let i = 0; i < native_libs.length; i++) {
+    const lib = native_libs[i]!;
+    if (!relevant_lib(sess, lib)) {
+      continue;
+    }
+
+    // Skip if this library is the same as the last.
+    if (lib.name === last[0] && NativeLibKind_eq(lib.kind, last[1]) && lib.verbatim === last[2]) {
+      continue;
+    } else {
+      last = [lib.name, lib.kind, lib.verbatim];
+    }
+
+    const name = Symbol.as_str(lib.name);
+    const verbatim = lib.verbatim;
+    const kind = lib.kind;
+    switch (kind.$) {
+      case "Static": {
+        if (link_static) {
+          const bundle = kind.bundle ?? true;
+          const whole_archive = kind.whole_archive === true;
+          if (bundle && cnum !== LOCAL_CRATE) {
+            // `bundled_filenames.get(i).copied().flatten()`
+            const filename = bundled_filenames[i];
+            if (filename !== undefined) {
+              // If rlib contains native libs as archives, they are unpacked to tmpdir.
+              const path = path_join(tmpdir, Symbol.as_str(filename));
+              cmd.link_staticlib_by_path(path, whole_archive);
+            }
+          } else {
+            cmd.link_staticlib_by_name(name, verbatim, whole_archive);
+          }
+        }
+        break;
+      }
+      case "Dylib": {
+        if (link_dynamic) {
+          cmd.link_dylib_by_name(name, verbatim, kind.as_needed ?? true);
+        }
+        break;
+      }
+      case "Unspecified": {
+        // If we are generating a static binary, prefer static library when the
+        // link kind is unspecified.
+        if (!LinkOutputKind.can_link_dylib(link_output_kind) && !sess.target.options.crt_static_allows_dylibs) {
+          if (link_static) {
+            cmd.link_staticlib_by_name(name, verbatim, false);
+          }
+        } else if (link_dynamic) {
+          cmd.link_dylib_by_name(name, verbatim, true);
+        }
+        break;
+      }
+      case "Framework": {
+        if (link_dynamic) {
+          cmd.link_framework_by_name(name, verbatim, kind.as_needed ?? true);
+        }
+        break;
+      }
+      case "RawDylib": {
+        // Handled separately in `linker_with_args`.
+        break;
+      }
+      case "WasmImportModule":
+        break;
+      case "LinkArg": {
+        if (link_static) {
+          if (verbatim) {
+            cmd.verbatim_arg(name);
+          } else {
+            cmd.link_arg(name);
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3472 add_local_native_libraries
+function add_local_native_libraries(
+  cmd: Linker,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  rmeta_link_cache: RmetaLinkCache,
+  crate_info: CrateInfo,
+  tmpdir: string,
+  link_output_kind: LinkOutputKind,
+): void {
+  // All static and dynamic native library dependencies are linked to the local crate.
+  const link_static = true;
+  const link_dynamic = true;
+  add_native_libs_from_crate(
+    cmd,
+    sess,
+    archive_builder_builder,
+    rmeta_link_cache,
+    crate_info,
+    tmpdir,
+    new Set(),
+    LOCAL_CRATE,
+    link_static,
+    link_dynamic,
+    link_output_kind,
+  );
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3499 add_upstream_rust_crates
+function add_upstream_rust_crates(
+  cmd: Linker,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  rmeta_link_cache: RmetaLinkCache,
+  crate_info: CrateInfo,
+  crate_type: CrateType,
+  tmpdir: string,
+  link_output_kind: LinkOutputKind,
+): void {
+  // All of the heavy lifting has previously been accomplished by the
+  // dependency_format module of the compiler. This is just crawling the
+  // output of that module, adding crates as necessary.
+  //
+  // Linking to a rlib involves just passing it to the linker (the linker
+  // will slurp up the object files inside), and linking to a dynamic library
+  // involves just passing the right -l flag.
+  const data = crate_info.dependency_formats.get(crate_type);
+  if (data === undefined) panic("failed to find crate type in dependency format list");
+
+  if (sess.target.options.is_like_aix) {
+    // Unlike ELF linkers, AIX doesn't feature `DT_SONAME` to override
+    // the dependency name when outputting a shared library. Thus, `ld` will
+    // use the full path to shared libraries as the dependency if passed it
+    // by default unless `noipath` is passed.
+    // https://www.ibm.com/docs/en/aix/7.3?topic=l-ld-command.
+    cmd.link_or_cc_arg("-bnoipath");
+  }
+
+  for (const cnum of crate_info.used_crates) {
+    // We may not pass all crates through to the linker. Some crates may appear statically in
+    // an existing dylib, meaning we'll pick up all the symbols from the dylib.
+    // We must always link crates `compiler_builtins` and `profiler_builtins` statically.
+    // Even if they were already included into a dylib
+    // (e.g. `libstd` when `-C prefer-dynamic` is used).
+    // HACK: `dependency_formats` can report `profiler_builtins` as `NotLinked`.
+    // See the comment in inject_profiler_runtime for why this is the case.
+    const linkage = vec_index(data, cnum);
+    const link_static_crate =
+      linkage === "Static" ||
+      ((linkage === "IncludedFromDylib" || linkage === "NotLinked") && (crate_info.compiler_builtins === cnum || crate_info.profiler_runtime === cnum));
+
+    // `FxIndexSet<Symbol>`
+    let bundled_libs = new Set<Symbol>();
+    switch (linkage) {
+      case "Static":
+      case "IncludedFromDylib":
+      case "NotLinked": {
+        if (link_static_crate) {
+          const rlib_path = crate_info_used_crate_source(crate_info, cnum).rlib;
+          if (rlib_path !== undefined) {
+            bundled_libs = new Set();
+            for (const f of rmeta_link_cache.native_lib_filenames(sess.target, rlib_path, crate_info_native_libraries(crate_info, cnum))) {
+              if (f !== undefined) bundled_libs.add(f);
+            }
+          }
+          add_static_crate(cmd, sess, archive_builder_builder, rmeta_link_cache, crate_info, tmpdir, cnum, bundled_libs);
+        }
+        break;
+      }
+      case "Dynamic": {
+        const src = crate_info_used_crate_source(crate_info, cnum);
+        add_dynamic_crate(cmd, sess, unwrap(src.dylib));
+        break;
+      }
+    }
+
+    // Static libraries are linked for a subset of linked upstream crates.
+    // 1. If the upstream crate is a directly linked rlib then we must link the native library
+    // because the rlib is just an archive.
+    // 2. If the upstream crate is a dylib or a rlib linked through dylib, then we do not link
+    // the native library because it is already linked into the dylib, and even if
+    // inline/const/generic functions from the dylib can refer to symbols from the native
+    // library, those symbols should be exported and available from the dylib anyway.
+    // 3. Libraries bundled into `(compiler,profiler)_builtins` are special, see above.
+    const link_static = link_static_crate;
+    // Dynamic libraries are not linked here, see the FIXME in `add_upstream_native_libraries`.
+    const link_dynamic = false;
+    add_native_libs_from_crate(
+      cmd,
+      sess,
+      archive_builder_builder,
+      rmeta_link_cache,
+      crate_info,
+      tmpdir,
+      bundled_libs,
+      cnum,
+      link_static,
+      link_dynamic,
+      link_output_kind,
+    );
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3604 add_upstream_native_libraries
+function add_upstream_native_libraries(
+  cmd: Linker,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  rmeta_link_cache: RmetaLinkCache,
+  crate_info: CrateInfo,
+  tmpdir: string,
+  link_output_kind: LinkOutputKind,
+): void {
+  for (const cnum of crate_info.used_crates) {
+    // Static libraries are not linked here, they are linked in `add_upstream_rust_crates`.
+    // FIXME: Merge this function to `add_upstream_rust_crates` so that all native libraries
+    // are linked together with their respective upstream crates, and in their originally
+    // specified order. This is slightly breaking due to our use of `--as-needed` (see crater
+    // results in https://github.com/rust-lang/rust/pull/102832#issuecomment-1279772306).
+    const link_static = false;
+    // Dynamic libraries are linked for all linked upstream crates.
+    // 1. If the upstream crate is a directly linked rlib then we must link the native library
+    // because the rlib is just an archive.
+    // 2. If the upstream crate is a dylib or a rlib linked through dylib, then we have to link
+    // the native library too because inline/const/generic functions from the dylib can refer
+    // to symbols from the native library, so the native library providing those symbols should
+    // be available when linking our final binary.
+    const link_dynamic = true;
+    add_native_libs_from_crate(
+      cmd,
+      sess,
+      archive_builder_builder,
+      rmeta_link_cache,
+      crate_info,
+      tmpdir,
+      new Set(),
+      cnum,
+      link_static,
+      link_dynamic,
+      link_output_kind,
+    );
+  }
+}
+
+// Rehome lib paths (which exclude the library file name) that point into the sysroot lib directory
+// to be relative to the sysroot directory, which may be a relative path specified by the user.
+//
+// If the sysroot is a relative path, and the sysroot libs are specified as an absolute path, the
+// linker command line can be non-deterministic due to the paths including the current working
+// directory. The linker command line needs to be deterministic since it appears inside the PDB
+// file generated by the MSVC linker. See https://github.com/rust-lang/rust/issues/112586.
+//
+// The returned path will always have `fix_windows_verbatim_for_gcc()` applied to it.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3653 rehome_sysroot_lib_dir
+function rehome_sysroot_lib_dir(sess: Session, lib_dir: string): string {
+  const sysroot_lib_path = sess.target_tlib_path.dir;
+  const c1 = try_canonicalize(sysroot_lib_path);
+  const canonical_sysroot_lib_path = c1.$ === "Ok" ? c1._0 : sysroot_lib_path;
+
+  const c2 = try_canonicalize(lib_dir);
+  const canonical_lib_dir = c2.$ === "Ok" ? c2._0 : lib_dir;
+  if (path_eq(canonical_lib_dir, canonical_sysroot_lib_path)) {
+    // This path already had `fix_windows_verbatim_for_gcc()` applied if needed.
+    return sysroot_lib_path;
+  } else {
+    return fix_windows_verbatim_for_gcc(lib_dir);
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3667 rehome_lib_path
+function rehome_lib_path(sess: Session, path: string): string {
+  const dir = path_parent(path);
+  if (dir !== undefined) {
+    const file_name = path_file_name(path);
+    if (file_name === undefined) return panic("library path has no file name component");
+    return path_join(rehome_sysroot_lib_dir(sess, dir), file_name);
+  } else {
+    return fix_windows_verbatim_for_gcc(path);
+  }
+}
+
+// Adds the static "rlib" versions of all crates to the command line.
+// There's a bit of magic which happens here specifically related to LTO,
+// namely that we remove upstream object files.
+//
+// When performing LTO, almost(*) all of the bytecode from the upstream
+// libraries has already been included in our object file output. As a
+// result we need to remove the object files in the upstream libraries so
+// the linker doesn't try to include them twice (or whine about duplicate
+// symbols). We must continue to include the rest of the rlib, however, as
+// it may contain static native libraries which must be linked in.
+//
+// (*) Crates marked with `#![no_builtins]` don't participate in LTO and
+// their bytecode wasn't included. The object files in those libraries must
+// still be passed to the linker.
+//
+// Note, however, that if we're not doing LTO we can just pass the rlib
+// blindly to the linker (fast) because it's fine if it's not actually
+// included as we're at the end of the dependency chain.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3694 add_static_crate
+function add_static_crate(
+  cmd: Linker,
+  sess: Session,
+  archive_builder_builder: ArchiveBuilderBuilder,
+  rmeta_link_cache: RmetaLinkCache,
+  crate_info: CrateInfo,
+  tmpdir: string,
+  cnum: CrateNum,
+  bundled_lib_file_names_: ReadonlySet<Symbol>,
+): void {
+  const src = crate_info_used_crate_source(crate_info, cnum);
+  const cratepath = unwrap(src.rlib);
+
+  const link_upstream = (path: string): void => {
+    cmd.link_staticlib_by_path(rehome_lib_path(sess, path), false);
+  };
+
+  if (!are_upstream_rust_objects_already_included(sess) || ignored_for_lto(sess, crate_info, cnum)) {
+    link_upstream(cratepath);
+    return;
+  }
+
+  const dst = path_join(tmpdir, unwrap(path_file_name(cratepath)));
+  const name_ = unwrap(path_file_name(cratepath));
+  const name = name_.slice(3, name_.length - 5); // chop off lib/.rlib
+  const bundled_lib_file_names = new Set(bundled_lib_file_names_);
+
+  // sess.prof.generic_activity_with_arg("link_altering_rlib", name).run(|| { .. })
+  // PORT: the self-profiler activity records nothing here (`-Zself-profile` is not ported); the closure runs as is.
+  void name;
+  {
+    const upstream_rust_objects_already_included = are_upstream_rust_objects_already_included(sess);
+    const is_builtins = sess.target.options.no_builtins || !crate_info.is_no_builtins.has(cnum);
+
+    const archive = archive_builder_builder.new_archive_builder(sess);
+    const r = archive.add_archive(cratepath, {
+      $: "Rlib",
+      _0: rmeta_link_cache,
+      _1: (f: string, entry_kind: ArchiveEntryKind): boolean => {
+        if (f === METADATA_FILENAME || f === rmeta_link.FILENAME) {
+          return true;
+        }
+
+        // If we're performing LTO and this is a rust-generated object
+        // file, then we don't need the object file as it's part of the
+        // LTO module. Note that `#![no_builtins]` is excluded from LTO,
+        // though, so we let that object file slide.
+        if (upstream_rust_objects_already_included && entry_kind === "RustObj" && is_builtins) {
+          return true;
+        }
+
+        // We skip native libraries because:
+        // 1. This native libraries won't be used from the generated rlib,
+        //    so we can throw them away to avoid the copying work.
+        // 2. We can't allow it to be a single remaining entry in archive
+        //    as some linkers may complain on that.
+        if (bundled_lib_file_names.has(Symbol.intern(f))) {
+          return true;
+        }
+
+        return false;
+      },
+    });
+    if (r.$ === "Err") {
+      sess.dcx().emit_fatal(RlibArchiveBuildFailure_diagnostic({ path: cratepath, error: r._0 }));
+    }
+    if (xlane.ArchiveBuilder_build(archive, dst, undefined)) {
+      link_upstream(dst);
+    }
+  }
+}
+
+// Same thing as above, but for dynamic crates instead of static crates.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3769 add_dynamic_crate
+function add_dynamic_crate(cmd: Linker, sess: Session, cratepath: string): void {
+  cmd.link_dylib_by_path(rehome_lib_path(sess, cratepath), true);
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3773 relevant_lib
+export function relevant_lib(sess: Session, lib: NativeLib): boolean {
+  const cfg = lib.cfg as Parameters<typeof eval_config_entry>[1] | undefined;
+  if (cfg !== undefined) {
+    return EvalConfigResult.as_bool(eval_config_entry(sess, cfg));
+  } else {
+    return true;
+  }
+}
+
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3780 are_upstream_rust_objects_already_included
 export function are_upstream_rust_objects_already_included(sess: Session): boolean {
   switch (sess.lto()) {
@@ -2051,27 +3652,435 @@ export function are_upstream_rust_objects_already_included(sess: Session): boole
   }
 }
 
+/// We need to communicate five things to the linker on Apple/Darwin targets:
+/// - The architecture.
+/// - The operating system (and that it's an Apple platform).
+/// - The environment.
+/// - The deployment target.
+/// - The SDK version.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3798 add_apple_link_args
+function add_apple_link_args(cmd: Linker, sess: Session, flavor: LinkerFlavor): void {
+  if (!sess.target.options.is_like_darwin) {
+    return;
+  }
+  if (flavor.$ !== "Darwin") {
+    return;
+  }
+  const cc = flavor._0;
+
+  // `sess.target.arch` (`target_arch`) is not detailed enough.
+  const dash = sess.target.llvm_target.indexOf("-");
+  if (dash < 0) panic("LLVM target must have arch");
+  const llvm_arch = sess.target.llvm_target.slice(0, dash);
+  const target_os = sess.target.options.os;
+  const target_env = sess.target.options.env;
+
+  // The architecture name to forward to the linker.
+  //
+  // Supported architecture names can be found in the source:
+  // https://github.com/apple-oss-distributions/ld64/blob/ld64-951.9/src/abstraction/MachOFileAbstraction.hpp#L578-L648
+  //
+  // Intentionally verbose to ensure that the list always matches correctly
+  // with the list in the source above.
+  let ld64_arch: string;
+  switch (llvm_arch) {
+    case "armv7k":
+      ld64_arch = "armv7k";
+      break;
+    case "armv7s":
+      ld64_arch = "armv7s";
+      break;
+    case "arm64":
+      ld64_arch = "arm64";
+      break;
+    case "arm64e":
+      ld64_arch = "arm64e";
+      break;
+    case "arm64_32":
+      ld64_arch = "arm64_32";
+      break;
+    // ld64 doesn't understand i686, so fall back to i386 instead.
+    //
+    // Same story when linking with cc, since that ends up invoking ld64.
+    case "i386":
+    case "i686":
+      ld64_arch = "i386";
+      break;
+    case "x86_64":
+      ld64_arch = "x86_64";
+      break;
+    case "x86_64h":
+      ld64_arch = "x86_64h";
+      break;
+    default:
+      return bug(`unsupported architecture in Apple target: ${sess.target.llvm_target}`);
+  }
+
+  if (cc === "No") {
+    // From the man page for ld64 (`man ld`):
+    // > The linker accepts universal (multiple-architecture) input files,
+    // > but always creates a "thin" (single-architecture), standard
+    // > Mach-O output file. The architecture for the output file is
+    // > specified using the -arch option.
+    //
+    // The linker has heuristics to determine the desired architecture,
+    // but to be safe, and to avoid a warning, we set the architecture
+    // explicitly.
+    cmd.link_args(["-arch", ld64_arch]);
+
+    // Man page says that ld64 supports the following platform names:
+    // > - macos
+    // > - ios
+    // > - tvos
+    // > - watchos
+    // > - bridgeos
+    // > - visionos
+    // > - xros
+    // > - mac-catalyst
+    // > - ios-simulator
+    // > - tvos-simulator
+    // > - watchos-simulator
+    // > - visionos-simulator
+    // > - xros-simulator
+    // > - driverkit
+    let platform_name: string;
+    if (target_env.$ === "Unspecified") {
+      platform_name = Os.desc(target_os);
+    } else if (target_os.$ === "IOs" && target_env.$ === "MacAbi") {
+      platform_name = "mac-catalyst";
+    } else if (target_os.$ === "IOs" && target_env.$ === "Sim") {
+      platform_name = "ios-simulator";
+    } else if (target_os.$ === "TvOs" && target_env.$ === "Sim") {
+      platform_name = "tvos-simulator";
+    } else if (target_os.$ === "WatchOs" && target_env.$ === "Sim") {
+      platform_name = "watchos-simulator";
+    } else if (target_os.$ === "VisionOs" && target_env.$ === "Sim") {
+      platform_name = "visionos-simulator";
+    } else {
+      return bug(`invalid OS/env combination for Apple target: ${Os.desc(target_os)}, ${Env.desc(target_env)}`);
+    }
+
+    const min_version = sess.apple_deployment_target().fmt_full();
+
+    // The SDK version is used at runtime when compiling with a newer SDK / version of Xcode:
+    // - By dyld to give extra warnings and errors, see e.g.:
+    //   <https://github.com/apple-oss-distributions/dyld/blob/dyld-1165.3/common/MachOFile.cpp#L3029>
+    //   <https://github.com/apple-oss-distributions/dyld/blob/dyld-1165.3/common/MachOFile.cpp#L3738-L3857>
+    // - By system frameworks to change certain behaviour. For example, the default value of
+    //   `-[NSView wantsBestResolutionOpenGLSurface]` is `YES` when the SDK version is >= 10.15.
+    //   <https://developer.apple.com/documentation/appkit/nsview/1414938-wantsbestresolutionopenglsurface?language=objc>
+    //
+    // We do not currently know the actual SDK version though, so we have a few options:
+    // 1. Use the minimum version supported by rustc.
+    // 2. Use the same as the deployment target.
+    // 3. Use an arbitrary recent version.
+    // 4. Omit the version.
+    //
+    // The first option is too low / too conservative, and means that users will not get the
+    // same behaviour from a binary compiled with rustc as with one compiled by clang.
+    //
+    // The second option is similarly conservative, and also wrong since if the user specified a
+    // higher deployment target than the SDK they're compiling/linking with, the runtime might
+    // make invalid assumptions about the capabilities of the binary.
+    //
+    // The third option requires that `rustc` is periodically kept up to date with Apple's SDK
+    // version, and is also wrong for similar reasons as above.
+    //
+    // The fourth option is bad because while `ld`, `otool`, `vtool` and such understand it to
+    // mean "absent" or `n/a`, dyld doesn't actually understand it, and will end up interpreting
+    // it as 0.0, which is again too low/conservative.
+    //
+    // Currently, we lie about the SDK version, and choose the second option.
+    //
+    // FIXME(madsmtm): Parse the SDK version from the SDK root instead.
+    // <https://github.com/rust-lang/rust/issues/129432>
+    const sdk_version = min_version;
+
+    // From the man page for ld64 (`man ld`):
+    // > This is set to indicate the platform, oldest supported version of
+    // > that platform that output is to be used on, and the SDK that the
+    // > output was built against.
+    //
+    // Like with `-arch`, the linker can figure out the platform versions
+    // itself from the binaries being linked, but to be safe, we specify
+    // the desired versions here explicitly.
+    cmd.link_args(["-platform_version", platform_name, min_version, sdk_version]);
+  } else {
+    // cc == Cc::Yes
+    //
+    // We'd _like_ to use `-target` everywhere, since that can uniquely
+    // communicate all the required details except for the SDK version
+    // (which is read by Clang itself from the SDKROOT), but that doesn't
+    // work on GCC, and since we don't know whether the `cc` compiler is
+    // Clang, GCC, or something else, we fall back to other options that
+    // also work on GCC when compiling for macOS.
+    //
+    // Targets other than macOS are ill-supported by GCC (it doesn't even
+    // support e.g. `-miphoneos-version-min`), so in those cases we can
+    // fairly safely use `-target`. See also the following, where it is
+    // made explicit that the recommendation by LLVM developers is to use
+    // `-target`: <https://github.com/llvm/llvm-project/issues/88271>
+    if (target_os.$ === "MacOs") {
+      // `-arch` communicates the architecture.
+      //
+      // CC forwards the `-arch` to the linker, so we use the same value
+      // here intentionally.
+      cmd.cc_args(["-arch", ld64_arch]);
+
+      // The presence of `-mmacosx-version-min` makes CC default to
+      // macOS, and it sets the deployment target.
+      const version = sess.apple_deployment_target().fmt_full();
+      // Intentionally pass this as a single argument, Clang doesn't
+      // seem to like it otherwise.
+      cmd.cc_arg(`-mmacosx-version-min=${version}`);
+
+      // macOS has no environment, so with these two, we've told CC the
+      // four desired parameters.
+      //
+      // We avoid `-m32`/`-m64`, as this is already encoded by `-arch`.
+    } else {
+      cmd.cc_args(["-target", versioned_llvm_target(sess.early_sess)]);
+    }
+  }
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:3954 add_apple_sdk
+function add_apple_sdk(cmd: Linker, sess: Session, flavor: LinkerFlavor): string | undefined {
+  if (!sess.target.options.is_like_darwin) {
+    return undefined;
+  }
+  if (flavor.$ !== "Darwin") {
+    return undefined;
+  }
+  const cc = flavor._0;
+
+  // The default compiler driver on macOS is at `/usr/bin/cc`. This is a trampoline binary that
+  // effectively invokes `xcrun cc` internally to look up both the compiler binary and the SDK
+  // root from the current Xcode installation. When cross-compiling, when `rustc` is invoked
+  // inside Xcode, or when invoking the linker directly, this default logic is unsuitable, so
+  // instead we invoke `xcrun` manually.
+  //
+  // (Note that this doesn't mean we get a duplicate lookup here - passing `SDKROOT` below will
+  // cause the trampoline binary to skip looking up the SDK itself).
+  const sdkroot = sess.time("get_apple_sdk_root", () => get_apple_sdk_root(sess));
+  if (sdkroot === undefined) return undefined;
+
+  if (cc === "Yes") {
+    // There are a few options to pass the SDK root when linking with a C/C++ compiler:
+    // - The `--sysroot` flag.
+    // - The `-isysroot` flag.
+    // - The `SDKROOT` environment variable.
+    //
+    // `--sysroot` isn't actually enough to get Clang to treat it as a platform SDK, you need
+    // to specify `-isysroot`. This is admittedly a bit strange, as on most targets `-isysroot`
+    // only applies to include header files, but on Apple targets it also applies to libraries
+    // and frameworks.
+    //
+    // This leaves the choice between `-isysroot` and `SDKROOT`. Both are supported by Clang and
+    // GCC, though they may not be supported by all compiler drivers. We choose `SDKROOT`,
+    // primarily because that is the same interface that is used when invoking the tool under
+    // `xcrun -sdk macosx $tool`.
+    //
+    // In that sense, if a given compiler driver does not support `SDKROOT`, the blame is fairly
+    // clearly in the tool in question, since they also don't support being run under `xcrun`.
+    //
+    // Additionally, `SDKROOT` is an environment variable and thus optional. It also has lower
+    // precedence than `-isysroot`, so a custom compiler driver that does not support it and
+    // instead figures out the SDK on their own can easily do so by using `-isysroot`.
+    //
+    // (This in particular affects Clang built with the `DEFAULT_SYSROOT` CMake flag, such as
+    // the one provided by some versions of Homebrew's `llvm` package. Those will end up
+    // ignoring the value we set here, and instead use their built-in sysroot).
+    cmd.cmd().env("SDKROOT", sdkroot);
+  } else {
+    // When invoking the linker directly, we use the `-syslibroot` parameter. `SDKROOT` is not
+    // read by the linker, so it's really the only option.
+    //
+    // This is also what Clang does.
+    cmd.link_arg("-syslibroot");
+    cmd.link_arg(sdkroot);
+  }
+
+  return sdkroot;
+}
+
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:4011 get_apple_sdk_root
+function get_apple_sdk_root(sess: Session): string | undefined {
+  const sdkroot_ = var_("SDKROOT");
+  if (sdkroot_.$ === "Ok") {
+    const sdkroot = sdkroot_._0;
+    const p = sdkroot;
+
+    // Ignore invalid SDKs, similar to what clang does:
+    // https://github.com/llvm/llvm-project/blob/llvmorg-19.1.6/clang/lib/Driver/ToolChains/Darwin.cpp#L2212-L2229
+    //
+    // NOTE: Things are complicated here by the fact that `rustc` can be run by Cargo to compile
+    // build scripts and proc-macros for the host, and thus we need to ignore SDKROOT if it's
+    // clearly set for the wrong platform.
+    //
+    // FIXME(madsmtm): Make this more robust (maybe read `SDKSettings.json` like Clang does?).
+    const has = (s: string): boolean => sdkroot.includes(s);
+    const name = xlane.apple_sdk_name(sess.target).toLowerCase();
+    const ignored =
+      (name === "appletvos" && (has("TVSimulator.platform") || has("MacOSX.platform"))) ||
+      (name === "appletvsimulator" && (has("TVOS.platform") || has("MacOSX.platform"))) ||
+      (name === "iphoneos" && (has("iPhoneSimulator.platform") || has("MacOSX.platform"))) ||
+      (name === "iphonesimulator" && (has("iPhoneOS.platform") || has("MacOSX.platform"))) ||
+      (name === "macosx" &&
+        (has("iPhoneOS.platform") ||
+          has("iPhoneSimulator.platform") ||
+          has("AppleTVOS.platform") ||
+          has("AppleTVSimulator.platform") ||
+          has("WatchOS.platform") ||
+          has("WatchSimulator.platform") ||
+          has("XROS.platform") ||
+          has("XRSimulator.platform"))) ||
+      (name === "watchos" && (has("WatchSimulator.platform") || has("MacOSX.platform"))) ||
+      (name === "watchsimulator" && (has("WatchOS.platform") || has("MacOSX.platform"))) ||
+      (name === "xros" && (has("XRSimulator.platform") || has("MacOSX.platform"))) ||
+      (name === "xrsimulator" && (has("XROS.platform") || has("MacOSX.platform"))) ||
+      // Ignore `SDKROOT` if it's not a valid path.
+      !path_is_absolute(p) ||
+      path_eq(p, "/") ||
+      !path_exists(p);
+    if (!ignored) {
+      return p;
+    }
+  }
+
+  return xlane.apple_get_sdk_root(sess);
+}
+
+/// When using the linker flavors opting in to `lld`, add the necessary paths and arguments to
+/// invoke it:
+/// - when the self-contained linker flag is active: the build of `lld` distributed with rustc,
+/// - or any `lld` available to `cc`.
+// rustc: compiler/rustc_codegen_ssa/src/back/link.rs:4067 add_lld_args
+function add_lld_args(cmd: Linker, sess: Session, flavor: LinkerFlavor, self_contained_components: LinkSelfContainedComponents): void {
+  // debug!("add_lld_args requested, flavor: '{:?}', target self-contained components: {:?}", flavor, self_contained_components);
+
+  // If the flavor doesn't use a C/C++ compiler to invoke the linker, or doesn't opt in to `lld`,
+  // we don't need to do anything.
+  if (!(LinkerFlavor.uses_cc(flavor) && LinkerFlavor.uses_lld(flavor))) {
+    return;
+  }
+
+  // 1. Implement the "self-contained" part of this feature by adding rustc distribution
+  // directories to the tool's search path, depending on a mix between what users can specify on
+  // the CLI, and what the target spec enables (as it can't disable components):
+  // - if the self-contained linker is enabled on the CLI or by the target spec,
+  // - and if the self-contained linker is not disabled on the CLI.
+  const self_contained_cli = sess.opts.cg.link_self_contained.is_linker_enabled();
+  const self_contained_target = LinkSelfContainedComponents.is_linker_enabled(self_contained_components);
+
+  const self_contained_linker = self_contained_cli || self_contained_target;
+  if (self_contained_linker && !sess.opts.cg.link_self_contained.is_linker_disabled()) {
+    let linker_path_exists = false;
+    for (const path of xlane.get_tools_search_paths(sess, false)) {
+      const linker_path = path_join(path, "gcc-ld");
+      // `|=`: every path is checked, as upstream does (no short circuit).
+      linker_path_exists = path_exists(linker_path) || linker_path_exists;
+      cmd.cc_arg(`-B${linker_path}`);
+    }
+    if (!linker_path_exists) {
+      // As a sanity check, we emit an error if none of these paths exist: we want
+      // self-contained linking and have no linker.
+      sess.dcx().emit_fatal(SelfContainedLinkerMissing_diagnostic({}));
+    }
+  }
+
+  // 2. Implement the "linker flavor" part of this feature by asking `cc` to use some kind of
+  // `lld` as the linker.
+  //
+  // Note that wasm targets skip this step since the only option there anyway
+  // is to use LLD but component-producing targets rely on a wrapper around
+  // this, `wasm-component-ld`, which is overridden if this option is passed.
+  if (!sess.target.options.is_like_wasm) {
+    cmd.cc_arg("-fuse-ld=lld");
+  }
+
+  if (!LinkerFlavor.is_gnu(flavor)) {
+    // Tell clang to use a non-default LLD flavor.
+    // Gcc doesn't understand the target option, but we currently assume
+    // that gcc is not used for Apple and Wasm targets (#97402).
+    //
+    // Note that we don't want to do that by default on macOS: e.g. passing a
+    // 10.7 target to LLVM works, but not to recent versions of clang/macOS, as
+    // shown in issue #101653 and the discussion in PR #101792.
+    //
+    // It could be required in some cases of cross-compiling with
+    // LLD, but this is generally unspecified, and we don't know
+    // which specific versions of clang, macOS SDK, host and target OS
+    // combinations impact us here.
+    //
+    // So we do a simple first-approximation until we know more of what the
+    // Apple targets require (and which would be handled prior to hitting this
+    // LLD codepath anyway), but the expectation is that until then
+    // this should be manually passed if needed. We specify the target when
+    // targeting a different linker flavor on macOS, and that's also always
+    // the case when targeting WASM.
+    if (sess.target.options.linker_flavor !== sess.host.options.linker_flavor) {
+      cmd.cc_arg(`--target=${versioned_llvm_target(sess.early_sess)}`);
+    }
+  }
+}
+
+// gold has been deprecated with binutils 2.44
+// and is known to behave incorrectly around Rust programs.
+// There have been reports of being unable to bootstrap with gold:
+// https://github.com/rust-lang/rust/issues/139425
+// Additionally, gold miscompiles SHF_GNU_RETAIN sections, which are
+// emitted with `#[used(linker)]`.
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:4153 warn_if_linked_with_gold
 function warn_if_linked_with_gold(sess: Session, path: string): Result<null, unknown> {
-  // PORT: `elf_has_gold_version_note` and the warning are reached only by a real ELF output (a native link, M7): an rlib fails
-  // the file header's parse, and the caller only logs that.
+  // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:4158 elf_has_gold_version_note
+  const elf_has_gold_version_note = (Self: FileHeader, elf: FileHeaderValue, data: Uint8Array): Result<boolean, unknown> => {
+    const endian = FileHeader_provided.endian(Self, elf);
+    if (endian.$ === "Err") return endian;
+
+    const sections = FileHeader_provided.sections(Self, elf, endian._0, data);
+    if (sections.$ === "Err") return sections;
+    const section = sections._0.section_by_name(endian._0, encoder.encode(".note.gnu.gold-version"));
+    if (section !== undefined) {
+      // && let Some(mut notes) = section.notes(endian, data)? { return Ok(notes.any(|note| ..NT_GNU_GOLD_VERSION)); }
+      return unported("object::read::elf::SectionHeader::notes (vendor object; warn_if_linked_with_gold, an ELF output with a .note.gnu.gold-version section)");
+    }
+
+    return Ok(false);
+  };
+
   // let data = ReadCache::new(BufReader::new(File::open(path)?));
+  // PORT: `ReadCache` reads ranges of the file on demand; the whole file is read here, and the same bytes are parsed.
   let data: Uint8Array;
   try {
     data = readFileSync(path);
   } catch (e) {
     return Err(e);
   }
+
+  let was_linked_with_gold: boolean;
   if (sess.target.pointer_width === 64) {
     const elf = FileHeader_provided.parse(FileHeader64_impl, data);
     if (elf.$ === "Err") return elf;
+    const r = elf_has_gold_version_note(FileHeader64_impl, elf._0, data);
+    if (r.$ === "Err") return r;
+    was_linked_with_gold = r._0;
   } else if (sess.target.pointer_width === 32) {
     const elf = FileHeader_provided.parse(FileHeader32_impl, data);
     if (elf.$ === "Err") return elf;
+    const r = elf_has_gold_version_note(FileHeader32_impl, elf._0, data);
+    if (r.$ === "Err") return r;
+    was_linked_with_gold = r._0;
   } else {
     return Ok(null);
   }
-  return unported("rustc_codegen_ssa::back::link::warn_if_linked_with_gold (a native ELF output; M7)");
+
+  if (was_linked_with_gold) {
+    const warn = sess.dcx().struct_warn("the gold linker is deprecated and has known bugs with Rust");
+    warn.help("consider using LLD or ld from GNU binutils instead");
+    warn.emit();
+  }
+  return Ok(null);
 }
 
 // ---- Helpers (not upstream) ------------------------------------------------------------------------------------------
@@ -2178,11 +4187,121 @@ function join_paths(paths: readonly string[]): string {
   return paths.join(":");
 }
 
+/** `crate_info.used_crate_source[&cnum]` (an `UnordMap` index: panics on a missing key, as `HashMap`'s does). */
+function crate_info_used_crate_source(crate_info: CrateInfo, cnum: CrateNum): CrateSource {
+  const src = crate_info.used_crate_source.get(cnum);
+  if (src === undefined) return panic("no entry found for key");
+  return src;
+}
+
+/** `crate_info.crate_name[&cnum]` (an `UnordMap` index: panics on a missing key, as `HashMap`'s does). */
+function crate_info_crate_name(crate_info: CrateInfo, cnum: CrateNum): Symbol {
+  const name = crate_info.crate_name.get(cnum);
+  if (name === undefined) return panic("no entry found for key");
+  return name;
+}
+
+/** `map[&key]` of an `UnordMap` (`"no entry found for key"`) or an `FxIndexMap` (`"IndexMap: key not found"`). */
+function index_map_get<K, V>(map: ReadonlyMap<K, V>, key: K, message: string): V {
+  const v = map.get(key);
+  if (v === undefined) return panic(message);
+  return v;
+}
+
+/** `slice[i]` / `IndexVec[i]`: panics out of bounds with core's message. */
+function vec_index<T>(v: readonly T[], i: number): T {
+  if (i >= v.length) return panic(`index out of bounds: the len is ${v.length} but the index is ${i}`);
+  return v[i]!;
+}
+
+/** `fs::write(path, bytes)`. */
+function fs_write(path: string, bytes: Uint8Array): IoResult<null> {
+  try {
+    writeFileSync(path, bytes);
+    return Ok(null);
+  } catch (e) {
+    return Err(io_error_from_node(e));
+  }
+}
+
+/** `fs::create_dir(path)` (not recursive). */
+function fs_create_dir(path: string): IoResult<null> {
+  try {
+    mkdirSync(path);
+    return Ok(null);
+  } catch (e) {
+    return Err(io_error_from_node(e));
+  }
+}
+
+/** `Path::is_file`: `fs::metadata(path).map(|m| m.is_file()).unwrap_or(false)`. */
+function path_is_file(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** `io::Error::new(kind, error)`: a boxed `StringError` of the error's `Display`. */
+function io_error_new(kind: ErrorKind, error: string): IoError {
+  return { $: "Custom", kind, error };
+}
+
+/** `libc::E2BIG` of the host (`#[cfg(unix)]` `command_line_too_big`). */
+const LIBC_E2BIG: number = (require("node:os") as typeof import("node:os")).constants.errno.E2BIG;
+
+/** `object::write::SymbolId` (an index into `Object::symbols`; not in the vendored writer yet). */
+type WriteSymbolId = number & { readonly __brand: "write::SymbolId" };
+
+/** `#[derive(Debug)] struct object::write::Error(String)`. */
+function debug_WriteError(e: WriteError): string {
+  return `Error(${debug_str(e._0)})`;
+}
+
+/**
+ * `Session::is_wasi_reactor` (rustc_session/src/session.rs:799). PORT: not in session.ts yet (rustc_session is not this lane's);
+ * a copy of its body, for the owner of session.ts to take, as `get_tools_search_paths` lives in linker.ts.
+ */
+function Session_is_wasi_reactor(sess: Session): boolean {
+  return sess.target.options.os.$ === "Wasi" && sess.opts.unstable_opts.wasi_exec_model === "Reactor";
+}
+
+/**
+ * `sess.host == sess.target`: the derived `PartialEq` of `rustc_target::spec::Target`. PORT: not modelled (every field,
+ * the options too); only `LinkSelfContainedDefault::InferredForMingw` (windows-gnu targets) asks, so it stops by name.
+ */
+function Target_eq(_a: Target, _b: Target): boolean {
+  return unported("rustc_target::spec::Target PartialEq (self_contained_components: InferredForMingw, windows-gnu)");
+}
+
+/** `str::cmp` for `sort_unstable_by`, with the guard below. */
+function sort_native_libraries_by_name(libs: NativeLib[]): void {
+  // PORT: `sort_unstable_by` is core's ipnsort, which is insertion sort (stable) for up to 20 elements
+  // (core/src/slice/sort/unstable/mod.rs:49). JS's sort is stable, so the two agree there. Past 20, equal names could end
+  // in another order; that shows only through the raw-dylib collations below (they read only `RawDylib` libraries, keyed
+  // by name), so that case stops.
+  if (libs.length > 20) {
+    const seen = new Set<Symbol>();
+    for (const lib of libs) {
+      if (lib.kind.$ !== "RawDylib") continue;
+      if (seen.has(lib.name)) return unported("core::slice::sort_unstable_by (ipnsort past 20 elements, raw-dylib libraries of one name)");
+      seen.add(lib.name);
+    }
+  }
+  libs.sort((a, b) => str_cmp(Symbol.as_str(a.name), Symbol.as_str(b.name)));
+}
+
 // ---- Stand-ins for types of other lanes (PORT) -----------------------------------------------------------------------
 // `Command`, `Output`, `ExitStatus` (back/command.ts), `dyn Linker` (back/linker.ts `DynLinker`) and `ArchiveSymbols`
-// (back/archive.ts) are imported (root at integ-w57); `jobserver::Acquired` waits for ssa-link-b.
+// (back/archive.ts) are imported (root at integ-w57).
 
-/** `rustc_data_structures::jobserver::Acquired` (lane ssa-link-b gives them out of `linker_with_args`); dropping releases. */
+/**
+ * `rustc_data_structures::jobserver::Acquired` (what `linker_with_args` gives out); dropping releases. PORT: the port's
+ * jobserver (rustc_data_structures/jobserver.ts) is single-threaded and hands out no tokens: its `client()` stops by name, and
+ * vendor/jobserver has no `Acquired`. So this stays a minimal stand-in: no token is ever made, and `linker_with_args` returns
+ * an empty list unless `-Zlinker-jobs`-style explicit LLD parallelism reaches `client()`, which stops.
+ */
 export interface JobserverAcquired {
   drop(): void;
 }
@@ -2222,51 +4341,99 @@ const thorin = {
   },
 };
 
-// ---- Cross-lane stubs ------------------------------------------------------------------------------------------------
-// Each entry stands for one upstream fn of another fill lane of wave 40q (or the next), following the `xlane` convention
-// of rustc_codegen_ssa/mir/mod.ts: root points the entries at the ports when they land, and tests can replace them.
-// Methods take the receiver first.
+// ---- Cross-lane forwarders ------------------------------------------------------------------------------------------
+// Each entry stands for one upstream fn this file calls in another file (or one it owns that other code calls), following
+// the `xlane` convention of rustc_codegen_ssa/mir/mod.ts: they forward to the ports, and tests can replace them. Methods
+// take the receiver first.
 export const xlane = {
-  // ssa-link-b: link.rs :2105 to the end, and link/raw_dylib.rs (next wave).
+  // ssa-link-b (wave 40r): link.rs :2105 to the end and link/raw_dylib.rs, in this file and link/raw_dylib.ts. Forwarders, so
+  // tests can replace them.
   /** `exec_linker(sess, &cmd, out_filename, flavor, tmpdir)` (link.rs:2105). */
-  exec_linker(_sess: Session, _cmd: Command, _out_filename: string, _flavor: LinkerFlavor, _tmpdir: string): IoResult<Output> {
-    return unported("ssa-link-b: exec_linker");
+  exec_linker(sess: Session, cmd: Command, out_filename: string, flavor: LinkerFlavor, tmpdir: string): IoResult<Output> {
+    return exec_linker(sess, cmd, out_filename, flavor, tmpdir);
   },
   /** `self_contained_components(sess, crate_type, &linker_path)` (link.rs:2312). */
-  self_contained_components(_sess: Session, _crate_type: CrateType, _linker: string): LinkSelfContainedComponents {
-    return unported("ssa-link-b: self_contained_components");
+  self_contained_components(sess: Session, crate_type: CrateType, linker: string): LinkSelfContainedComponents {
+    return self_contained_components(sess, crate_type, linker);
   },
   /** `linker_with_args(..)` (link.rs:2870), `(Command, Vec<jobserver::Acquired>)`. */
   linker_with_args(
-    _path: string,
-    _flavor: LinkerFlavor,
-    _sess: Session,
-    _archive_builder_builder: ArchiveBuilderBuilder,
-    _rmeta_link_cache: RmetaLinkCache,
-    _crate_type: CrateType,
-    _tmpdir: string,
-    _out_filename: string,
-    _compiled_modules: CompiledModules,
-    _crate_info: CrateInfo,
-    _metadata: EncodedMetadata,
-    _self_contained_components: LinkSelfContainedComponents,
-    _codegen_backend: string,
+    path: string,
+    flavor: LinkerFlavor,
+    sess: Session,
+    archive_builder_builder: ArchiveBuilderBuilder,
+    rmeta_link_cache: RmetaLinkCache,
+    crate_type: CrateType,
+    tmpdir: string,
+    out_filename: string,
+    compiled_modules: CompiledModules,
+    crate_info: CrateInfo,
+    metadata: EncodedMetadata,
+    self_contained_components: LinkSelfContainedComponents,
+    codegen_backend: string,
   ): [Command, JobserverAcquired[]] {
-    return unported("ssa-link-b: linker_with_args");
+    return linker_with_args(
+      path,
+      flavor,
+      sess,
+      archive_builder_builder,
+      rmeta_link_cache,
+      crate_type,
+      tmpdir,
+      out_filename,
+      compiled_modules,
+      crate_info,
+      metadata,
+      self_contained_components,
+      codegen_backend,
+    );
   },
   /** `relevant_lib(sess, lib)` (link.rs:3773). */
-  relevant_lib(_sess: Session, _lib: NativeLib): boolean {
-    return unported("ssa-link-b: relevant_lib");
+  relevant_lib(sess: Session, lib: NativeLib): boolean {
+    return relevant_lib(sess, lib);
   },
   /** `raw_dylib::create_raw_dylib_dll_import_libs(sess, archive_builder_builder, used_libraries, tmpdir, is_direct_dependency)` (link/raw_dylib.rs:63). */
   create_raw_dylib_dll_import_libs(
-    _sess: Session,
-    _archive_builder_builder: ArchiveBuilderBuilder,
-    _used_libraries: readonly NativeLib[],
-    _tmpdir: string,
-    _is_direct_dependency: boolean,
+    sess: Session,
+    archive_builder_builder: ArchiveBuilderBuilder,
+    used_libraries: readonly NativeLib[],
+    tmpdir: string,
+    is_direct_dependency: boolean,
   ): string[] {
-    return unported("ssa-link-b: create_raw_dylib_dll_import_libs");
+    return raw_dylib.create_raw_dylib_dll_import_libs(sess, archive_builder_builder, used_libraries, tmpdir, is_direct_dependency);
+  },
+
+  // Vendor `object` (write/mod.ts) and back/apple.ts: what link.rs :2105-end calls there that is not ported yet stops in its
+  // owner, through these forwarders, so tests can replace them (lane ssa-link-b's handoff).
+  /** `file.add_symbol(symbol)` (object 0.39.1 write/mod.rs `Object::add_symbol`). PORT: not in the vendored writer (symbols). */
+  Object_add_symbol(_file: WriteObject, _symbol: WriteSymbol): WriteSymbolId {
+    return unported("object::write::Object::add_symbol (vendor object: symbols are not ported; add_linked_symbol_object)");
+  },
+  /**
+   * `file.set_subsections_via_symbols()` (object 0.39.1 write/mod.rs: `debug_assert!(self.format == MachO);
+   * self.macho_subsections_via_symbols = true`). PORT: the method is not in the vendored writer; its field is, and this sets it.
+   */
+  Object_set_subsections_via_symbols(file: WriteObject): void {
+    // debug_assert!(self.format == BinaryFormat::MachO);
+    file.macho_subsections_via_symbols = true;
+  },
+  /** `apple::add_data_and_relocation(&mut file, section, symbol, &sess.target, kind)` (apple.rs:81). */
+  apple_add_data_and_relocation(file: WriteObject, section: WriteSectionId, symbol: WriteSymbolId, target: Target, kind: SymbolExportKind): Result<null, WriteError> {
+    return add_data_and_relocation(file, section, symbol, target, kind);
+  },
+  /** `apple::get_sdk_root(sess)` (apple.rs:160). */
+  apple_get_sdk_root(sess: Session): string | undefined {
+    return get_sdk_root(sess);
+  },
+  /** `apple::sdk_name(&sess.target)` (apple.rs:19). */
+  apple_sdk_name(target: Target): string {
+    return sdk_name(target);
+  },
+
+  // ssa-archive: back/archive.rs provided methods (receiver first).
+  /** `archive_builder_builder.create_dylib_metadata_wrapper(sess, &metadata, &crate_info.metadata_symbol)` (archive.rs:69). */
+  create_dylib_metadata_wrapper(archive_builder_builder: ArchiveBuilderBuilder, sess: Session, metadata: EncodedMetadata, symbol_name: string): Uint8Array {
+    return ArchiveBuilderBuilder_provided.create_dylib_metadata_wrapper(archive_builder_builder, sess, metadata, symbol_name);
   },
 
   // ssa-linker: back/linker.rs and back/command.rs (forwarders; root at integ-w57).
