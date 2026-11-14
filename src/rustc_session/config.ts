@@ -1719,11 +1719,15 @@ export class Sysroot {
 
   /**
    * The field `default`.
-   * PORT(perf): upstream computes it in `Sysroot::new`. The port's `filesearch::default_sysroot` asks the oracle toolchain for its
-   * sysroot (decision 2026-11-14), a process spawn of about 50 ms through rustup's proxy, and most compiles never read the field
-   * (every protected suite passes `--sysroot`, so only `all_paths` reads it: the linker's `PATH`). So the first read computes it,
-   * once per process; the value is the same. What moves is where a failure to ask the oracle stops (`unported`): at the first
-   * read instead of at option parsing. Upstream has no such failure.
+   * PORT (decision 2026-11-14, corrected after review default-sysroot F1): upstream computes it eagerly in `Sysroot::new`; here
+   * the first read computes it. This is required for correctness, not only speed. The port's `filesearch::default_sysroot` asks
+   * the oracle toolchain (`rustc +<pin> --print sysroot`), and the oracle cannot be asked in every environment the port runs in:
+   * Miri cases run the port under Miri's own `RUSTUP_HOME`, where `rustc +<pin>` fails, and some unit tests run with no `PATH`.
+   * Upstream can always compute it, because it reads its own binary's location; the port cannot. An eager read stops every such
+   * run `unported` (it turned the protected `miri-hello` case UNPORTED), even with `--sysroot`, where upstream never uses the
+   * default unless a reader of `all_paths` (the linker's `PATH`) is reached. Read lazily, a run stops only when a reader is reached
+   * where the oracle cannot be asked. The guard test is config_sysroot.test.ts ("Sysroot::new does not read the default sysroot").
+   * Secondary: it also saves one spawn of rustup's proxy (about 20 ms) on every compile that never reads the field.
    */
   get default_(): PathBuf {
     return (this.default_value ??= default_sysroot());
@@ -1734,7 +1738,7 @@ export class Sysroot {
 
   // rustc: compiler/rustc_session/src/config.rs:1437 new
   static new(explicit: PathBuf | undefined): Sysroot {
-    // PORT(perf): `default: filesearch::default_sysroot()` is computed on the first read of `default_` (above).
+    // PORT: `default: filesearch::default_sysroot()` is computed on the first read of `default_` (above), which correctness needs.
     return new Sysroot(explicit, undefined);
   }
 

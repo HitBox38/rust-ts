@@ -8,7 +8,8 @@ session.ts. The ssa-linker review nits N1–N4 are done.
 | File | What |
 |---|---|
 | `src/rustc_session/filesearch.ts` | `default_sysroot()` returns the oracle's sysroot. `DEFAULT_SYSROOT_STANDIN`, `displayed_sysroot_path` and the crate-search stop in `get_library_candidates` are removed. |
-| `src/rustc_session/config.ts` | `Sysroot`: the field `default_` is a lazy getter/setter (`PORT(perf)`, below). `Sysroot::new` passes `undefined`. |
+| `src/rustc_session/config.ts` | `Sysroot`: the field `default_` is a lazy getter/setter, required for correctness (below). `Sysroot::new` passes `undefined`. |
+| `src/rustc_session/config_sysroot.test.ts` (new, round 2) | The F1 guard test, and the N2 order tests. |
 | `src/rustc_session/session.ts` | `Session::get_tools_search_paths` (session.rs:825), with its marker. |
 | `src/rustc_session/stand_ins.ts` | Drops the re-export of `DEFAULT_SYSROOT_STANDIN`. |
 | `src/rustc_codegen_ssa/back/linker.ts` | `get_tools_search_paths` is now a one-line forwarder to the session method. link.ts imports it under that name, so the export stays. `get_linker` calls `sess.get_tools_search_paths` directly, as upstream does, and the stand-in stop is gone. N1, N2. |
@@ -32,13 +33,18 @@ The rustc_driver_impl files are outside the files named for this lane. The brief
 
 It is not imported from tools.ts. Loading tools.ts would pull the IR model into rustc_session (`ir.ts`, `printer.ts`, ...), with a require cycle back to rustc_session/config.ts. tools.ts's failure message also names the LLVM tools. So a linking process can spawn the oracle twice: once here, once in tools.ts. A later lane could make tools.ts `oracle_sysroot` call `default_sysroot` (owner of `src/rust_ts/llvm/`).
 
-**Lazy read (`PORT(perf)` in config.ts `Sysroot`).**
-- Upstream computes `default` eagerly in `Sysroot::new`.
-- Here that would be a spawn of rustup's proxy on every compile. I measured about 52 ms (5 runs in 0.258 s), and almost no compile reads the field.
-- So `default_` is a getter that calls `default_sysroot()` on first read, and a setter for writes.
-- The value is the same. Only the point where a failure to ask the oracle stops moves: from option parsing to the first read. Upstream has no such failure.
-- Checked: a `--crate-type=lib --emit=metadata --sysroot <S>` compile with `PATH=/usr/bin:/bin` (no rustc at all) exits 0 and writes the rmeta. So with `--sysroot`, a non-linking compile never spawns.
-- PORTING §3 says `PORT(perf)` changes get adversarial review. This one moves a read that has a possible `unported` stop, so **root should record it as a decision** (see "Decisions for root").
+**Lazy read, which correctness requires (config.ts `Sysroot`; decision corrected after review default-sysroot F1).**
+- Upstream computes `default` eagerly in `Sysroot::new`. Here `default_` is a getter that calls `default_sysroot()` on first read, and a setter for writes.
+- **Why: the oracle cannot be asked in every environment the port runs in.**
+  - Miri cases run the port under Miri's own `RUSTUP_HOME` (`$RUST_TS_DATA/rustup-miri`), where `rustc +nightly` fails with "toolchain ... is not installed".
+  - Some unit tests run the subject with no `PATH` (env_reads.oracle.test.ts, miri_env.oracle.test.ts).
+  - Upstream can always compute its default from its own binary's location; the port cannot.
+  - An eager read stops every such run `unported`, even with `--sysroot`. The reviewer saw it turn the protected `miri-hello` case UNPORTED, and it would do the same to every Miri suite.
+- Read lazily, a run stops only when it reaches a reader of the default where the oracle cannot be asked. With `--sysroot`, those readers are the link-time ones only.
+- Secondary: it saves one spawn of rustup's proxy on compiles that never read the field. The reviewer measured about **20 ms median** (17 ms min, 15 spawns). My earlier 52 ms figure was wrong. Whole compiles cannot be told apart from main.
+- **Guard test:** `src/rustc_session/config_sysroot.test.ts`, "Sysroot::new does not read the default sysroot: a --sysroot compile never asks the oracle (review default-sysroot F1 guard)".
+  - It runs the subject with `--crate-type=lib --emit=metadata --sysroot <oracle sysroot>`, with a fake `rustc` first in `PATH`. The fake logs every call and fails, as `rustc +<pin>` does under Miri's `RUSTUP_HOME`.
+  - It asserts exit 0, empty stderr, that the rmeta is written, and that no `rustc` call was made.
 
 ## Readers of the default sysroot, and why protected output cannot change
 
@@ -60,7 +66,7 @@ It is not imported from tools.ts. Loading tools.ts would pull the IR model into 
 Why protected output cannot change:
 - **Every protected suite passes `--sysroot`.** harness/compiletest.ts adds the oracle sysroot unless the test sets its own, harness/cli.ts passes it to every print case, and suites.ts passes it to the rest (review ssa-linker §2). So every reader in group 1 sees `explicit`, not the default. Target search, crate search, `real_source_base_dir`, `--print sysroot` / `target-libdir` and every diagnostic path are unchanged.
 - **Groups 2 and 3 are reached only during a native link.** Before this change, every call to `get_linker` stopped (`unported`), because `all_paths()` always held the stand-in. So no protected case can reach a link today: such a case was UNPORTED, and the protected set holds only passing cases. `find_sanitizer_runtime` sits behind the same link.
-- **Miri.** The interpreter reads no sysroot outside `get_codegen_backend` (the llvm backend does not read it). `run-pass-miri` cases get `--sysroot` from the harness.
+- **Miri.** The interpreter reads no sysroot outside `get_codegen_backend`, and the llvm backend does not read it. Miri cases get `--sysroot` from the harness. They stay MATCH *because* the read is lazy: under Miri's `RUSTUP_HOME` the default cannot be computed (F1).
 - **What does change** happens only without `--sysroot`, which no suite runs: `--print sysroot` / `target-libdir` now match the oracle; crate search finds the oracle's std; links get the oracle's `PATH`. All of this moves toward the oracle.
 
 ## Evidence
@@ -97,6 +103,36 @@ Why protected output cannot change:
 - It is **the same on main**: e80bc814, in a temporary detached worktree, gives the same DIFF at the same first difference (run `*-default-sysroot-w40r-main-*`). It also reproduces on this branch alone (run 20261114-133054-default-sysroot-w40r-gf2j).
 - So it predates this lane. No protected case was lost in any sample.
 
+### Round 2 (review default-sysroot F1, N2, N3)
+
+- Comments: config.ts `Sysroot.default_` / `Sysroot::new` and filesearch.ts now say the lazy read is required for correctness (Miri's `RUSTUP_HOME`, no `PATH`). "The value is the same" and "upstream has no such failure" are dropped, and the speed note is secondary (about 20 ms).
+- New tests, in `src/rustc_session/config_sysroot.test.ts`:
+  - the F1 guard (above);
+  - `Sysroot::all_paths`: explicit before default, and `path()`;
+  - `Session::get_tools_search_paths` with and without `self_contained`, for a `--sysroot` that differs from the default.
+- **Mutations** (each run on `config_sysroot.test.ts`, then restored from a copy; the tree was checked afterwards):
+
+  | | Mutation | Result |
+  |---|---|---|
+  | M3 | eager `Sysroot::new` (`new Sysroot(explicit, default_sysroot())`) | **fails**: the guard test, with stderr `rust-ts: unported: rustc_session::filesearch::default_sysroot (rustc +nightly --print sysroot failed: error: toolchain is not installed)` |
+  | M2 | `all_paths` order swapped (`[default, explicit]`) | **fails**: 2 tests (`all_paths`, `get_tools_search_paths`) |
+  | M4 | self-contained order swapped (`[path/self-contained, path]`) | **fails**: the `get_tools_search_paths` test |
+  | restored | | 3 pass, 0 fail |
+
+- Commands:
+  - `bunx tsc`: clean.
+  - `bun scripts/coverage.ts --check`: markers ok (27155).
+  - `RUST_TS_REQUIRE_PROBES=1 bun test ./src/rustc_session/ ./src/rustc_codegen_ssa/back/ ./src/rustc_interface/ ./src/rustc_driver_impl/ ./src/std/ ./scripts/lib/unit-steps.test.ts`: **515 pass, 0 fail** (53 files, 217 s).
+- Samples (`--sample 100 --jobs 6`, `RUST_TS_AGENT=default-sysroot-r2`):
+
+  | Suite | Result | Run |
+  |---|---|---|
+  | run-pass-miri | MATCH 100/100 (497 skipped) | 20261114-140519-default-sysroot-r2-02g3 |
+  | miri-pass | MATCH 99, UNPORTED 1 (152 skipped) | 20261114-140633-default-sysroot-r2-kiiq |
+  | miri-hello (whole suite) | MATCH 1/1 | |
+
+  The UNPORTED case is `tests/pass/shims/socket-address.rs`. It stops at `miri::shims::unix::socket_address::EvalContextExt::getaddrinfo (plan-m6 D2: sockets)`, which is not a sysroot path, and the case is not in harness/baseline/miri-pass.txt. **No protected case was lost.**
+
 ## unported(...) left
 
 - `rustc_session::filesearch::default_sysroot (rustc +<toolchain> --print sysroot failed: <reason>)`: new. It fires only when the oracle toolchain cannot be run.
@@ -109,7 +145,7 @@ Why protected output cannot change:
 ## PORT decisions
 
 - `default_sysroot`: the oracle's sysroot, found as above (the decision 2026-11-14 and its reasoning are in the comment).
-- `Sysroot.default_` read lazily (`PORT(perf)`, ~52 ms per process saved).
+- `Sysroot.default_` is read lazily: a `PORT` that correctness requires (F1, above), not a `PORT(perf)`.
 - `Sysroot`'s constructor takes `default_: PathBuf | undefined`, where `undefined` means "compute on first read". Only `Sysroot::new` passes `undefined`.
 - linker.ts `get_tools_search_paths`: a forwarder, not an upstream fn, so it has no marker. The marker is on `Session.get_tools_search_paths`.
 - N1 (linker.ts, `AixLinker::export_symbols`): a PORT note says `to_str().unwrap()` is dropped because paths are strings.
@@ -122,7 +158,16 @@ Why protected output cannot change:
 
 ## Decisions for root
 
-1. Record the lazy `Sysroot.default_` (`PORT(perf)`) as a decision, with adversarial review per PORTING §3. It moves a read whose only possible effect is an `unported` stop when the oracle cannot be run.
+1. The lazy-read decision is now recorded by root as corrected: "Correction to the 2026-11-14 default-sysroot lazy-read decision", review F1. The comments in config.ts and filesearch.ts now give that reason.
+2. **N1 (review default-sysroot), for the Miri owner.**
+   - In a Miri process, upstream Miri's default sysroot is its own toolchain: `$RUST_TS_DATA/rustup-miri/toolchains/nightly-2026-10-11-<host>`.
+   - The port's default stops `unported` there instead. Nothing reaches it today: Miri reads only `path()` (with an explicit `--sysroot`) and never links.
+   - A future reader on a Miri path (an `all_paths` caller, `--print sysroot` under Miri) would stop. The default in a Miri process could become the Miri toolchain's.
+   - No change in this lane.
+3. **N4 (review default-sysroot), follow-ups confirmed; no change in this lane:**
+   - tools.ts `oracle_sysroot` uses `.trim()`, where filesearch.ts strips only the newline. They agree for every real path. Each process that links and also runs LLVM tools spawns twice; unify later (owner of `src/rust_ts/llvm/`).
+   - link.ts:2309's xlane comment is stale (ssa-link-b).
+   - harness/cli.ts:21 and harness/target-specs.ts:12 have stale comments (harness batch).
 
 ## Requests for other owners
 

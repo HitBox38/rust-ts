@@ -179,10 +179,11 @@ let DEFAULT_SYSROOT: PathBuf | undefined;
  *   its own sysroot there.
  * - Every protected suite passes `--sysroot`, so `Sysroot::path` (target search, crate search, `--print sysroot`) is not this
  *   value there; only `all_paths` readers see it (the linker's `PATH`).
- * - It is read lazily (config.ts `Sysroot`, a `PORT(perf)`): upstream computes it in `Sysroot::new`, but here that is a
- *   process spawn (about 50 ms through rustup's proxy) on every compile, and most compiles never read it.
- * - If the oracle cannot be asked, the port cannot know its sysroot, so it stops rather than guess. Upstream's own failure is
- *   `expect("Failed finding sysroot")`, which a real rustc does not reach.
+ * - The oracle cannot be asked in every environment the port runs in: Miri cases run it under Miri's own `RUSTUP_HOME`, where
+ *   `rustc +<pin>` fails, and some unit tests run it with no `PATH`. There the port cannot know its default sysroot, so it stops
+ *   (`unported`) rather than guess; upstream always can, as it reads its own binary's location. So config.ts `Sysroot` reads
+ *   the default lazily, which correctness requires (an eager read lost the protected `miri-hello` case; review default-sysroot
+ *   F1): only a run that reaches a reader there stops. It also saves a spawn (about 20 ms) on compiles that never read it.
  */
 export function default_sysroot(): PathBuf {
   if (DEFAULT_SYSROOT !== undefined) return DEFAULT_SYSROOT;
