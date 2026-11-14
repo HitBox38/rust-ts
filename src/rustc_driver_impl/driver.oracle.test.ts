@@ -8,7 +8,7 @@
 //   - `--print` requests (cfg, target-spec-json, ...) are in src/rustc_driver_impl/print.oracle.test.ts.
 // Skips (visibly) if rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN, REPO } from "../../scripts/lib/common.ts";
 import { test_scratch_dir } from "../rust_ts/test_scratch.ts";
@@ -107,14 +107,23 @@ const PENDING: [string[], string][] = [
   [["-Zui-testing", "--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
 ];
 
+/** The executable a MATCH case links, compared byte for byte too (review root-w58-check N4): both sides write it in `WORK`. */
+const LINKED: Record<string, string> = { "x.rs": "x", "-ooptimize x.rs": "optimize" };
+
 for (const args of MATCH) {
   test.skipIf(SKIP)(`rustc ${args.join(" ")}`, () => {
     requireRustc();
+    const linked = LINKED[args.join(" ")];
+    const out = linked === undefined ? undefined : join(WORK, linked);
+    if (out !== undefined) rmSync(out, { force: true });
     const want = oracle(args);
+    const want_bin = out === undefined ? undefined : readFileSync(out);
+    if (out !== undefined) rmSync(out, { force: true });
     const got = ours(args);
     expect(got.stderr).toBe(want.stderr);
     expect(got.stdout).toBe(want.stdout);
     expect(got.code).toBe(want.code);
+    if (out !== undefined) expect(Buffer.compare(readFileSync(out), want_bin!)).toBe(0);
   });
 }
 

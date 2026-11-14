@@ -34,6 +34,7 @@ import { llvm_cl_args, type TargetMachineArgs } from "./target.ts";
 import { type Context, Module } from "./ir.ts";
 import { printModule } from "./printer.ts";
 import type { PtrLenStr, SanitizerOptions } from "./support.ts";
+import { oracle_sysroot_env } from "../oracle_sysroot_env.ts";
 
 // ---- the pinned tools ----------------------------------------------------------------------------------------------------
 
@@ -58,20 +59,6 @@ function rust_ts_data(): string | undefined {
 }
 
 let SYSROOT: string | undefined;
-/**
- * The environment of the oracle's `--print sysroot`: only what rustup needs to find the pinned toolchain (`PATH`, `HOME`,
- * `RUSTUP_HOME`, `CARGO_HOME`), and never installing anything. PORT (root at integ-w58): the compile's own environment must not
- * reach the oracle here, or a variable rustc reads at session start (`MACOSX_DEPLOYMENT_TARGET=abc` in
- * codegen_backend.oracle.test.ts) fails this spawn instead of the compile.
- */
-function oracle_sysroot_env(): Record<string, string> {
-  const env: Record<string, string> = { RUSTUP_AUTO_INSTALL: "0" };
-  for (const k of ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"]) {
-    const v = process.env[k];
-    if (v !== undefined) env[k] = v;
-  }
-  return env;
-}
 
 /**
  * The oracle toolchain's sysroot: `rustc +<UPSTREAM.json rust.toolchain> --print sysroot`, never installing anything

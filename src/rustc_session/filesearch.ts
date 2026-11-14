@@ -8,6 +8,7 @@ import { path_join } from "../std/path.ts";
 import { unported } from "../std/panic.ts";
 import { slice_sort_unstable_by } from "../std/slice_sort.ts";
 import { PathKind, type SearchPath } from "./search_paths.ts";
+import { oracle_sysroot_env } from "../rust_ts/oracle_sysroot_env.ts";
 
 export class FileSearch {
   constructor(
@@ -166,21 +167,6 @@ let DEFAULT_SYSROOT: PathBuf | undefined;
 /// is not found, finds sysroot from current rustc_driver dll.
 // not ported (no marker; filesearch.rs:279 default_sysroot, :280 default_from_rustc_driver_dll,
 // :323 from_env_args_next): see the PORT below.
-/**
- * The environment of the oracle's `--print sysroot`: only what rustup needs to find the pinned toolchain (`PATH`, `HOME`,
- * `RUSTUP_HOME`, `CARGO_HOME`), and never installing anything. PORT (root at integ-w58): the compile's own environment must not
- * reach the oracle here, or a variable rustc reads at session start (`MACOSX_DEPLOYMENT_TARGET=abc` in
- * codegen_backend.oracle.test.ts) fails this spawn instead of the compile.
- */
-function oracle_sysroot_env(): Record<string, string> {
-  const env: Record<string, string> = { RUSTUP_AUTO_INSTALL: "0" };
-  for (const k of ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"]) {
-    const v = process.env[k];
-    if (v !== undefined) env[k] = v;
-  }
-  return env;
-}
-
 /**
  * PORT (decision 2026-11-14, wave 40q, docs/reviews/ssa-linker.md §2): the default sysroot is the pinned oracle toolchain's
  * sysroot, the exact string `rustc +<UPSTREAM.json rust.toolchain> --print sysroot` prints, found the way
