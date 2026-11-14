@@ -162,6 +162,9 @@ describe("initialize_available_targets, the target machine and the MC subtarget"
     const tma = L.LLVMRustCreateTargetMachine(...a!)!;
     // AArch64TargetMachine: MachO always traps on unreachable.
     expect([tma.Options.TrapUnreachable, tma.Options.NoTrapAfterNoreturn, tma.TargetCPU]).toEqual([true, true, "apple-m1"]);
+    // AArch64TargetMachine.cpp:391-392: `TLSSize` starts at the `-tls-size` default 0 and becomes 24; X86TargetMachine leaves it
+    // unset (review llir-init-recheck R3).
+    expect([tma.Options.TLSSize, tmx.Options.TLSSize]).toEqual([24, undefined]);
     const big = [...x!] as Parameters<typeof L.LLVMRustCreateTargetMachine>;
     big[22] = 65536n;
     expect(L.LLVMRustCreateTargetMachine(...big)!.largeDataThreshold).toBe(65536n);
@@ -304,7 +307,16 @@ const loaded = (() => {
 })();
 /** The libLLVM functions; without the toolchain (under RUST_TS_REQUIRE_PROBES=1) a test fails with one `ERROR:` line. */
 function libLLVM(): NonNullable<typeof loaded> {
-  if (loaded === undefined) throw new Error(`ERROR: the oracle's libLLVM.dylib is unavailable (${DYLIB}); the pinned toolchain (${PIN.toolchain}) on aarch64 macOS is needed`);
+  // The line names the step that failed (review llir-init-recheck R4): without rustc, SYSROOT is "" and DYLIB is relative.
+  if (loaded === undefined) {
+    const why =
+      SYSROOT === ""
+        ? `\`rustc +${PIN.toolchain} --print sysroot\` failed, so the oracle's libLLVM.dylib cannot be found`
+        : !existsSync(DYLIB)
+          ? `the oracle's libLLVM.dylib is missing (${DYLIB})`
+          : `the oracle's libLLVM.dylib (${DYLIB}) is loaded only on aarch64 macOS, not ${process.platform}/${process.arch}`;
+    throw new Error(`ERROR: ${why}; the pinned toolchain on aarch64 macOS is needed`);
+  }
   return loaded;
 }
 const cstr = (s: string): Buffer => Buffer.from(`${s}\0`, "utf8");

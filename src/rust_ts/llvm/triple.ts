@@ -324,14 +324,6 @@ export class Triple {
   isOSBinFormatXCOFF(): boolean {
     return this.getObjectFormat() === "XCOFF";
   }
-  // llvm: llvm/include/llvm/TargetParser/Triple.h:954 isOSFirmware
-  isOSFirmware(): boolean {
-    return this.getOS() === "Firmware";
-  }
-  // llvm: llvm/include/llvm/TargetParser/Triple.h:1204 isX86_64
-  isX86_64(): boolean {
-    return this.getArch() === "x86_64";
-  }
   /// Tests whether the target is the PS4 platform.
   // llvm: llvm/include/llvm/TargetParser/Triple.h:894 isPS4
   isPS4(): boolean {
@@ -346,6 +338,14 @@ export class Triple {
   // llvm: llvm/include/llvm/TargetParser/Triple.h:906 isPS
   isPS(): boolean {
     return this.isPS4() || this.isPS5();
+  }
+  // llvm: llvm/include/llvm/TargetParser/Triple.h:954 isOSFirmware
+  isOSFirmware(): boolean {
+    return this.getOS() === "Firmware";
+  }
+  // llvm: llvm/include/llvm/TargetParser/Triple.h:1204 isX86_64
+  isX86_64(): boolean {
+    return this.getArch() === "x86_64";
   }
   /// Tests whether the target is X32.
   // llvm: llvm/include/llvm/TargetParser/Triple.h:1235 isX32

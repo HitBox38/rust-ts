@@ -13,7 +13,7 @@ import { TyAndLayout as TyAndLayout_ } from "../rustc_abi/layout/ty.ts";
 import "../rustc_target/lib.ts";
 import { FnAbi } from "../rustc_target/callconv/mod.ts";
 import { printValueToString } from "../rust_ts/llvm/printer.ts";
-import { llvm_cl_args, with_fresh_llvm_options_for_tests } from "../rust_ts/llvm/target.ts";
+import { llvm_cl_args } from "../rust_ts/llvm/target.ts";
 import { Unported } from "../std/panic.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
@@ -357,18 +357,28 @@ describe("LlvmCodegenBackend", () => {
     // llvm_util.rs init, ported (cg-write), called by the driver on its early session. Since llir-init (root at integ-w56),
     // `configure_llvm` runs through the IR model's init, `initialize_available_targets` and `LLVMRustSetLLVMOptions`. With `CI`
     // set (the gate's unit step sets it, scripts/lib/unit-steps.ts) it also calls `LLVMRustDisableSystemDialogsOnCrash`, a no-op
-    // on Unix since fixers-57 (Signals.inc:991), so `init` completes either way (review root-w56-check 1). The options are set on
-    // fresh ones and put back after, as LLVM's are process-wide (target.ts `with_fresh_llvm_options_for_tests`).
-    const args = with_fresh_llvm_options_for_tests(() => {
+    // on Unix since fixers-57 (Signals.inc:991), so `init` completes either way (review root-w56-check 1). It runs as if no
+    // earlier test file had completed `init`, on fresh LLVM options, and both are put back after, as LLVM's options and `INIT` are
+    // process-wide (llvm_util.ts `with_fresh_llvm_init_for_tests`; review fixers-57 N2).
+    const args = llvm_util.with_fresh_llvm_init_for_tests(() => {
+      // `INIT` starts out not completed: `require_inited` (the first thing `print` does) fails.
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
       drive_init(b);
+      // Then `require_inited` passes, which needs `INIT` completed (review root-w56-check 2): `print` throws past it on the
+      // `undefined` session, but not "LLVM is not initialized".
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
+      // The helper resets a completed `INIT` (the case of an earlier file that ran `init`) and puts it back.
+      llvm_util.with_fresh_llvm_init_for_tests(() => {
+        expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
+        expect(llvm_cl_args()).toEqual([]);
+      });
+      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
       return llvm_cl_args();
     });
     // `configure_llvm` returned through `LLVMRustSetLLVMOptions`, its last call: these two are added unconditionally
-    // (llvm_util.rs:136, :139). Then `require_inited` passes, which needs `INIT` completed (review root-w56-check 2): `print`
-    // throws past it on the `undefined` session, but not "LLVM is not initialized".
+    // (llvm_util.rs:136, :139).
     expect(args).toContain("-preserve-alignment-assumptions-during-inlining=false");
     expect(args).toContain("-import-cold-multiplier=0.1");
-    expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });
 });
