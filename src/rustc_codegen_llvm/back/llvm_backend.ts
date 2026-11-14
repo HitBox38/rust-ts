@@ -14,7 +14,9 @@
 //   and `CodegenContext` (ssa-write) are imported (root at integ-w54/55). The Enzyme / offload wrappers stop (out of M7,
 //   plan-m7 D18).
 // - `ModuleLlvm`'s `Drop` is a `drop()` method (llvm/mod.ts header); `ManuallyDrop` is erased.
-// - This backend is not registered: rustc_interface still constructs src/rust_ts/codegen_backend.ts's stand-in.
+// - Registered by forwarding (lane cg-register, decision 2026-11-14): rustc_interface constructs src/rust_ts/codegen_backend.ts's
+//   stand-in, which keeps `init`, `target_config` and the print requests (its oracle tables) and forwards `codegen_crate`,
+//   `join_codegen`, `link` and the statistics to this class, loaded through lib.ts at the first forward.
 import type { AllocatorMethod } from "../../rustc_ast/expand/allocator.gen.ts";
 import type { ThinModule } from "../../rustc_codegen_ssa/back/lto.ts";
 import { type CodegenContext, type FatLtoInput, type ModuleConfig, OngoingCodegen, type SharedEmitter, TargetMachineFactoryConfig, type TargetMachineFactoryFn, type ThinLtoInput } from "../../rustc_codegen_ssa/back/write.ts";

@@ -15,8 +15,8 @@
 //   `builder::gpu_offload` hold only the stubs other files call; `llvm::enzyme_ffi` and `llvm::offload_ffi` do not exist.
 // - Files that only export free fns (attributes.ts, callee.ts, va_arg.ts, debuginfo/metadata.ts, ...) are imported by
 //   their callers; this file imports the ones that attach methods to a class.
-// - Not yet imported by any other crate: rustc_interface still constructs src/rust_ts/codegen_backend.ts's stand-in
-//   (plan-m7 wave 40: the backend is not registered until codegen reaches the oracle).
+// - Imported by no other crate's module at load: src/rust_ts/codegen_backend.ts's stand-in, which rustc_interface constructs,
+//   `require`s this file at its first codegen forward (lane cg-register; plan-m7 D14), so a check-only compile never loads it.
 
 // tidy-alphabetical-start
 // #![feature(extern_types)]
