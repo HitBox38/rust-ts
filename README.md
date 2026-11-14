@@ -9,8 +9,8 @@ The mirror image of [ts-rust](https://github.com/pingdotgg/ts-rust).
 |---|---|
 | Upstream pin | `rust-lang/rust@6f5da406b` = `rustc 1.101.0-nightly (2026-10-10)` |
 | Milestone | M0–M6 done (harness; lexer/parser; expansion + name resolution; typeck + trait solving; MIR build, borrowck, MIR transforms, const eval; check core → alloc → std; running programs through a port of the pinned nightly's Miri). **The crate metadata (.rmeta) of core, alloc and std is byte-identical to rustc's.** **Programs run through the port and match the real Miri's stdout, stderr and exit code: 3,474 of 3,478 run-pass cases (a match includes the 199 that real Miri itself refuses or fails; of those it runs to exit 0, 99.85%), 294 of 294 run-fail cases, and 350 of 360 of Miri's own tests. Native builds are M7.** Next: M7 (text LLVM IR → clang). **Proc macros run: oracle-built proc-macro dylibs load into the port and match rustc on 281/282 ui cases.** |
-| Protected parity | **542,304** cases across 60 suites that match the real compiler byte-for-byte and can never regress (24 of them through a mask of digits the compiler itself does not reproduce from run to run: thread ids and long-type hashes) |
-| Ported | 25,793 / 27,873 in-scope upstream functions (92.5%, counting `rustc_codegen_llvm`'s 820, of which 699 ported; Miri 1,506 / 1,535; LLVM wrapper C++ 72 / 197, separate) |
+| Protected parity | **542,306** cases across 61 suites that match the real compiler byte-for-byte and can never regress (24 of them through a mask of digits the compiler itself does not reproduce from run to run: thread ids and long-type hashes) |
+| Ported | 26,088 / 27,873 in-scope upstream functions (93.6%, counting `rustc_codegen_llvm`'s 820, of which 701 ported, and `rustc_codegen_ssa`'s 1,091, of which 1,038; Miri 1,506 / 1,535; LLVM wrapper C++ 74 / 197, separate) |
 
 At 100%: the front end (`rustc_lexer`, `rustc_span`, `rustc_ast`, `rustc_ast_lowering`, `rustc_ast_passes`,
 `rustc_builtin_macros`, `rustc_attr_parsing`, `rustc_resolve`), type checking (`rustc_hir_typeck`,
@@ -39,6 +39,7 @@ including legacy Polonius), `rustc_mir_transform` and `rustc_const_eval`. Nearly
 | `run-pass-aux-miri` (M6) | tests/ui run-pass programs with non-proc-macro auxiliary crates under Miri, the aux crates built by the real Miri as its compiler (`MIRI_BE_RUSTC=target`); 32 of the 356 match an expected Miri error or panic | 356 of 356 |
 | `miri-pass` + heavy (M6) | Miri's own test suite (tests/pass, tests/panic), Stacked Borrows revisions | 354 of 360 |
 | `mir-o2`, `mir-opt-o4`, `mono-ui` (M7 preflight) | optimized MIR at `-O` on run-pass programs, upstream's `tests/mir-opt` at level 4, and `-Zprint-mono-items` | 3,475 / 406 / 3,475 |
+| `ir-hello` (M7a) | hello's LLVM IR at `-O` and `-Copt-level=0` through the ported backend and the IR model, in normal form N1 | 2 |
 | `check-rg`, `-encode-mir`, `-host`, `check-ui-encode-mir` (M7 preflight) | ripgrep 15.2.0's whole tree through real `cargo check`, byte-identical `.rmeta`, in plain, encoded-MIR and aarch64 host modes; encoded MIR on small crates | 36 / 36 / 36 / 146 |
 
 Start here: [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [PORTING.md](PORTING.md) · [docs/next.md](docs/next.md)

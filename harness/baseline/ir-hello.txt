@@ -1,0 +1,2 @@
+hello -Copt-level=0
+hello -O

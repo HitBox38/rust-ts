@@ -46,6 +46,7 @@
     "tokens-str": 39,
     "unpretty-expanded-nocore": 21523,
     "escape": 25842,
+    "ir-hello": 2,
     "unpretty-hir": 21526,
     "expanded": 21523,
     "borrowck-ui": 960,
@@ -63,7 +64,7 @@
     "pm-expanded": 282,
     "miri-pass-heavy": 8
   },
-  "updated": "2026-11-14T06:52:49.297Z",
+  "updated": "2026-11-14T12:58:34.714Z",
   "open_stops": [],
   "coverage": {
     "ported": 26088,
