@@ -699,7 +699,7 @@ Register the ported backend so `--emit=llvm-ir` reaches the IR model's printer, 
 | cg-register | register the backend by forwarding (decision recorded): `rust_ts/codegen_backend.ts`, `rustc_interface/util.ts`; `scripts/mono-run.ts` as its own reviewed commit; then `ir-hello` first differences | started |
 | ssa-linker | `rustc_codegen_ssa/src/back/linker.rs` (211 of 218 left), `back/command.rs` | started |
 | ssa-link-a | `rustc_codegen_ssa/src/back/link.rs` :1-2104 (to `exec_linker`) | started |
-| ssa-archive | `back/archive.rs` (10 left), `back/symbol_edit.rs`, `back/rpath.rs` | started |
+| ssa-archive | `back/archive.rs` (10 left), `back/symbol_edit.rs`, `back/rpath.rs` | done (t3/port-ssa-archive-symbol-rpath, 45bf7043): 22/22, 14/14, 6/6 + tests 4/4; rlib and four staticlib variants byte-identical to the oracle on aarch64-apple-darwin and x86_64-linux; vendor pathdiff 0.2.3 added (root adds it to scope.json); in review |
 | fixers-57 | wave 40p's queued items: `LLVMRustDisableSystemDialogsOnCrash`, the fatal handler's stderr and its child-process test, root-w56-check 2-4, root-w56-recheck nits, lane-review N items | started |
 
 **Queued (wave 40q):** `ssa-link-b` (link.rs :2105-end, `link/raw_dylib.rs`); the ThinLTO embedded-bitcode buffer for optimised rlibs; fat-LTO model calls and pinning `llvm-link` (a `scripts/` batch); `uselistorder` directives (waits, decision recorded); `-g` (llir-di, cg-di-b, wave 44); moving `init`/`target_config` to the model once it reproduces the oracle table for every target there.
