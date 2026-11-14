@@ -8,8 +8,8 @@
 // - `find_msvc_tools::find_tool` (an external crate, find-msvc-tools 0.1.11) is `find_msvc_tool` below: what the crate does on a
 //   non-Windows host as far as it is decided without a search (no MSVC target arch, or no `VCINSTALLDIR`/`VSINSTALLDIR`: `None`);
 //   the search itself and a Windows host stop.
-// - `Session::get_tools_search_paths` (rustc_session/src/session.rs:825) is not in rustc_session/session.ts; it is
-//   `get_tools_search_paths` below, for the session.ts owner to move.
+// - `get_tools_search_paths` below forwards to `Session::get_tools_search_paths` (rustc_session/session.ts), for link.ts, which
+//   imports it from here.
 // - Files are written whole (`writeFileSync`) where upstream writes lines into a `File::create_buffered`: the same bytes, and the
 //   same `io::Error` when the file cannot be created; only a failure part-way through could leave a different partial file.
 // - `debug!` is compiled out (`tracing`'s static max level is INFO), so those lines stay as comments.
@@ -29,9 +29,7 @@ import {
 } from "../../rustc_middle/middle/exported_symbols.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { SymbolName } from "../../rustc_middle/ty/mod.ts";
-import { host_tuple } from "../../rustc_session/config.ts";
 import type { Strip } from "../../rustc_session/config.ts";
-import { DEFAULT_SYSROOT_STANDIN, make_target_bin_path } from "../../rustc_session/filesearch.ts";
 import { generate_proc_macro_decls_symbol, type Session } from "../../rustc_session/session.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type CrateNum, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
@@ -98,20 +96,11 @@ function find_msvc_tool(arch_or_target: string, tool: string): MsvcTool | undefi
 }
 
 /**
- * `Session::get_tools_search_paths` (compiler/rustc_session/src/session.rs:825). PORT: not in rustc_session/session.ts yet (see the
- * module notes); a copy of upstream's body.
+ * `sess.get_tools_search_paths(self_contained)`: a forwarder to `Session::get_tools_search_paths` (rustc_session/session.ts,
+ * session.rs:825), kept for link.ts, which imports it from here. PORT: not an upstream fn; the marker is on the session method.
  */
 export function get_tools_search_paths(sess: Session, self_contained: boolean): string[] {
-  const search_paths = sess.opts.sysroot.all_paths().map((sysroot) => make_target_bin_path(sysroot, host_tuple()));
-
-  if (self_contained) {
-    // The self-contained tools are expected to be e.g. in `bin/self-contained` in the
-    // sysroot's `rustlib` path, so we add such a subfolder to the bin path, and the
-    // fallback paths.
-    return search_paths.flatMap((path) => [path, path_join(path, "self-contained")]);
-  } else {
-    return search_paths;
-  }
+  return sess.get_tools_search_paths(self_contained);
 }
 
 /** `env::join_paths(paths).unwrap()` on unix (library/std/src/sys/paths/unix.rs `join_paths`): `:`-joined bytes; a path holding a
@@ -213,14 +202,7 @@ export function get_linker(
 
   // The compiler's sysroot often has some bundled tools, so add it to the
   // PATH for the child.
-  // PORT: the port has no default sysroot of its own (rustc_session/filesearch.ts `DEFAULT_SYSROOT_STANDIN`), and `all_paths`
-  // always holds it: a tools directory under the stand-in would reach the linker's environment and `--print link-args`, so it
-  // stops, as any stand-in path on its way to the output does (`displayed_sysroot_path`).
-  const new_path: Uint8Array[] = get_tools_search_paths(sess, self_contained).map((p) =>
-    new TextEncoder().encode(
-      p.startsWith(DEFAULT_SYSROOT_STANDIN) ? unported("rustc_session::filesearch::default_sysroot (the default sysroot's tools directory in the linker's PATH)") : p,
-    ),
-  );
+  const new_path: Uint8Array[] = sess.get_tools_search_paths(self_contained).map((p) => new TextEncoder().encode(p));
   let msvc_changed_path = false;
   if (sess.target.is_like_msvc && msvc_tool !== undefined) {
     for (const [k, v] of msvc_tool.env()) {
@@ -1387,7 +1369,9 @@ class MsvcLinker extends DynLinker {
     if (natvis_dir.$ === "Ok") {
       for (let entry = natvis_dir._0.next(); entry !== undefined; entry = natvis_dir._0.next()) {
         if (entry.$ === "Ok") {
-          // PORT: `DirEntry::path` is the `read_dir` root joined with the entry's name.
+          // PORT: `DirEntry::path` is the `read_dir` root joined with the entry's name. src/std's `DirEntry::file_name` is
+          // lossy (U+FFFD for bytes that are not UTF-8) where upstream joins the raw `OsStr`, so a natvis file whose name is not
+          // UTF-8 would print differently; unreachable in practice, as an MSVC target needs `link.exe`, and finding it stops.
           const path = path_join(natvis_dir_path, entry._0.file_name());
           if (path_extension(path) === "natvis") {
             let arg = "/NATVIS:";
@@ -1995,6 +1979,8 @@ class AixLinker extends DynLinker {
     if (e !== undefined) {
       this.sess.dcx().fatal(`failed to write export file: ${display_IoError(e)}`);
     }
+    // PORT: upstream writes `path.to_str().unwrap()`, which panics on a non-UTF-8 path; the port's paths are strings, so the
+    // `unwrap` cannot fail and is dropped.
     this.link_arg(`-bE:${path}`);
   }
 

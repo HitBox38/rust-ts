@@ -1,5 +1,6 @@
 //! A module for searching for libraries
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { PathBuf } from "../rustc_span/lib.ts";
 import { relative_target_rustlib_path } from "../rustc_target/lib.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
@@ -40,11 +41,6 @@ export class FileSearch {
   // rustc: compiler/rustc_session/src/filesearch.rs:42 get_library_candidates
   get_library_candidates(prefix: string, suffix: string, kind: PathKind): [string, PathBuf][] {
     const exclude_sysroot = PathKind.matches(kind, "Crate") && !this.use_implicit_sysroot_deps;
-    // PORT (lane locator): the default sysroot is a stand-in (`DEFAULT_SYSROOT_STANDIN`); a search that would
-    // include it stops here instead of reporting crates as missing that the oracle finds in its own sysroot.
-    if (!exclude_sysroot && this.tlib_path.dir.startsWith(DEFAULT_SYSROOT_STANDIN)) {
-      return unported("rustc_session::filesearch::default_sysroot (crate search in the default sysroot; pass --sysroot)");
-    }
 
     // The indices are clipped to have only a single iterator returned from this function, to
     // avoid allocating it.
@@ -161,30 +157,55 @@ export function make_target_bin_path(sysroot: PathBuf, target_triple: string): P
 // Not ported (no markers): `dll_path` (filesearch.rs:153/220/261) and `current_dll_path` (:265) find the
 // loaded `librustc_driver` through `dladdr`/`GetModuleFileNameW`; rust-ts has no such library.
 
-/**
- * PORT: rust-ts has no sysroot of its own yet. Upstream `default_sysroot()` derives it from `argv[0]`
- * when that is a symlink (`from_env_args_next`) or from the path of the loaded `librustc_driver`
- * (`default_from_rustc_driver_dll`); neither has a TS counterpart (argv[0] is the Bun binary). This
- * marker path names no directory, so every filesystem probe below it fails (as for a sysroot without
- * any component). Pass `--sysroot` to point rust-ts at a real sysroot (M2+ suites pass the oracle's).
- */
-export const DEFAULT_SYSROOT_STANDIN: PathBuf = "<rust-ts: default sysroot unported>";
+/** The repository root, where `UPSTREAM.json` pins the oracle toolchain. */
+const REPO = join(import.meta.dir, "..", "..");
+
+let DEFAULT_SYSROOT: PathBuf | undefined;
 
 /// This function checks if sysroot is found using env::args().next(), and if it
 /// is not found, finds sysroot from current rustc_driver dll.
 // not ported (no marker; filesearch.rs:279 default_sysroot, :280 default_from_rustc_driver_dll,
-// :323 from_env_args_next): see `DEFAULT_SYSROOT_STANDIN`.
-export function default_sysroot(): PathBuf {
-  return DEFAULT_SYSROOT_STANDIN;
-}
-
+// :323 from_env_args_next): see the PORT below.
 /**
- * PORT: `path` on its way to the output. A path under the stand-in is not an answer, so it stops: upstream prints the
- * directory of its own toolchain, and rust-ts has no toolchain of its own to name (`--print sysroot`, `target-libdir`).
+ * PORT (decision 2026-11-14, wave 40q, docs/reviews/ssa-linker.md §2): the default sysroot is the pinned oracle toolchain's
+ * sysroot, the exact string `rustc +<UPSTREAM.json rust.toolchain> --print sysroot` prints, found the way
+ * rust_ts/llvm/tools.ts `oracle_sysroot` finds the pinned toolchain: one spawn that never installs anything
+ * (`RUSTUP_AUTO_INSTALL=0`), cached for the process.
+ * - Upstream derives the default from rustc's own location: `argv[0]` when it is a symlink (`from_env_args_next`), else the
+ *   loaded `librustc_driver` (`default_from_rustc_driver_dll`). The port's binary is Bun and it has no `librustc_driver`, so
+ *   neither has a counterpart. The port stands in for the oracle's binary, so its sysroot is the oracle's.
+ * - The string is taken as the oracle prints it, not re-derived or canonicalised: `Sysroot::all_paths` always lists the default
+ *   after an explicit `--sysroot`, so the linker's `PATH` (and `--print link-args`) carries it, and the oracle's line has
+ *   its own sysroot there.
+ * - Every protected suite passes `--sysroot`, so `Sysroot::path` (target search, crate search, `--print sysroot`) is not this
+ *   value there; only `all_paths` readers see it (the linker's `PATH`).
+ * - It is read lazily (config.ts `Sysroot`, a `PORT(perf)`): upstream computes it in `Sysroot::new`, but here that is a
+ *   process spawn (about 50 ms through rustup's proxy) on every compile, and most compiles never read it.
+ * - If the oracle cannot be asked, the port cannot know its sysroot, so it stops rather than guess. Upstream's own failure is
+ *   `expect("Failed finding sysroot")`, which a real rustc does not reach.
  */
-export function displayed_sysroot_path(path: PathBuf): PathBuf {
-  if (path.startsWith(DEFAULT_SYSROOT_STANDIN)) return unported("rustc_session::filesearch::default_sysroot (the path of the default sysroot; pass --sysroot)");
-  return path;
+export function default_sysroot(): PathBuf {
+  if (DEFAULT_SYSROOT !== undefined) return DEFAULT_SYSROOT;
+  const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { toolchain: string } };
+  const what = `rustc_session::filesearch::default_sysroot (rustc +${pin.rust.toolchain} --print sysroot failed`;
+  let r: { exitCode: number | null; stdout: Buffer; stderr: Buffer };
+  try {
+    r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], {
+      env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" },
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  } catch (e) {
+    // Bun throws when `rustc` is not on `PATH` at all.
+    return unported(`${what}: ${e instanceof Error ? e.message : String(e)})`);
+  }
+  if (r.exitCode !== 0) {
+    const first = r.stderr.toString().split("\n").find((l) => l.trim() !== "") ?? "(no message)";
+    return unported(`${what}: ${first})`);
+  }
+  // `println!`'s newline is not part of the path.
+  return (DEFAULT_SYSROOT = r.stdout.toString().replace(/\n$/, ""));
 }
 
 /** `current_dll_path` (not ported, see above). */

@@ -150,7 +150,7 @@ export type { SearchPath } from "./search_paths.ts";
 
 // ---- rustc_session::filesearch ----
 
-export { DEFAULT_SYSROOT_STANDIN, default_sysroot } from "./filesearch.ts";
+export { default_sysroot } from "./filesearch.ts";
 
 // ---- deferred values ----
 

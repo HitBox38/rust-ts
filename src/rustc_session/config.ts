@@ -1707,14 +1707,35 @@ export function parse_remap_path_scope(early_dcx: EarlyDiagCtxt, matches: Matche
 
 // #[derive(Clone, Debug)]
 export class Sysroot {
+  /** The default sysroot once it is known (see `default_`). */
+  private default_value: PathBuf | undefined;
+
   constructor(
     public explicit: PathBuf | undefined,
-    public default_: PathBuf,
-  ) {}
+    default_: PathBuf | undefined,
+  ) {
+    this.default_value = default_;
+  }
+
+  /**
+   * The field `default`.
+   * PORT(perf): upstream computes it in `Sysroot::new`. The port's `filesearch::default_sysroot` asks the oracle toolchain for its
+   * sysroot (decision 2026-11-14), a process spawn of about 50 ms through rustup's proxy, and most compiles never read the field
+   * (every protected suite passes `--sysroot`, so only `all_paths` reads it: the linker's `PATH`). So the first read computes it,
+   * once per process; the value is the same. What moves is where a failure to ask the oracle stops (`unported`): at the first
+   * read instead of at option parsing. Upstream has no such failure.
+   */
+  get default_(): PathBuf {
+    return (this.default_value ??= default_sysroot());
+  }
+  set default_(v: PathBuf) {
+    this.default_value = v;
+  }
 
   // rustc: compiler/rustc_session/src/config.rs:1437 new
   static new(explicit: PathBuf | undefined): Sysroot {
-    return new Sysroot(explicit, default_sysroot());
+    // PORT(perf): `default: filesearch::default_sysroot()` is computed on the first read of `default_` (above).
+    return new Sysroot(explicit, undefined);
   }
 
   /// Return explicit sysroot if it was passed with `--sysroot`, or default sysroot otherwise.

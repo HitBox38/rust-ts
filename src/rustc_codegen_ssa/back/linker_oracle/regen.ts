@@ -29,9 +29,10 @@ for (const c of CASES) {
     stderr: "pipe",
   });
   const stdout = r.stdout.toString();
-  // `-Cstrip` on an Apple target runs `strip` on the output after the link; the fake linker wrote none, so that step fails.
-  // The line is printed before the linker runs.
-  if (r.exitCode !== 0 && !(c.flags.includes("-Cstrip=symbols") && c.target === "aarch64-apple-darwin")) {
+  // `-Cstrip` on an Apple target runs `rust-objcopy` on the output after the link; the fake linker wrote none, so that step
+  // fails, but at the pin rustc only warns about it ("stripping debug info with `rust-objcopy` failed") and exits 0. Every
+  // case must exit 0. The line is printed before the linker runs.
+  if (r.exitCode !== 0) {
     throw new Error(`ERROR: oracle failed for ${c.name}: ${r.stderr.toString().slice(0, 2000)}`);
   }
   const lines = stdout.split("\n").filter((l) => l.length > 0);
