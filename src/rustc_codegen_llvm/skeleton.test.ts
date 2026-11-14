@@ -24,7 +24,6 @@ import { Builder, GenericBuilder } from "./builder.ts";
 import * as common from "./common.ts";
 import * as debuginfo_metadata from "./debuginfo/metadata.ts";
 import { CodegenCx, FullCx, GenericCx, SCx, SimpleCx } from "./context.ts";
-import { generic_simd_intrinsic } from "./intrinsic.ts";
 import type { Value } from "./llvm/mod.ts";
 import * as llvm from "./llvm/mod.ts";
 import * as llvm_util from "./llvm_util.ts";
@@ -109,10 +108,9 @@ describe("stubs name their fill lane", () => {
     // (type_of.test.ts, attributes.test.ts, context.test.ts).
     // cg-abi-consts (wave 41) ported abi.rs and consts.rs whole: no stub of its own is left (abi_consts.test.ts).
     stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
-    const bx = Object.create(Builder.prototype) as Builder;
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
-    // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); the SIMD half's entry stays cg-intrinsic-b's.
-    stops(() => generic_simd_intrinsic(bx, undefined as never, undefined as never, [], undefined as never, undefined as never, undefined as never), /^cg-intrinsic-b: .*\/intrinsic\.rs generic_simd_intrinsic$/);
+    // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); ir-fix-a (wave 40r) ported `generic_simd_intrinsic`'s
+    // reached arms, and the rest stop by intrinsic name in their place (simd_intrinsic.test.ts, `simd_stop.rs`).
     // cg-di-a (wave 40p) ported debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs whole, and metadata.rs's fns a
     // compile without `-g` reaches; the rest of metadata.rs stays a typed stop (wave 44, plan-m7 D9).
     stops(() => debuginfo_metadata.type_di_node(cx, undefined as never), /^cg-di-a: .*\/debuginfo\/metadata\.rs type_di_node$/);

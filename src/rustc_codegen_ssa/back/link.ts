@@ -4259,7 +4259,7 @@ function debug_WriteError(e: WriteError): string {
 
 /**
  * `Session::is_wasi_reactor` (rustc_session/src/session.rs:799). PORT: not in session.ts yet (rustc_session is not this lane's);
- * a copy of its body, for the owner of session.ts to take, as `get_tools_search_paths` lives in linker.ts.
+ * a copy of its body, for the owner of session.ts to take.
  */
 function Session_is_wasi_reactor(sess: Session): boolean {
   return sess.target.options.os.$ === "Wasi" && sess.opts.unstable_opts.wasi_exec_model === "Reactor";
@@ -4467,8 +4467,8 @@ export const xlane = {
     return ab.build(output, symbols);
   },
 
-  // PORT: `Session::get_tools_search_paths` (rustc_session/src/session.rs:825) lives in back/linker.ts until rustc_session
-  // takes it (lane ssa-linker's handoff).
+  // `Session::get_tools_search_paths` (rustc_session/src/session.rs:825) is in session.ts (lane default-sysroot); back/linker.ts
+  // keeps a forwarder of that name, which this one calls.
   /** `sess.get_tools_search_paths(self_contained)` (rustc_session/src/session.rs:825). */
   get_tools_search_paths(sess: Session, self_contained: boolean): string[] {
     return get_tools_search_paths(sess, self_contained);
