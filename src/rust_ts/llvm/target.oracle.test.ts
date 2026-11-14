@@ -23,13 +23,14 @@ import {
   DiagnosticHandler,
   ERROR_HANDLERS,
   initialize_available_targets,
-  llvm_cl_args, reset_llvm_options_for_tests,
+  llvm_cl_args,
   lookupTarget,
   mcSubtargetKey,
   ParseCommandLineOptions,
   registeredTargetNames,
   Target,
   TargetMachine,
+  with_fresh_llvm_options_for_tests,
 } from "./target.ts";
 import { TM_FIXTURES, tmArgs } from "./tm_fixture.ts";
 import { Triple } from "./triple.ts";
@@ -198,22 +199,56 @@ describe("initialize_available_targets, the target machine and the MC subtarget"
     expect(ERROR_HANDLERS.ErrorHandler?.name).toBe("FatalErrorHandler");
     expect(ERROR_HANDLERS.BadAllocErrorHandler?.name).toBe("BadAllocErrorHandler");
     expect(ERROR_HANDLERS.newHandlerInstalled).toBe(true);
+    // RustWrapper.cpp:130 calls `sys::DisableSystemDialogsOnCrash()`, whose Unix definition (Signals.inc:991) is empty: no stop
+    // on this host (review root-w56-check 1). On a Windows host it stops by name.
+    expect(L.IMPLEMENTED.has("LLVMRustDisableSystemDialogsOnCrash")).toBe(true);
+    expect(L.LLVMRustDisableSystemDialogsOnCrash()).toBeUndefined();
+  });
+
+  // RustWrapper.cpp:87 FatalErrorHandler writes `"rustc-LLVM ERROR: " << Reason << std::endl` to `std::cerr` and exits 101;
+  // without a handler, ErrorHandling.cpp:103 report_fatal_error writes `"LLVM ERROR: " ... "\n"` to fd 2 and exits 1 when
+  // `GenCrashDiag` is false. Each runs in a child process, as both end it. The fatal one runs under an `OUTPUT_CAPTURE`, which
+  // C++'s writes to fd 2 bypass (review root-w56-recheck nits 1 and 3). BadAllocErrorHandler is not run: it ends in `abort()`,
+  // and on macOS every abort writes a crash report under ~/Library/Logs/DiagnosticReports.
+  test("the fatal error handler's text and exit code, and report_fatal_error's without a handler (child processes)", () => {
+    const run = (body: string): { stderr: string; stdout: string; exitCode: number | null } => {
+      const script = `import * as T from ${JSON.stringify(join(import.meta.dir, "target.ts"))};
+        import { set_output_capture } from ${JSON.stringify(join(import.meta.dir, "..", "..", "std", "io.ts"))};
+        ${body}`;
+      const r = Bun.spawnSync([process.execPath, "-e", script], { stdout: "pipe", stderr: "pipe" });
+      return { stderr: r.stderr.toString(), stdout: r.stdout.toString(), exitCode: r.exitCode };
+    };
+    expect(run(`T.LLVMRustInstallErrorHandlers(); set_output_capture([]); T.report_fatal_error("boom");`)).toEqual({ stderr: "rustc-LLVM ERROR: boom\n", stdout: "", exitCode: 101 });
+    expect(run(`T.report_fatal_error("boom", false);`)).toEqual({ stderr: "LLVM ERROR: boom\n", stdout: "", exitCode: 1 });
   });
 
   test("LLVMRustSetLLVMOptions: the accepted arguments, once; anything else stops", () => {
     const argv0 = 'rustc -Cllvm-args="..." with';
-    // Another test file in this process may have driven `init`, which sets the options once (root at integ-w56).
-    reset_llvm_options_for_tests();
-    expect(llvm_cl_args()).toEqual([]);
-    // (The first call wins, so the stops are checked on the parser itself.)
-    stops(() => ParseCommandLineOptions(2, [argv0, "-time-passes"]), /cl::ParseCommandLineOptions of "-time-passes"/);
-    stops(() => ParseCommandLineOptions(3, [argv0, "-enable-tail-merge=0", "-enable-tail-merge=0"]), /given twice/);
-    expect(llvm_cl_args()).toEqual([]);
-    const args = [argv0, "-generate-arange-section", "-mergefunc-use-aliases", "-preserve-alignment-assumptions-during-inlining=false", "-import-cold-multiplier=0.1"];
-    L.LLVMRustSetLLVMOptions(args.length, args);
-    expect(llvm_cl_args()).toEqual(args.slice(1));
-    L.LLVMRustSetLLVMOptions(2, [argv0, "-time-passes"]);
-    expect(llvm_cl_args()).toEqual(args.slice(1));
+    // Another test file in this process may have driven `init`, which sets the options once (root at integ-w56). The test runs
+    // on fresh options and puts the process's back afterwards, so no later file's `opt`/`llc` run sees its arguments (review
+    // root-w56-check 3).
+    const before = llvm_cl_args();
+    with_fresh_llvm_options_for_tests(() => {
+      expect(llvm_cl_args()).toEqual([]);
+      // (The first call wins, so the stops are checked on the parser itself.)
+      stops(() => ParseCommandLineOptions(2, [argv0, "-time-passes"]), /cl::ParseCommandLineOptions of "-time-passes"/);
+      stops(() => ParseCommandLineOptions(3, [argv0, "-enable-tail-merge=0", "-enable-tail-merge=0"]), /given twice/);
+      expect(llvm_cl_args()).toEqual([]);
+      const args = [argv0, "-generate-arange-section", "-mergefunc-use-aliases", "-preserve-alignment-assumptions-during-inlining=false", "-import-cold-multiplier=0.1"];
+      L.LLVMRustSetLLVMOptions(args.length, args);
+      expect(llvm_cl_args()).toEqual(args.slice(1));
+      L.LLVMRustSetLLVMOptions(2, [argv0, "-time-passes"]);
+      expect(llvm_cl_args()).toEqual(args.slice(1));
+    });
+    expect(llvm_cl_args()).toBe(before);
+    // A stop inside puts them back too.
+    expect(() =>
+      with_fresh_llvm_options_for_tests(() => {
+        L.LLVMRustSetLLVMOptions(2, [argv0, "-generate-arange-section"]);
+        ParseCommandLineOptions(2, [argv0, "-time-passes"]);
+      }),
+    ).toThrow(Unported);
+    expect(llvm_cl_args()).toBe(before);
   });
 
   test("diagnostic handlers: get moves the context's handler out, configure installs rustc's, set puts one back", () => {
