@@ -6,7 +6,8 @@
 // `get_metadata_xcoff`) is ported; of the write half, wrapper files for ELF and Mach-O targets (lanes miri-sysroot,
 // object-write-macho; vendor `object::write`): `create_object_file`, `add_gnu_property_note`, `create_wrapper_file` stop
 // `unported` on COFF and XCOFF, and so does
-// `elf_e_flags` on the architectures with non-zero flags. Compressed metadata files stay `unported` (dylibs, M7). `&Path` is a `string` (`path.display()` is the string itself);
+// `elf_e_flags` on the architectures with non-zero flags. `create_compressed_metadata_file` is ported for ELF and Mach-O (lane
+// vendor-object-write); its XCOFF and wasm branches stop `unported`. `&Path` is a `string` (`path.display()` is the string itself);
 // `OwnedSlice` is a `Uint8Array` view into the mapped file (owned_slice.ts).
 // PORT: `rustc_metadata::fs::METADATA_FILENAME` is copied here (fs.rs is the locator lane's).
 // `debug!` tracing calls are kept as comments.
@@ -14,6 +15,8 @@
 import { File as FsFile, Mmap } from "../../rustc_data_structures/memmap.ts";
 import { type OwnedSlice, try_slice_owned } from "../../rustc_data_structures/owned_slice.ts";
 import type { MetadataLoader } from "../../rustc_metadata/creader.ts";
+import type { EncodedMetadata } from "../../rustc_metadata/rmeta/encoder.ts";
+import { METADATA_HEADER } from "../../rustc_metadata/rmeta/mod.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { Target } from "../../rustc_target/spec/mod.ts";
 import { display_IoError } from "../../std/io.ts";
@@ -23,7 +26,14 @@ import { type Architecture, type BinaryFormat, SectionKind } from "../../vendor/
 import * as elf from "../../vendor/object/elf.ts";
 import type { Endianness } from "../../vendor/object/endian.ts";
 import * as macho from "../../vendor/object/macho.ts";
-import { MachOBuildVersion, Object as WriteObject, set_macho_build_version, set_macho_cpu_subtype } from "../../vendor/object/write/mod.ts";
+import {
+  debug_Error as debug_WriteError,
+  MachOBuildVersion,
+  Object as WriteObject,
+  set_macho_build_version,
+  set_macho_cpu_subtype,
+  Symbol as WriteSymbol,
+} from "../../vendor/object/write/mod.ts";
 import * as apple from "./apple.ts";
 import { ArchiveFile } from "../../vendor/object/read/archive.ts";
 import { File } from "../../vendor/object/read/any.ts";
@@ -364,8 +374,42 @@ export function create_wrapper_file(sess: Session, section_name: string, data: U
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/metadata.rs:567 create_compressed_metadata_file
-export function create_compressed_metadata_file(_sess: Session, _metadata: unknown, _symbol_name: string): Uint8Array {
-  return unported("rustc_codegen_ssa::back::metadata::create_compressed_metadata_file (object write, M5)");
+export function create_compressed_metadata_file(sess: Session, metadata: EncodedMetadata, symbol_name: string): Uint8Array {
+  const stub_or_full = metadata.stub_or_full();
+  const packed_metadata = new Uint8Array(METADATA_HEADER.length + 8 + stub_or_full.length);
+  packed_metadata.set(METADATA_HEADER);
+  // `packed_metadata.write_all(&(metadata.stub_or_full().len() as u64).to_le_bytes()).unwrap()`
+  new DataView(packed_metadata.buffer).setBigUint64(METADATA_HEADER.length, BigInt(stub_or_full.length), true);
+  packed_metadata.set(stub_or_full, METADATA_HEADER.length + 8);
+
+  const file = create_object_file(sess);
+  if (file === undefined) {
+    if (sess.target.options.is_like_wasm) {
+      return create_metadata_file_for_wasm(sess, packed_metadata, ".rustc");
+    }
+    return packed_metadata.slice();
+  }
+  if (file.format() === "Xcoff") {
+    return create_compressed_metadata_file_for_xcoff(file, packed_metadata, symbol_name);
+  }
+  const section = file.add_section(file.segment_name("Data").slice(), utf8.encode(".rustc"), SectionKind.ReadOnlyData);
+  switch (file.format()) {
+    case "Elf":
+      // Explicitly set no flags to avoid SHF_ALLOC default for data section.
+      file.section_mut(section).flags = { $: "Elf", sh_flags: 0 };
+      break;
+    default:
+      break;
+  }
+  const offset = file.append_section_data(section, packed_metadata, 1);
+
+  // For MachO and probably PE this is necessary to prevent the linker from throwing away the
+  // .rustc section. For ELF this isn't necessary, but it also doesn't harm.
+  file.add_symbol(new WriteSymbol(utf8.encode(symbol_name), offset, packed_metadata.length, "Data", "Dynamic", false, { $: "Section", _0: section }, { $: "None" }));
+
+  const out = file.write();
+  if (out.$ === "Err") return panic(`called \`Result::unwrap()\` on an \`Err\` value: ${debug_WriteError(out._0)}`);
+  return out._0;
 }
 
 /// * Xcoff - On AIX, custom sections are merged into predefined sections,
