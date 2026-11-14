@@ -94,7 +94,7 @@ import { ArchiveFile } from "../../vendor/object/read/archive.ts";
 import { File as ReadFile } from "../../vendor/object/read/any.ts";
 import { display_Error as display_ReadError } from "../../vendor/object/read/mod.ts";
 import { SectionKind } from "../../vendor/object/common.ts";
-import { type Error as WriteError, type Object as WriteObject, type SectionId as WriteSectionId, Symbol as WriteSymbol } from "../../vendor/object/write/mod.ts";
+import { type Error as WriteError, type Object as WriteObject, type SectionId as WriteSectionId, Symbol as WriteSymbol, type SymbolId as WriteSymbolId } from "../../vendor/object/write/mod.ts";
 import { eval_config_entry, EvalConfigResult } from "../../rustc_attr_parsing/attributes/cfg.ts";
 import type { CrateSource } from "../../rustc_crate_store/cstore.gen.ts";
 import * as jobserver from "../../rustc_data_structures/jobserver.ts";
@@ -4251,8 +4251,6 @@ function io_error_new(kind: ErrorKind, error: string): IoError {
 /** `libc::E2BIG` of the host (`#[cfg(unix)]` `command_line_too_big`). */
 const LIBC_E2BIG: number = (require("node:os") as typeof import("node:os")).constants.errno.E2BIG;
 
-/** `object::write::SymbolId` (an index into `Object::symbols`; not in the vendored writer yet). */
-type WriteSymbolId = number & { readonly __brand: "write::SymbolId" };
 
 /** `#[derive(Debug)] struct object::write::Error(String)`. */
 function debug_WriteError(e: WriteError): string {
@@ -4403,19 +4401,15 @@ export const xlane = {
     return raw_dylib.create_raw_dylib_dll_import_libs(sess, archive_builder_builder, used_libraries, tmpdir, is_direct_dependency);
   },
 
-  // Vendor `object` (write/mod.ts) and back/apple.ts: what link.rs :2105-end calls there that is not ported yet stops in its
-  // owner, through these forwarders, so tests can replace them (lane ssa-link-b's handoff).
-  /** `file.add_symbol(symbol)` (object 0.39.1 write/mod.rs `Object::add_symbol`). PORT: not in the vendored writer (symbols). */
-  Object_add_symbol(_file: WriteObject, _symbol: WriteSymbol): WriteSymbolId {
-    return unported("object::write::Object::add_symbol (vendor object: symbols are not ported; add_linked_symbol_object)");
+  // Vendor `object` (write/mod.ts) and back/apple.ts: forwarders to the ports (lane vendor-object-write; root at integ-w58), kept
+  // so tests can replace them (lane ssa-link-b's handoff).
+  /** `file.add_symbol(symbol)` (object 0.39.1 write/mod.rs `Object::add_symbol`). */
+  Object_add_symbol(file: WriteObject, symbol: WriteSymbol): WriteSymbolId {
+    return file.add_symbol(symbol);
   },
-  /**
-   * `file.set_subsections_via_symbols()` (object 0.39.1 write/mod.rs: `debug_assert!(self.format == MachO);
-   * self.macho_subsections_via_symbols = true`). PORT: the method is not in the vendored writer; its field is, and this sets it.
-   */
+  /** `file.set_subsections_via_symbols()` (object 0.39.1 write/mod.rs:307). */
   Object_set_subsections_via_symbols(file: WriteObject): void {
-    // debug_assert!(self.format == BinaryFormat::MachO);
-    file.macho_subsections_via_symbols = true;
+    file.set_subsections_via_symbols();
   },
   /** `apple::add_data_and_relocation(&mut file, section, symbol, &sess.target, kind)` (apple.rs:81). */
   apple_add_data_and_relocation(file: WriteObject, section: WriteSectionId, symbol: WriteSymbolId, target: Target, kind: SymbolExportKind): Result<null, WriteError> {

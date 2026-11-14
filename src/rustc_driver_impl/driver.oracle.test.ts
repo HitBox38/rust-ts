@@ -92,6 +92,10 @@ const MATCH: string[][] = [
   [],
   ["-o"],
   ["--explain"],
+  // Without `--sysroot`, crate search uses the default sysroot (the oracle's, rustc_session/filesearch.ts `default_sysroot`), and
+  // the compile links through the port (lanes ssa-link-b, vendor-object-write; root at integ-w58).
+  ["x.rs"],
+  ["-ooptimize", "x.rs"],
 ];
 
 /** [args, the `unported(..)` text the port may stop at until the pending lane lands] */
@@ -100,10 +104,6 @@ const PENDING: [string[], string][] = [
   [["--edition=2015", "-Zunpretty=ast-tree", "nonexist.rs"], "std::io::Error::kind (decode_error_kind, os error ENOENT)"],
   [["-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
   [["--edition=2024", "-Zunpretty=normal", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
-  // Without `--sysroot`, crate search uses the default sysroot (the oracle's, rustc_session/filesearch.ts `default_sysroot`), and
-  // the compile goes on to the link, which waits for lane ssa-link-b.
-  [["x.rs"], "ssa-link-b: self_contained_components"],
-  [["-ooptimize", "x.rs"], "ssa-link-b: self_contained_components"],
   [["-Zui-testing", "--edition=2021", "-Zunpretty=ast-tree", "x.rs"], "rustc_parse::parser::item::Parser::parse_crate_mod"],
 ];
 
