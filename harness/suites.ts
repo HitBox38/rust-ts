@@ -2383,8 +2383,10 @@ export function rustTestHelpersDir(): string {
 let nativeKeyMemo: string | undefined;
 /**
  * `Suite.oracleKey` of a native suite: the wrapper and the masks it applies (scripts/lib/unstable.ts), the oracle rustc build (and so its
- * std), and what else decides the program and its run on this machine: `cc -v` and `ld -v` (the link), the SDK version, and the OS build
- * (`sw_vers`: libSystem, the sandbox, `perl`).
+ * std), and what else decides the program and its run on this machine: `cc -v` and `ld -v` (the link), the SDK version, the OS build
+ * (`sw_vers`: libSystem, the sandbox, `perl`), and where the case directories are (`nativeDir`'s root: the program's path is its `argv[0]`,
+ * and `-Crpath` writes the way from it to the sysroot). The rest is in the case: the compiler argv and run options (`args`), the compile's
+ * environment (`env`), the test file and what it may read (difftest's own key parts).
  */
 const nativeOracleKey = (): string => {
   if (nativeKeyMemo !== undefined) return nativeKeyMemo;
@@ -2393,7 +2395,7 @@ const nativeOracleKey = (): string => {
     return `${r.exitCode}\0${r.stdout.toString()}\0${r.stderr.toString()}`;
   };
   const tools = [out(["cc", "-v"]), out(["ld", "-v"]), out(["xcrun", "--show-sdk-version"]), out(["sw_vers"])];
-  return (nativeKeyMemo = hash([hash(readFileSync(NATIVE_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "unstable.ts"))), rustcDriverHash(), ...tools].join("\0")));
+  return (nativeKeyMemo = hash([hash(readFileSync(NATIVE_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "unstable.ts"))), rustcDriverHash(), join(DATA, "native"), ...tools].join("\0")));
 };
 /** A native suite (see above). */
 const nativeSuite = (d: { name: string; description: string; cwd: string; cases: () => Case[]; skipped?: () => SkippedCase[]; criterion?: Suite["criterion"] }): Suite => ({

@@ -148,7 +148,10 @@ const host = ct.withCompiletestTarget(oracleHost(), set);
 const after = set();
 const fake = { id: "tests/ui/a.rs", file: "tests/ui/a.rs", args: ["--expect", "run-pass", "--", "tests/ui/a.rs", "-O"] };
 const hello = get("native-hello").cases()[0];
+const { asSubjectSide } = await import(${JSON.stringify(join(REPO, "scripts/oracle-self.ts"))});
 console.log(JSON.stringify({
+  selfSide: asSubjectSide(get("run-pass-native").oracle([fake])).slice(4, 8),
+  selfIr: asSubjectSide(get("ir-run-pass").oracle([fake])).slice(4, 6),
   before, host, after, hostName: oracleHost(),
   ir: ["ir-run-pass", "ir-run-pass-o0", "ir-host"].map((n) => [get(n).irTier, get(n).criterion?.percent ?? null, get(n).oracle([fake]).slice(1, 2)[0].split("/").pop()]),
   native: ["native-hello", "run-pass-native", "run-fail-native"].map((n) => [get(n).criterion?.percent ?? null, get(n).timeoutMs, get(n).oracleTimeoutMs]),
@@ -189,6 +192,9 @@ console.log(JSON.stringify({
   expect(j.empty).toEqual(["--", "rustc", expect.stringMatching(/^\+nightly/)]);
   expect(j.hello.file).toBe("harness/corpus/miri/hello.rs");
   expect(j.hello.args.slice(j.hello.args.indexOf("--"))).toEqual(["--", "--target", "aarch64-apple-darwin", "--sysroot", expect.any(String), "--edition=2021", "harness/corpus/miri/hello.rs"]);
+  // scripts/oracle-self.ts: the oracle's command as the subject side, still with the oracle's compiler.
+  expect(j.selfSide).toEqual(["--side", "subject", "--runs", "1"]);
+  expect(j.selfIr).toEqual(["--side", "subject"]);
   expect(j.helpers).toEqual(["x", "-Crpath", "-Cdebuginfo=0", "-Lnative=/h", "-g"]);
   expect(j.helpersOwnDebug).toEqual(["x", "-Crpath", "-Lnative=/h", "-g"]);
   expect(j.helpersNone).toContain("-Crpath");
