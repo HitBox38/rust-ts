@@ -704,3 +704,14 @@ Register the ported backend so `--emit=llvm-ir` reaches the IR model's printer, 
 | fixers-57 | wave 40p's queued items: `LLVMRustDisableSystemDialogsOnCrash`, the fatal handler's stderr and its child-process test, root-w56-check 2-4, root-w56-recheck nits, lane-review N items | done (t3/fix-llvm-handler-nits, 641302f0): `init` now finishes with `CI` set (the Unix no-op; win32 stops by name); handlers write fd 2 directly, child-process test pins text and exit 101; llir-tools notes 1, 4 (note 2 waits for cg-register, note 3 no seam); cg-di-a N1, N3, N6, cg-lto-diag N1, N3-N5; llir-init-recheck R1, R3, R4 left to queue; APPROVE WITH NITS (docs/reviews/fixers-57.md on review/fixers-57, 1774b6f5: six mutations caught, ffi.ts regenerates unchanged, merges cleanly with cg-register; N1 cg-lto-diag handoff wording, N2 the reset does not clear llvm_util's `INIT`) |
 
 **Queued (wave 40q):** root-w57-check N1; mono-run-head N1-N4; `default-sysroot` (rustc_session/filesearch.ts, decision recorded); ssa-linker N1-N4; fixers-57 N1, N2; ssa-link-a N1-N3; llir-tools-recheck-2 note 2 (after cg-register), llir-init-recheck R1, R3, R4; `ssa-link-b` (link.rs :2105-end, `link/raw_dylib.rs`); the ThinLTO embedded-bitcode buffer for optimised rlibs; fat-LTO model calls and pinning `llvm-link` (a `scripts/` batch); `uselistorder` directives (waits, decision recorded); `-g` (llir-di, cg-di-b, wave 44); moving `init`/`target_config` to the model once it reproduces the oracle table for every target there.
+
+## Wave 40r (started 2026-11-14) — M7b: the rest of link.rs, the default sysroot, M7b suites, first IR differences
+M7a is met (milestone recorded; gate-20261114-065555-root-0e2v). M7b needs `native-hello`, `run-pass-native` >= 80% and `ir-run-pass` >= 70% (plan-m7 §6). This wave ports the rest of linking, gives the port the oracle's default sysroot (decision recorded), adds the M7b suites as report-only, and starts fixing IR from first differences. Five lanes; the w40q regression audit runs alongside.
+
+| lane | scope | status |
+|---|---|---|
+| ssa-link-b | `rustc_codegen_ssa/src/back/link.rs` :2105-end, `link/raw_dylib.rs`; ssa-link-a review N1-N3 | started |
+| default-sysroot | `rustc_session` `filesearch` default sysroot = the oracle's (decision recorded); `Session::get_tools_search_paths` into session.ts; ssa-linker review N1-N4 | started |
+| harness-m7b | harness batch: `ir-run-pass`, `ir-run-pass-o0`, `ir-host`, `native-hello`, `run-pass-native`, `run-fail-native` (plan-m7 §6), report only; mono-run-head N1, N2, N4 | started |
+| ir-fix-a | first IR differences on the run-pass corpus through `scripts/ir-diff.ts` (x86 intrinsic table first) | started |
+| fixers-58 | queued nits: fixers-57 N1-N2, llir-tools-recheck-2 note 2, llir-init-recheck R1, R3, R4, root-w57-check N1, mono-run-head N3, ssa-archive-recheck note 2 | started |

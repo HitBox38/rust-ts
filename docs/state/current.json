@@ -1,5 +1,5 @@
 {
-  "milestone": "M6",
+  "milestone": "M7",
   "pin": "6f5da406b56c2db6607202b63daee73aa8c61297",
   "protected": {
     "check-core": 1,
@@ -64,7 +64,7 @@
     "pm-expanded": 282,
     "miri-pass-heavy": 8
   },
-  "updated": "2026-11-14T12:58:34.714Z",
+  "updated": "2026-11-14T13:08:31.525Z",
   "open_stops": [],
   "coverage": {
     "ported": 26088,
