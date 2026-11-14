@@ -314,6 +314,39 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
     expect(L.LLVMRustCreateRangeAttribute(mc, 8, [0x180n], [0x7fn])).toBe(L.LLVMRustCreateRangeAttribute(mc, 8, [0x80n], [0x17fn]));
   });
 
+  test("memory attributes (LLVMRustCreateMemoryEffectsAttr) print as libLLVM's, alone and in sorted sets (lane ir-fix-a)", () => {
+    const rc = lib.LLVMContextCreate();
+    const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    // `MemoryEffects::toIntValue()`: two bits per location (ArgMem, InaccessibleMem, ErrnoMem, Other, TargetMem0, TargetMem1).
+    const all = (mr: bigint): bigint => [0n, 1n, 2n, 3n, 4n, 5n].reduce((d, l) => d | (mr << (2n * l)), 0n);
+    const effects: [L.MemoryEffects, bigint][] = [
+      ["None", all(0n)],
+      ["ReadOnly", all(1n)],
+      ["InaccessibleMemOnly", 3n << 2n],
+      ["ReadOnlyNotPure", all(1n) | (3n << 2n)],
+    ];
+    const rVoid = lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([]), 0, 0);
+    const mVoid = L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [], 0, L.FALSE);
+    effects.forEach(([e, v], i) => {
+      // Alone, and with attributes of the kinds rustc puts beside it (nounwind before, a string attribute after).
+      for (const [j, extra] of [[], [enumSpec("nounwind", "NoUnwind"), strSpec("target-cpu", "x86-64")]].entries()) {
+        const name = `m${i}_${j}`;
+        const rf = lib.LLVMAddFunction(rm, cstr(name), rVoid);
+        const mf = L.LLVMAddFunction(mm, name, mVoid);
+        for (const s of extra) lib.LLVMAddAttributeAtIndex(rf, 0xffffffff, s.real(rc));
+        lib.LLVMAddAttributeAtIndex(rf, 0xffffffff, lib.LLVMCreateEnumAttribute(rc, kindOf("memory"), v));
+        const attrs = [...extra.map((s) => s.model(mc)), L.LLVMRustCreateMemoryEffectsAttr(mc, e)];
+        L.LLVMRustAddFunctionAttributes(mf, 0xffffffff, attrs, attrs.length);
+      }
+    });
+    const want = noComments(message(lib.LLVMPrintModuleToString(rm)));
+    const got = noComments(printModule(mm as never));
+    expect(got.split("\n")).toEqual(want.split("\n"));
+    expect(L.LLVMRustCreateMemoryEffectsAttr(mc, "ReadOnly")).toBe(L.LLVMRustCreateMemoryEffectsAttr(mc, "ReadOnly"));
+  });
+
   test("printCallingConv: every convention 0..1023 on a declaration, 0..130 on calls", () => {
     const rc = lib.LLVMContextCreate();
     const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
