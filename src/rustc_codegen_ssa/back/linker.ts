@@ -31,7 +31,7 @@ import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { SymbolName } from "../../rustc_middle/ty/mod.ts";
 import { host_tuple } from "../../rustc_session/config.ts";
 import type { Strip } from "../../rustc_session/config.ts";
-import { make_target_bin_path } from "../../rustc_session/filesearch.ts";
+import { DEFAULT_SYSROOT_STANDIN, make_target_bin_path } from "../../rustc_session/filesearch.ts";
 import { generate_proc_macro_decls_symbol, type Session } from "../../rustc_session/session.ts";
 import { bug } from "../../rustc_span/macros.ts";
 import { type CrateNum, LOCAL_CRATE } from "../../rustc_span/def_id.ts";
@@ -213,7 +213,14 @@ export function get_linker(
 
   // The compiler's sysroot often has some bundled tools, so add it to the
   // PATH for the child.
-  const new_path: Uint8Array[] = get_tools_search_paths(sess, self_contained).map((p) => new TextEncoder().encode(p));
+  // PORT: the port has no default sysroot of its own (rustc_session/filesearch.ts `DEFAULT_SYSROOT_STANDIN`), and `all_paths`
+  // always holds it: a tools directory under the stand-in would reach the linker's environment and `--print link-args`, so it
+  // stops, as any stand-in path on its way to the output does (`displayed_sysroot_path`).
+  const new_path: Uint8Array[] = get_tools_search_paths(sess, self_contained).map((p) =>
+    new TextEncoder().encode(
+      p.startsWith(DEFAULT_SYSROOT_STANDIN) ? unported("rustc_session::filesearch::default_sysroot (the default sysroot's tools directory in the linker's PATH)") : p,
+    ),
+  );
   let msvc_changed_path = false;
   if (sess.target.is_like_msvc && msvc_tool !== undefined) {
     for (const [k, v] of msvc_tool.env()) {

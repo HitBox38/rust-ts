@@ -421,8 +421,9 @@ export class ProcessCommand {
       f += `[${debug_cstr(this.program)}] `;
     }
     f += debug_cstr(this.argv[0]!);
+    // `get_args()` yields `&OsStr`s, so the arguments print as `OsStr` (str escapes), unlike `args[0]` (a `CString`).
     for (const arg of this.get_args()) {
-      f += ` ${debug_cstr(arg)}`;
+      f += ` ${debug_os_str(arg)}`;
     }
     return f;
   }
