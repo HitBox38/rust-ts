@@ -258,7 +258,12 @@ Run at `90c24ec6` with `RUST_TS_AGENT=ir-fix-a`, `--sample 200 --jobs 6`:
 - **Nothing outside the brief's list.** Not `skeleton.test.ts`, `llvm_util.ts`, fixers-58's files, `harness/` or `scripts/`.
 
 ## Commits
-COMMITS
+- `17f47e9e` the x86 intrinsic table in the IR model (llvm.x86.sse2.pause), with the `llvm.vector.reduce.*` signatures
+- `cc84c57b` LLVMRustCreateMemoryEffectsAttr in the IR model (ffi.ts regenerated)
+- `746445a0` port the head of generic_simd_intrinsic
+- `de860a59` port va_arg.rs's emit_va_arg and the x86_64 SysV path
+- `90c24ec6` the ABI alignment of a declared pointer global in the IR model
+- `17c33511` and the next commit: this handoff
 
 ## The sample
 - **Corpus:** the run-pass corpus is the files of `run-pass-miri` and `run-pass-miri-heavy` (`harness/suites.ts`: tests/ui run-pass
