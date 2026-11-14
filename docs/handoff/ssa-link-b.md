@@ -5,6 +5,10 @@ Every function of `compiler/rustc_codegen_ssa/src/back/link.rs` from `exec_linke
 `src/rustc_codegen_ssa/back/link/raw_dylib.ts`. The five ssa-link-b stubs in link.ts's `xlane` table now forward to these ports.
 Review ssa-link-a's nits N1, N2 and N3 are fixed.
 
+**Round 2** (review `docs/reviews/ssa-link-b.md` on `t3/review-ssa-link-b-r`, 9e59c6ef: FAIL on F1): F1, N1, N3, N4 and N5
+are fixed in commit cf5ddeba; N2 and N6 are in other owners' files and are listed under "Requests for other owners". See
+"Round 2: review ssa-link-b" below.
+
 Branch `t3/port-ssa-link-b` (worktree t3-1bdee765), on `main` at e80bc814.
 
 ## Files touched
@@ -12,14 +16,19 @@ Branch `t3/port-ssa-link-b` (worktree t3-1bdee765), on `main` at e80bc814.
 - `src/rustc_codegen_ssa/back/link.ts`: the port (:2105-end), the `xlane` forwarders, helpers, N3, and `link_natively` /
   `link_staticlib` exported for the tests.
 - `src/rustc_codegen_ssa/back/link/raw_dylib.ts` (new): raw_dylib.rs whole.
-- `src/rustc_codegen_ssa/back/link_with_args.oracle.test.ts` (new): the oracle evidence below, 2 tests, about 1.5 s.
+- `src/rustc_codegen_ssa/back/link_with_args.oracle.test.ts` (new): the oracle evidence below, 4 tests, about 4.3 s.
+- `src/rustc_codegen_ssa/back/link/raw_dylib.test.ts` (new, round 2): the raw-dylib stub's file name against the oracle's.
+- `src/rustc_codegen_ssa/back/linker_oracle/` (ssa-linker's fixtures; round 2, with root's leave): `common.ts` gains
+  `EXTRA_CASES`, `regen.ts` regenerates both lists, three new crates (`nostd.rs`, `dedup.rs`, `rawdylib.rs`) and the four new
+  cases' `oracle/*.args` / `.list`. `CASES` and its fixtures are unchanged (regen rewrote them byte-identically), so
+  `linker_args.oracle.test.ts` is unchanged.
 - `src/rustc_codegen_ssa/back/link.test.ts`: the `link_staticlib` test (N2), and the misleading test title renamed (N2's
   linked nit).
 - `docs/handoff/ssa-link-a.md`: the reach claims corrected (N1).
 - `docs/handoff/ssa-link-b.md` (this file).
 
-No file of another lane was touched. In particular `back/linker.ts`, `command.ts`, `apple.ts`, `archive.ts`, `rustc_session/`,
-vendor `object`, `harness/` and `scripts/` are unchanged. ssa-linker's fixtures (`back/linker_oracle/`) are reused as they are.
+Apart from the fixture additions above, no file of another lane was touched. In particular `back/linker.ts`, `command.ts`, `apple.ts`, `archive.ts`, `rustc_session/`,
+vendor `object`, `harness/` and `scripts/` are unchanged.
 
 ## Coverage
 
@@ -100,7 +109,7 @@ script named `cc` that writes its argv and exits 0. Two checks pass:
 - the printed file equals the oracle's line;
 - the argv the linker received equals the oracle's arguments.
 
-Mutations of link.ts, each reverted with `git checkout` and the tree clean afterwards:
+Mutations of link.ts (round 1), each reverted with `git checkout` and the tree clean afterwards:
 
 | mutation | result |
 |---|---|
@@ -108,12 +117,65 @@ Mutations of link.ts, each reverted with `git checkout` and the tree clean after
 | `keep_metadata` on Cdylib instead of Dylib | fails |
 | `link_output_kind`: `Pic` no longer gives `DynamicPicExe` | fails |
 | `-mmacosx-version-min` split into two args | fails |
-| drop `add_late_link_args` | **survives**: no fixture target has late link args |
-| drop `reset_per_library_state` | **survives**: every case ends on a dynamic library already |
-| drop the consecutive-library dedup in `add_native_libs_from_crate` | **survives**: no crate repeats a library |
-| swap the metadata and allocator objects | **survives**: no case has both |
+| drop `add_late_link_args` | survived in round 1; **fails since round 2** (below) |
+| drop `reset_per_library_state` | survived in round 1; **fails since round 2** |
+| drop the consecutive-library dedup in `add_native_libs_from_crate` | survived in round 1; **fails since round 2** |
+| swap the metadata and allocator objects | survived in round 1; **fails since round 2** |
 
-The four survivors need a target or crate the fixtures do not have. A synthetic unit test could pin them (follow-up).
+### Round 2: review ssa-link-b
+
+**F1 (must fix).** raw_dylib.ts built the stub's name from the `BaseNString` object, giving `lib[object Object].so`; it now
+uses `.as_str()` (as mono.ts does). The ELF writer stand-in is reached through an exported `vendor_object` table so tests can
+give a writer (it still stops by name otherwise). Two tests pin the name against the oracle:
+- `link/raw_dylib.test.ts` calls `create_raw_dylib_elf_stub_shared_objects` for `#[link(name = "foo", kind = "raw-dylib")]`
+  with `fn foo_fn` on x86_64-linux and expects the oracle's `lib2n3wl7ye29258ssp0kfgmj7i1.so` (from the new
+  `linux-raw-dylib.args`), and the file written under it;
+- the oracle test's new linux-raw-dylib case: the whole line, with `-l:lib2n3wl7ye29258ssp0kfgmj7i1.so` after the raw-dylibs
+  `-L`, is byte-identical.
+
+**N1.** Four new oracle cases, `EXTRA_CASES` in `linker_oracle/common.ts`, written by `regen.ts` (the oracle's own lines):
+
+| case | what it pins | result |
+|---|---|---|
+| host-dylib-static (no `-Cprefer-dynamic`) | `rmeta.o` then the allocator object (link.rs:2975, :2984) | same |
+| linux-nostd-cdylib (`#![no_std]`, `-Cpanic=abort`) | the hint state ends on `-Bstatic`, so `reset_per_library_state` shows as `-Wl,-Bdynamic` (:3120) | same |
+| linux-dedup (two `#[link(name = "m")]` blocks) | one `-lm` (:3410) | same |
+| linux-raw-dylib (`kind = "raw-dylib"` on ELF) | the stub name (F1) and its `-l:` place | same |
+
+A third oracle-test test adds what no fixture target has to two linux cases' targets for the call (restored after):
+`pre_link_objects` (`crt-ssa-link-b.o`), `late_link_args_static` / `_dynamic` and `late_link_args`. It expects the oracle's
+line with the object right after `-m64` (pre-link args, then pre-link objects: :2928-2933) and `LATE-STATIC LATE` (bin) or
+`LATE-DYNAMIC LATE` (dylib, a dynamic crate) after the raw-dylibs `-L`, before `--eh-frame-hdr` (:3120-3125).
+
+The allocator decision is now checked both ways: every case whose crate links std is given an allocator module; where the
+oracle's line has none (both prefer-dynamic dylibs) the module has a made-up path that must not appear. That is what
+`--crate-type bin,dylib` gives the dylib's link. (A `#![no_std]` crate without `alloc` gets no module from codegen, so the
+nostd case is given none.)
+
+**N3.** `eii_impl_crate_name` uses `crate_info_crate_name` ("no entry found for key"). **N4.** `add_lld_args` checks every path:
+`linker_path_exists = path_exists(linker_path) || linker_path_exists`, with a comment. **N5.** A fourth test runs
+`exec_linker` with a recording `cc` that copies its `@`-file: once with the largest command the estimate lets through (the
+spawn fails with E2BIG, because the estimate counts no inherited environment, and `command_line_too_big` sends it to the
+fallback), once over the estimate (straight to the fallback). The file holds `a\ b\\c` and the filler, each with `\n`, and the
+linker gets the one `@<file>` argument.
+
+Round 2 mutations, each applied, tested (`link_with_args.oracle.test.ts` and `link/raw_dylib.test.ts`) and reverted; the
+tree was clean afterwards:
+
+| mutation | failing test(s) |
+|---|---|
+| drop `add_late_link_args` | pre-link objects and late link args |
+| drop `reset_per_library_state` | the oracle lines (linux-nostd-cdylib) |
+| drop the consecutive-library dedup | the oracle lines (linux-dedup) |
+| allocator objects before metadata objects | the oracle lines (host-dylib-static) |
+| `add_pre_link_args` after `add_pre_link_objects` (the review's fifth survivor) | pre-link objects and late link args |
+| allocator always passed (no `needs_allocator_shim_for_linking`) | the oracle lines; pre-link/late |
+| allocator never passed | the oracle lines; `link_natively`; pre-link/late |
+| `late_link_args_static` / `_dynamic` swapped | pre-link objects and late link args |
+| `@`-file: no backslash escape | `@`-file fallback |
+| `@`-file: a space instead of the newline per argument | `@`-file fallback |
+| `command_line_too_big` always false | `@`-file fallback |
+| F1: drop `.as_str()` | the oracle lines (linux-raw-dylib); the raw_dylib unit test |
 
 ### N2: `link_staticlib`
 
@@ -167,7 +229,11 @@ The input is `fn main() { println!("hello from rust-ts"); }`, built with `--edit
 - `bun scripts/coverage.ts --check`: markers ok.
 - `RUST_TS_REQUIRE_PROBES=1 bun test ./src/rustc_codegen_ssa/ ./src/std/result.test.ts ./scripts/lib/unit-steps.test.ts`:
   204 pass, 0 fail.
-- Added unit-test wall time is about 1.6 s: link_with_args.oracle 1.5 s, the link.test.ts addition under 0.1 s.
+- Added unit-test wall time (both rounds) is about 4.5 s: link_with_args.oracle 4.3 s (the `@`-file test about 2.5 s of
+  it), raw_dylib.test and the link.test.ts addition under 0.2 s.
+- Round 2: `bunx tsc` clean; `coverage --check` ok (link.rs 87/87, raw_dylib.rs 5/5);
+  `bun test ./src/rustc_codegen_ssa/ ./scripts/lib/unit-steps.test.ts` 204 pass, 0 fail; check-ui `--sample 200 --jobs 6`
+  200/200 MATCH (run 20261114-140520-ssa-link-b-c6sd).
 - `--sample 200 --jobs 6`, `RUST_TS_AGENT=ssa-link-b`:
   - check-ui: 200/200 MATCH (run 20261114-133724-ssa-link-b-a1fd).
   - rmeta-ui: 200/200 MATCH (run 20261114-133826-ssa-link-b-psda).
@@ -196,7 +262,8 @@ link.ts:
 raw_dylib.ts:
 - `object::write::elf::Writer (dynamic symbols, GNU versions and .dynamic: vendor object; raw-dylib on ELF)`.
   `create_elf_raw_dylib_stub` is ported whole against `ElfStubWriter`, an interface of exactly the writer methods it calls.
-  Getting the writer stops, so it is reached only with `kind = "raw-dylib"` on ELF. The Windows path
+  Getting the writer (`vendor_object.new_elf_stub_writer`, replaceable by tests) stops, so it is reached only with
+  `kind = "raw-dylib"` on ELF. The Windows path
   (`create_raw_dylib_dll_import_libs`) is ported and calls archive.ts's provided `create_dll_import_lib` (ar_archive_writer
   COFF, or the mingw stop).
 
@@ -239,5 +306,17 @@ raw_dylib.ts:
   `SDKROOT` set, `get_sdk_root` is the stop after the object writer.
 - **metadata.ts**: `create_compressed_metadata_file` (dylib and proc-macro links).
 - **rustc_session**: take `Session::is_wasi_reactor` (copy in link.ts) and `get_tools_search_paths` (copy in linker.ts).
-- **Follow-up tests**: a synthetic `linker_with_args` unit test for the four surviving mutations above. Tests for
+- **back/archive.ts and rustc_interface/util.ts (review ssa-link-b N2)**: raw_dylib.ts calls `create_dll_import_lib` as
+  `ArchiveBuilderBuilder_provided`'s method, receiver first, because the `ArchiveBuilderBuilder` interface has no such member.
+  Upstream (raw_dylib.rs:101) calls the trait method, and `DummyArchiveBuilderBuilder` overrides it (rustc_interface
+  util.rs:499) to write an empty archive. Its `link_binary` reaches `link_rlib`, which calls
+  `create_raw_dylib_dll_import_libs` on Windows targets (link.rs:685), so upstream succeeds where the port stops in
+  ar_archive_writer (Windows only, a stop, not a wrong output). Fix: an optional `create_dll_import_lib` on the interface,
+  used when present (then raw_dylib.ts calls it), and a port of the dummy's version. The comment at
+  rustc_interface/util.ts:365 ("only `link_natively` reaches it") is wrong. `create_dylib_metadata_wrapper` uses the same
+  pattern; no backend overrides it, so it is right today.
+- **apple.ts (review ssa-link-b N6)**: two stale comments. apple.ts:68-69 says `add_data_and_relocation` is reached "only from
+  the linker's `add_linked_symbol_object` (not ported)", and apple.ts:104 says `get_sdk_root` is reached "only from
+  `link_natively` (not ported)". Both callers are ported now.
+- **Follow-up tests**: tests for
   `report_linker_output`, `add_sanitizer_libraries` and `strip_with_external_utility`.
