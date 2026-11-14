@@ -474,7 +474,7 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
   });
 
   test("constant extractelement / insertelement and and(ptrtoint @g, C) fold as libLLVM's", () => {
-    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64"];
+    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64", "e-p:32:16-p1:16:32"];
     for (const dl of layouts) {
       const rc = lib.LLVMContextCreate();
       const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
@@ -542,6 +542,12 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
         globals.push([rg, mg]);
       }
       for (const [name, rt, mt] of [["d8", rI(8), mI(8)], ["d32", rI(32), mI(32)], ["d64", rI(64), mI(64)], ["d128", rI(128), mI(128)]] as const) globals.push([lib.LLVMAddGlobal(rm, rt, cstr(name)), L.LLVMAddGlobal(mm, mt, name)]);
+      // Declarations of pointers (lane ir-fix-a): `DataLayout::getPointerABIAlignment` of address spaces 0, 1 and 270.
+      for (const [name, as, n] of [["dp", 0, 0], ["dp1", 1, 0], ["dp270", 270, 0], ["dpa", 0, 3]] as const) {
+        const rp = lib.LLVMPointerTypeInContext(rc, as);
+        const mp = L.LLVMPointerTypeInContext(mc, as);
+        globals.push([lib.LLVMAddGlobal(rm, n === 0 ? rp : lib.LLVMArrayType2(rp, BigInt(n)), cstr(name)), L.LLVMAddGlobal(mm, n === 0 ? mp : L.LLVMArrayType2(mp, BigInt(n)), name)]);
+      }
       // A declaration of an opaque struct: unsized, so `getPointerAlignment` is `valueOrOne()` = 1 and nothing folds (review llir-folder N4).
       globals.push([lib.LLVMAddGlobal(rm, lib.LLVMStructCreateNamed(rc, cstr("O")), cstr("dO")), L.LLVMAddGlobal(mm, L.LLVMStructCreateNamed(mc, "O"), "dO")]);
       for (const [rg, mg] of globals) {
