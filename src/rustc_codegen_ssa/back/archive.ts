@@ -55,36 +55,35 @@ export type { ExtractBundledLibsError };
 
 /// An item to be included in an import library.
 /// This is a slimmed down version of `COFFShortExport` from `ar-archive-writer`.
-export interface ImportLibraryItem {
-  /// The name to be exported.
-  name: string;
-  /// The ordinal to be exported, if any.
-  ordinal: number | undefined;
-  /// The original, decorated name if `name` is not decorated.
-  symbol_name: string | undefined;
-  /// True if this is a data export, false if it is a function export.
-  is_data: boolean;
-}
+export class ImportLibraryItem {
+  constructor(
+    /// The name to be exported.
+    public name: string,
+    /// The ordinal to be exported, if any.
+    public ordinal: number | undefined,
+    /// The original, decorated name if `name` is not decorated.
+    public symbol_name: string | undefined,
+    /// True if this is a data export, false if it is a function export.
+    public is_data: boolean,
+  ) {}
 
-/** `impl ImportLibraryItem` */
-export const ImportLibraryItem = {
   // rustc: compiler/rustc_codegen_ssa/src/back/archive.rs:49 into_coff_short_export
-  into_coff_short_export(self: ImportLibraryItem, sess: Session): COFFShortExport {
-    const import_name = sess.target.arch.$ === "Arm64EC" ? self.name : undefined;
+  into_coff_short_export(sess: Session): COFFShortExport {
+    const import_name = sess.target.arch.$ === "Arm64EC" ? this.name : undefined;
     return {
-      name: self.name,
+      name: this.name,
       ext_name: undefined,
-      symbol_name: self.symbol_name,
+      symbol_name: this.symbol_name,
       import_name,
       export_as: undefined,
-      ordinal: self.ordinal ?? 0,
-      noname: self.ordinal !== undefined,
-      data: self.is_data,
+      ordinal: this.ordinal ?? 0,
+      noname: this.ordinal !== undefined,
+      data: this.is_data,
       private: false,
       constant: false,
     };
-  },
-};
+  }
+}
 
 export interface ArchiveBuilderBuilder {
   // rustc: compiler/rustc_codegen_ssa/src/back/archive.rs:67 new_archive_builder
@@ -137,7 +136,7 @@ export const ArchiveBuilderBuilder_provided = {
         return sess.dcx().emit_fatal(ErrorCreatingImportLibrary_diagnostic({ lib_name, error: display_IoError(error) }));
       }
 
-      const exports = items.map((item) => ImportLibraryItem.into_coff_short_export(item, sess));
+      const exports = items.map((item) => item.into_coff_short_export(sess));
       let machine: MachineTypes;
       switch (sess.target.arch.$) {
         case "X86_64":

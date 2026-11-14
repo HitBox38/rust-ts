@@ -1,12 +1,15 @@
 # Handoff: ssa-archive (M7b, wave 40q)
 
 **`back/archive.rs`, `back/symbol_edit.rs` and `back/rpath.rs` are ported in full (22/22, 14/14, 6/6, plus the 4 tests of
-`rpath/tests.rs`).** `ArArchiveBuilder` writes the oracle's archive bytes for an rlib and four staticlib variants on the host
-(`aarch64-apple-darwin`, darwin archive kind) and on `x86_64-unknown-linux-gnu` (gnu kind): 10 of 10 byte-identical, including
-`-Zstaticlib-rename-internal-symbols`, which rewrites the objects' string tables. `get_rpath_linker_args` gives the oracle's
+`rpath/tests.rs`).** `ArArchiveBuilder` writes the oracle's archive bytes for an rlib and eight staticlib builds on the host
+(`aarch64-apple-darwin`, darwin archive kind) and on `x86_64-unknown-linux-gnu` (gnu kind): 18 of 18 byte-identical. That
+includes `-Zstaticlib-rename-internal-symbols`, which rewrites the objects' string tables, and (since the review fix)
+`-Zstaticlib-hide-internal-symbols` on a crate where hide changes the bytes. `get_rpath_linker_args` gives the oracle's
 `-Crpath` linker arguments for both targets.
 
-Branch `t3/port-ssa-archive-symbol-rpath`, on `main` at bcbd0c28.
+Branch `t3/port-ssa-archive-symbol-rpath`, on `main` at bcbd0c28. Commit 45bf7043 is the port; the second commit fixes review
+`docs/reviews/ssa-archive.md` (commit 4ee54255 on `review/ssa-archive`): F1 (a hide fixture), N1 (pathdiff's unit tests) and
+N3 (`ImportLibraryItem` is a class). N2 is root's, at integration (see "For root").
 
 ## Files
 
@@ -17,9 +20,9 @@ Branch `t3/port-ssa-archive-symbol-rpath`, on `main` at bcbd0c28.
 | `src/rustc_codegen_ssa/back/rpath.ts` | new, 6/6 |
 | `src/rustc_codegen_ssa/back/rpath/tests.test.ts` | new: upstream's 4 tests |
 | `src/rustc_codegen_ssa/back/archive_oracle.test.ts` | new: archive bytes and `symbol_edit` against oracle fixtures (0.4 s) |
-| `src/rustc_codegen_ssa/back/archive_oracle/{nc.rs,regen.ts,fixtures.json}` | new: the fixture crate, the by-hand regeneration script, the captured oracle files (94 KB, 18 distinct blobs) |
+| `src/rustc_codegen_ssa/back/archive_oracle/{nc.rs,nc_pub.rs,regen.ts,fixtures.json}` | new: the two fixture crates, the by-hand regeneration script, the captured oracle files (137 KB, 29 distinct blobs) |
 | `src/rustc_codegen_ssa/back/rpath.oracle.test.ts` | new: `-Crpath` link args against the oracle (2 oracle runs, 0.7 s) |
-| `src/vendor/pathdiff/lib.ts`, `lib.test.ts` | new vendor crate: pathdiff 0.2.3 `diff_paths` (rpath calls it) and its doc examples |
+| `src/vendor/pathdiff/lib.ts`, `lib.test.ts` | new vendor crate: pathdiff 0.2.3 `diff_paths` (rpath calls it), its doc examples and its 6 unit tests (`mod tests`, src/lib.rs:170-251) |
 | `src/vendor/object/read/elf/symbol.ts` | `Sym_provided.name`, `Sym_provided.is_undefined`; exports `SymValue` |
 | `src/vendor/object/read/macho/symbol.ts` | `Nlist_provided.name`, `is_stab`, `is_undefined`; exports `NlistValue` |
 | `src/vendor/object/elf.ts` | constants `STB_GLOBAL`, `STB_WEAK`, `STV_HIDDEN` |
@@ -34,7 +37,10 @@ Branch `t3/port-ssa-archive-symbol-rpath`, on `main` at bcbd0c28.
    with `// crate: pathdiff-0.2.3/src/lib.rs:43 diff_paths`.
 2. `ArchiveBuilder::build(output, symbols?)`: `symbols` is optional so that the current `link.ts` (`.build(out_filename_)`,
    link.ts:349) still type-checks. Once ssa-link-a's `link.ts` passes it everywhere (upstream passes `None` explicitly at
-   link.rs:373, :1598, :3762), it can become required.
+   link.rs:373, :1598, :3762), make it required (review N2): optional, tsc would not catch a ported `link_staticlib` that
+   drops it, and the `-Zstaticlib-*` flags would be ignored silently.
+3. pathdiff's unit tests (`src/vendor/pathdiff/lib.test.ts`) name their upstream lines as `// crate pathdiff-0.2.3/...`
+   comments for the same reason as item 1; they become `// crate: ...` markers with it.
 
 ## Exports for link.rs (ssa-link-a; link-b for raw_dylib.rs)
 
@@ -45,7 +51,8 @@ From `back/archive.ts`:
   (link.rs:819, :3383), `create_dll_import_lib(abb, sess, lib_name, items, output_path)` (raw_dylib.rs:101).
 - `ArchiveBuilder` (`add_file`, `add_archive`, `build(output, symbols?)`), `ArchiveSymbols` (`{ exported: Set<string>;
   rename_suffix: string | undefined; hide: boolean }`, link.rs:869), `AddArchiveKind`, `ArchiveEntryKind`, `ArArchiveBuilder`,
-  `ArArchiveBuilderBuilder`, `ImportLibraryItem` (interface, and the const with `into_coff_short_export`),
+  `ArArchiveBuilderBuilder`, `ImportLibraryItem` (a class: `new ImportLibraryItem(name, ordinal, symbol_name, is_data)`,
+  method `into_coff_short_export(sess)`),
   `type ExtractBundledLibsError` (re-export, as upstream's `pub use`), `DEFAULT_OBJECT_READER`, `type ObjectReader`,
   `try_extract_macho_fat_archive`, `find_binutils_dlltool`, `tempfile_with_suffix` (already exported).
 
@@ -69,16 +76,33 @@ objects before any edit, `lib.rmeta`, `lib.rmeta-link`). The test adds them with
 as `RustObj`, the rest `Other`), calls `build` with the `ArchiveSymbols` that `link_staticlib` builds (exported
 `{nc_exported, NC_DATA}`, suffix `.rsc989f9563a4cdd83`), and compares the bytes:
 
-| target | rlib | plain | hide | rename | both |
-|---|---|---|---|---|---|
-| aarch64-apple-darwin (darwin) | = | = | = | = | = |
-| x86_64-unknown-linux-gnu (gnu) | = | = | = | = | = |
+| target | rlib | plain | hide | rename | both | pub-plain | pub-hide | pub-rename | pub-both |
+|---|---|---|---|---|---|---|---|---|---|
+| aarch64-apple-darwin (darwin) | = | = | = | = | = | = | = | = | = |
+| x86_64-unknown-linux-gnu (gnu) | = | = | = | = | = | = | = | = | = |
 
-Hide gives the same bytes as plain on this crate, for the oracle and the port alike: the internal globals are already hidden
-(`STV_HIDDEN`) or private extern (`N_PEXT`), so the patch rewrites the same byte. It still takes the patch path (an owned
-copy). Rename changes the bytes (string table rebuilt and appended, `e_shoff` moved on ELF), and the port matches.
+On nc.rs, hide gives the same bytes as plain, for the oracle and the port alike: the internal globals are already hidden
+(`STV_HIDDEN`) or private extern (`N_PEXT`), so the patch rewrites the same byte. That left hide unguarded (review F1: a hide
+that writes nothing passed). The `pub-*` builds fix that, from the reviewer's crate: `archive_oracle/nc_pub.rs` is nc.rs
+plus an unused `#[inline(never)] pub fn root_pub` and `pub static ROOT_DATA`, built with `--crate-type staticlib --crate-type
+rlib -Cembed-bitcode=no` and the same four flag sets. The rlib crate type keeps both items global with default visibility,
+outside the StaticLib export set, so the oracle's hide archive differs from plain in 2 bytes per target (ELF `st_other`
+0 -> 2, Mach-O `n_type` 0x0f -> 0x1f), and both differs from rename. The test asserts those differences as well as port =
+oracle. (`-Cembed-bitcode=no` only keeps `.llvmbc` out of the objects, to keep the fixture small.)
+
+**Mutation check (review F1)**, each applied to `symbol_edit.ts` and reverted (file byte-identical afterwards):
+
+| mutant | before the fix | now |
+|---|---|---|
+| M2 Mach-O hide writes `nlist.n_type` without `N_PEXT` (:450) | 0 fail | 2 fail (aarch64 pub-hide, pub-both) |
+| M3 ELF hide patch writes the old `sym.st_other` (:270) | 0 fail | 2 fail (x86_64 pub-hide, pub-both) |
+
+Rename changes the bytes (string table rebuilt and appended, `e_shoff` moved on ELF), and the port matches.
 `symbol_edit` is also checked directly: `collect_internal_names` on the plain objects finds exactly the two mangled internal
 names on both targets (Mach-O's leading `_` stripped), and `apply_edits` with nothing to do returns its input (`Cow::Borrowed`).
+
+**pathdiff**: `src/vendor/pathdiff/lib.test.ts` has the doc examples and the crate's 6 unit tests (review N1; Unix variant
+of `test_absolute`; results compared by components, as `PathBuf ==` does, through `path_eq`): 8 pass.
 
 **rpath**: `rpath/tests.test.ts` (upstream's 4 tests) pass. `rpath.oracle.test.ts` builds `fn main() {}` with
 `-Crpath -Cprefer-dynamic --print link-args` and a stub linker named `fake-gcc` (the `Gcc` flavor, as with `cc`) for both
@@ -91,12 +115,15 @@ rpath/tests.rs 4/4. `--check`: markers ok.
 
 **Checks**: `bunx tsc --noEmit -p .` clean. `bun test ./src/rustc_codegen_ssa/ ./src/vendor/ar_archive_writer/
 ./src/std/result.test.ts ./scripts/lib/unit-steps.test.ts ./src/vendor/pathdiff/ ./src/vendor/object/`: 197 pass, 0 fail
-(added tests: about 1.1 s). `bun test src/rustc_codegen_llvm/back/`: 14 pass.
+(added tests: about 1.1 s). `bun test src/rustc_codegen_llvm/back/`: 14 pass. After the review fix:
+`bun test ./src/rustc_codegen_ssa/ ./src/vendor/ar_archive_writer/ ./src/std/result.test.ts ./scripts/lib/unit-steps.test.ts
+./src/vendor/pathdiff/`: 200 pass, 0 fail; tsc clean; markers ok.
 `difftest --sample 200 --jobs 6`: rmeta-ui 200/200 MATCH (run 20261114-060117-root-106q), check-ui 200/200 MATCH
 (run 20261114-060240-root-pnt3).
 
 **Regenerating the fixtures**: `bun src/rustc_codegen_ssa/back/archive_oracle/regen.ts` (by hand, on the root host; it runs
-the oracle in a temp dir under `$RUST_TS_DATA/tmp` and rewrites `fixtures.json`).
+the oracle in a temp dir under `$RUST_TS_DATA/tmp` and rewrites `fixtures.json`). With the `pub-*` builds added, it
+reproduced every earlier blob unchanged.
 
 ## `unported(...)` left
 
