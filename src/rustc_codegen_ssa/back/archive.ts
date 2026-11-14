@@ -284,7 +284,7 @@ export interface ArchiveBuilder {
   add_archive(archive: string, kind: AddArchiveKind): IoResult<null>;
 
   // rustc: compiler/rustc_codegen_ssa/src/back/archive.rs:329 build
-  build(output: string, symbols?: ArchiveSymbols): boolean;
+  build(output: string, symbols: ArchiveSymbols | undefined): boolean;
 }
 
 // rustc: compiler/rustc_codegen_ssa/src/back/archive.rs:332 target_archive_format_to_object_kind
@@ -596,7 +596,7 @@ export class ArArchiveBuilder implements ArchiveBuilder {
   /// Combine the provided files, rlibs, and native libraries into a single
   /// `Archive`.
   // rustc: compiler/rustc_codegen_ssa/src/back/archive.rs:554 build
-  build(output: string, symbols?: ArchiveSymbols): boolean {
+  build(output: string, symbols: ArchiveSymbols | undefined): boolean {
     const sess = this.sess;
     const r = this.build_inner(output, symbols);
     if (r.$ === "Ok") {

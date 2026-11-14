@@ -28,8 +28,7 @@ import { type Component, path_components, path_is_absolute, path_join } from "..
 /// assert_eq!(diff_paths("/foo/bar",      "/baz"),          Some("../foo/bar".into()));
 /// assert_eq!(diff_paths("foo",           "bar"),           Some("../foo".into()));
 /// ```
-// PORT: vendor marker pending: harness/scope.json does not list pathdiff yet (root adds `"pathdiff": "=0.2.3"`, then this
-// line becomes `// crate` + `: pathdiff-0.2.3/src/lib.rs:43 diff_paths`).
+// crate: pathdiff-0.2.3/src/lib.rs:43 diff_paths
 export function diff_paths(path: string, base: string): string | undefined {
   if (path_is_absolute(path) !== path_is_absolute(base)) {
     if (path_is_absolute(path)) {

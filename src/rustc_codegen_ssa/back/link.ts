@@ -5,9 +5,9 @@
 //
 // PORT:
 // - Calls into other lanes' functions (link.rs :2105-end, back/linker.rs, back/command.rs, back/archive.rs) go through the
-//   `xlane` stub table at the end of this file, which root points at the ports as they land (mir/mod.ts convention). The
-//   types those lanes own (`Command`, `dyn Linker`, `ArchiveSymbols`, `jobserver::Acquired`, `process::Output`) are
-//   interface stand-ins next to it.
+//   `xlane` table at the end of this file (mir/mod.ts convention): forwarders to back/linker.ts, back/command.ts and
+//   back/archive.ts (root at integ-w57), stubs for ssa-link-b's. `Command`, `dyn Linker` (`DynLinker`), `ArchiveSymbols`
+//   and `process::Output` are imported; `jobserver::Acquired` is an interface stand-in until ssa-link-b.
 // - `thorin` (split DWARF packaging), `find_msvc_tools` and the Windows API (`mod win`) are not vendored: their uses stop.
 // - `LinkingFailed`, `ProcessingDymutilFailed` and `StrippingDebugInfoFailed` are not generated (their `ExitStatus` /
 //   `Command` fields): emitting them stops.
@@ -82,7 +82,9 @@ import { debug_LinkerFlavor, LinkerFeatures, LinkerFlavor, type LinkOutputKind, 
 import type { CrtObjects } from "../../rustc_target/spec/crt_objects.ts";
 import { SanitizerSet } from "../../rustc_target/stand_ins.ts";
 import { FileHeader32_impl, FileHeader64_impl, FileHeader_provided } from "../../vendor/object/read/elf/file.ts";
-import type { ArchiveBuilder, ArchiveBuilderBuilder, ArchiveEntryKind } from "./archive.ts";
+import { type ArchiveBuilder, type ArchiveBuilderBuilder, type ArchiveEntryKind, type ArchiveSymbols, ArchiveBuilderBuilder_provided } from "./archive.ts";
+import { Command, debug_Command, type ExitStatus, type Output } from "./command.ts";
+import { type DynLinker as Linker, disable_localization, get_tools_search_paths } from "./linker.ts";
 import { create_wrapper_file } from "./metadata.ts";
 import * as rmeta_link from "./rmeta_link.ts";
 import { RmetaLinkCache } from "./rmeta_link.ts";
@@ -2177,48 +2179,12 @@ function join_paths(paths: readonly string[]): string {
 }
 
 // ---- Stand-ins for types of other lanes (PORT) -----------------------------------------------------------------------
-// The lanes that own them land in parallel (wave 40q); root replaces these with their exports at integration.
-
-/** `std::process::ExitStatus`: what link.rs calls on it. */
-export interface ExitStatus {
-  success(): boolean;
-  code(): number | undefined;
-}
-
-/** `std::process::Output`. */
-export interface Output {
-  status: ExitStatus;
-  stdout: Uint8Array;
-  stderr: Uint8Array;
-}
-
-/** `back::command::Command` (lane ssa-linker): the methods link.rs calls. Arguments are UTF-8 strings (`OsString`). */
-export interface Command {
-  arg(arg: string): Command;
-  args(args: readonly string[]): Command;
-  env(key: string, value: string): Command;
-  env_remove(key: string): Command;
-  get_args(): readonly string[];
-  take_args(): string[];
-  output(): IoResult<Output>;
-}
-
-/** `dyn back::linker::Linker` (lane ssa-linker): the trait methods link.rs :1-2104 calls. */
-export interface Linker {
-  link_dylib_by_name(name: string, verbatim: boolean, as_needed: boolean): void;
-  link_staticlib_by_path(path: string, whole_archive: boolean): void;
-}
+// `Command`, `Output`, `ExitStatus` (back/command.ts), `dyn Linker` (back/linker.ts `DynLinker`) and `ArchiveSymbols`
+// (back/archive.ts) are imported (root at integ-w57); `jobserver::Acquired` waits for ssa-link-b.
 
 /** `rustc_data_structures::jobserver::Acquired` (lane ssa-link-b gives them out of `linker_with_args`); dropping releases. */
 export interface JobserverAcquired {
   drop(): void;
-}
-
-/** `back::archive::ArchiveSymbols` (lane ssa-archive). */
-export interface ArchiveSymbols {
-  exported: Set<string>;
-  rename_suffix: string | undefined;
-  hide: boolean;
 }
 
 /** `diagnostics::LinkingFailed<'a>` (not generated: `ExitStatus` / `Command` fields; diagnostics.ts). */
@@ -2303,50 +2269,47 @@ export const xlane = {
     return unported("ssa-link-b: create_raw_dylib_dll_import_libs");
   },
 
-  // ssa-linker: back/linker.rs and back/command.rs.
+  // ssa-linker: back/linker.rs and back/command.rs (forwarders; root at integ-w57).
   /** `linker::disable_localization(&mut cmd)` (linker.rs:39). */
-  disable_localization(_cmd: Command): void {
-    unported("ssa-linker: disable_localization");
+  disable_localization(cmd: Command): void {
+    disable_localization(cmd);
   },
   /** `Command::new(program)` (command.rs). */
-  Command_new(_program: string): Command {
-    return unported("ssa-linker: Command::new");
+  Command_new(program: string): Command {
+    return Command.new(program);
   },
   /** `format!("{cmd:?}")`: `impl fmt::Debug for Command` (command.rs:209). */
-  debug_Command(_cmd: Command): string {
-    return unported("ssa-linker: <Command as Debug>::fmt");
+  debug_Command(cmd: Command): string {
+    return debug_Command(cmd);
   },
   /** `linker.link_args(args)` on `dyn Linker` (linker.rs `generate_arg_methods!` → `link_args`, :214). */
-  Linker_link_args(_linker: Linker, _args: readonly string[]): Linker {
-    return unported("ssa-linker: link_args");
+  Linker_link_args(linker: Linker, args: readonly string[]): Linker {
+    return linker.link_args(args);
   },
   /** `linker.link_arg(arg)` on `dyn Linker` (linker.rs `generate_arg_methods!` → `link_args(self, iter::once(arg))`). */
-  Linker_link_arg(_linker: Linker, _arg: string): Linker {
-    return unported("ssa-linker: link_arg");
+  Linker_link_arg(linker: Linker, arg: string): Linker {
+    return linker.link_arg(arg);
   },
 
-  // ssa-archive: back/archive.rs.
+  // ssa-archive: back/archive.rs (forwarders; root at integ-w57).
   /** `archive_builder_builder.extract_bundled_libs(rlib, outdir, bundled_lib_file_names)` (archive.rs:153). */
   extract_bundled_libs(
-    _archive_builder_builder: ArchiveBuilderBuilder,
-    _rlib: string,
-    _outdir: string,
-    _bundled_lib_file_names: ReadonlySet<Symbol>,
+    archive_builder_builder: ArchiveBuilderBuilder,
+    rlib: string,
+    outdir: string,
+    bundled_lib_file_names: ReadonlySet<Symbol>,
   ): Result<null, ExtractBundledLibsError> {
-    return unported("ssa-archive: extract_bundled_libs");
+    return ArchiveBuilderBuilder_provided.extract_bundled_libs(archive_builder_builder, rlib, outdir, bundled_lib_file_names);
   },
-  /**
-   * `ab.build(output, symbols)` (archive.rs:554). The archive builder in tree takes no `symbols` (it is always `None` there),
-   * so `None` forwards to it and `Some` stops until ssa-archive's `build` lands.
-   */
+  /** `ab.build(output, symbols)` (archive.rs:554). */
   ArchiveBuilder_build(ab: ArchiveBuilder, output: string, symbols: ArchiveSymbols | undefined): boolean {
-    if (symbols !== undefined) return unported("ssa-archive: ArchiveBuilder::build with ArchiveSymbols (symbol_edit.rs)");
-    return ab.build(output);
+    return ab.build(output, symbols);
   },
 
-  // rustc_session (no lane this wave): `Session::get_tools_search_paths` (session.rs:825) is not ported.
+  // PORT: `Session::get_tools_search_paths` (rustc_session/src/session.rs:825) lives in back/linker.ts until rustc_session
+  // takes it (lane ssa-linker's handoff).
   /** `sess.get_tools_search_paths(self_contained)` (rustc_session/src/session.rs:825). */
-  get_tools_search_paths(_sess: Session, _self_contained: boolean): string[] {
-    return unported("rustc_session::Session::get_tools_search_paths");
+  get_tools_search_paths(sess: Session, self_contained: boolean): string[] {
+    return get_tools_search_paths(sess, self_contained);
   },
 };
