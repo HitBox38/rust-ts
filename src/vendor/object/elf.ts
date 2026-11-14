@@ -502,6 +502,10 @@ export const SHF_STRINGS = 1 << 5;
 export const SHF_TLS = 1 << 10;
 export const SHF_EXCLUDE = 0x80000000;
 export const STB_LOCAL = 0;
+/// Global symbol.
+export const STB_GLOBAL = 1;
+/// Weak symbol.
+export const STB_WEAK = 2;
 export const STT_NOTYPE = 0;
 export const STT_OBJECT = 1;
 export const STT_FUNC = 2;
@@ -510,6 +514,8 @@ export const STT_FILE = 4;
 export const STT_COMMON = 5;
 export const STT_TLS = 6;
 export const STT_GNU_IFUNC = 10;
+/// Symbol is not visible to other components.
+export const STV_HIDDEN = 2;
 export const NT_GNU_PROPERTY_TYPE_0 = 5;
 export const GNU_PROPERTY_AARCH64_FEATURE_1_AND = 0xc0000000;
 export const GNU_PROPERTY_X86_FEATURE_1_AND = 0xc0000002;

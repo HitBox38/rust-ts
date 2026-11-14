@@ -19,3 +19,16 @@ export function is_arm64ec(machine: number): boolean {
 export function is_any_arm64(machine: number): boolean {
   return machine === IMAGE_FILE_MACHINE_ARM64 || is_arm64ec(machine);
 }
+
+/** `pub enum MachineTypes` (coff.rs:9), as the `u16` values (see the header); `object::pe` values (object-0.39.1
+ *  src/pe.rs:310, :335, :359, :363, :365). PORT (lane ssa-archive): `rustc_codegen_ssa::back::archive::create_dll_import_lib`
+ *  names them. */
+export const MachineTypes = {
+  AMD64: 0x8664,
+  ARMNT: 0x01c4,
+  ARM64: IMAGE_FILE_MACHINE_ARM64,
+  ARM64EC: IMAGE_FILE_MACHINE_ARM64EC,
+  ARM64X: IMAGE_FILE_MACHINE_ARM64X,
+  I386: 0x014c,
+} as const;
+export type MachineTypes = (typeof MachineTypes)[keyof typeof MachineTypes];

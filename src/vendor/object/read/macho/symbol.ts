@@ -13,7 +13,7 @@ import type { SymbolKind, SymbolScope } from "../../common.ts";
 import { U16, U32, U64, type Endianness } from "../../endian.ts";
 import * as macho from "../../macho.ts";
 import { PodSlice } from "../../pod.ts";
-import { read_error_opt, type Result, type SymbolIndex, SymbolIndex as SymbolIndexOf, SymbolSection, SectionIndex } from "../mod.ts";
+import { read_error_opt, read_error_unit, type Result, type SymbolIndex, SymbolIndex as SymbolIndexOf, SymbolSection, SectionIndex } from "../mod.ts";
 import { StringTable } from "../util.ts";
 import type { MachHeader, MachOFile } from "./file.ts";
 
@@ -243,3 +243,31 @@ export class MachOSymbol {
     return this.scope() === "Compilation";
   }
 }
+
+/** A `macho::Nlist32` or `macho::Nlist64` (the `Nlist` trait's `Self`). */
+export type { NlistValue };
+
+/// The provided methods of the `Nlist` trait (`macho::Nlist32` and `macho::Nlist64` have the fields they read under the
+/// same names). PORT (lane ssa-archive): only what `rustc_codegen_ssa::back::symbol_edit` calls; the required `n_type()`
+/// is the field `n_type`.
+export const Nlist_provided = {
+  // crate: object-0.39.1/src/read/macho/symbol.rs:477 name
+  name(self: NlistValue, endian: Endianness, strings: StringTable): Result<Uint8Array> {
+    return read_error_unit(strings.get(U32.get(self.n_strx, endian)), "Invalid Mach-O symbol name offset");
+  },
+
+  /// Return true if this is a STAB symbol.
+  ///
+  /// This determines the meaning of the `n_type` field.
+  // crate: object-0.39.1/src/read/macho/symbol.rs:490 is_stab
+  is_stab(self: NlistValue): boolean {
+    return (self.n_type & macho.N_STAB) !== 0;
+  },
+
+  /// Return true if this is an undefined symbol.
+  // crate: object-0.39.1/src/read/macho/symbol.rs:495 is_undefined
+  is_undefined(self: NlistValue): boolean {
+    const n_type = self.n_type;
+    return (n_type & macho.N_STAB) === 0 && (n_type & macho.N_TYPE) === macho.N_UNDF;
+  },
+};
