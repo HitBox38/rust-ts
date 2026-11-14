@@ -1,8 +1,9 @@
 // rust-ts: the IR model's intrinsic table (intrinsics.ts, lane cg-intrinsic-a) against the oracle toolchain's own libLLVM.dylib
 // through bun:ffi, as capi.oracle.test.ts does. **Tests only**: the model never calls libLLVM.
-// 1. The generic name table and its overload bits, and the target prefixes, re-read from libLLVM: they must equal the model's data.
-// 2. `LLVMLookupIntrinsicID` on every generic name and on variants of it (overload suffixes, near misses), against libLLVM; a
-//    name with a target prefix must stop in the model.
+// 1. The generic and x86 name tables and their overload bits, the x86 table's offset, and the target prefixes, re-read from
+//    libLLVM: they must equal the model's data.
+// 2. `LLVMLookupIntrinsicID` on every generic and x86 name and on variants of it (overload suffixes, near misses), against
+//    libLLVM; a name with another target's prefix must stop in the model.
 // 3. `LLVMGetIntrinsicDeclaration` of every modelled signature with concrete overload types: the declaration's name and function
 //    type, against libLLVM's.
 import { describe, expect, test } from "bun:test";
@@ -13,6 +14,7 @@ import { PIN } from "../../../scripts/lib/common.ts";
 import { Unported } from "../../std/panic.ts";
 import * as L from "./ffi.ts";
 import { GENERIC_INTRINSICS, MODELLED_SIGNATURES, TARGET_PREFIXES, overloadClasses } from "./intrinsics.ts";
+import { X86_INTRINSICS, X86_INTRINSICS_OFFSET } from "./intrinsics_x86.ts";
 import type { Function as IrFunction } from "./ir.ts";
 import { printTypeToString } from "./printer.ts";
 
@@ -68,7 +70,7 @@ describe.skipIf(!HAVE && !REQUIRE)("intrinsic table vs libLLVM", () => {
     }
   };
 
-  test("the generic name table, its overload bits and the target prefixes are libLLVM's", () => {
+  test("the generic and x86 name tables, their overload bits and the target prefixes are libLLVM's", () => {
     const len = new BigUint64Array(1);
     const all: [string, 0 | 1][] = [];
     for (let id = 1; ; id++) {
@@ -85,6 +87,12 @@ describe.skipIf(!HAVE && !REQUIRE)("intrinsic table vs libLLVM", () => {
     expect(all.slice(0, end)).toEqual(GENERIC_INTRINSICS.map(([n, o]) => [n, o]));
     const targets = [...new Set(all.slice(end).map(([n]) => n.slice(5).split(".")[0]!))];
     expect(targets).toEqual([...TARGET_PREFIXES]);
+    // The x86 table: the run of names whose target component is `x86`; its first ID is the offset plus one.
+    const x86Start = all.findIndex(([n]) => n.startsWith("llvm.x86."));
+    let x86End = x86Start;
+    while (x86End < all.length && all[x86End]![0].startsWith("llvm.x86.")) x86End++;
+    expect(x86Start + 1).toBe(X86_INTRINSICS_OFFSET + 1);
+    expect(all.slice(x86Start, x86End)).toEqual(X86_INTRINSICS.map(([n, o]) => [n, o]));
   });
 
   test("LLVMLookupIntrinsicID: every generic name and variants of it; target names stop", () => {
@@ -92,7 +100,11 @@ describe.skipIf(!HAVE && !REQUIRE)("intrinsic table vs libLLVM", () => {
     for (const [n] of GENERIC_INTRINSICS) {
       for (const v of [n, `${n}.i32`, `${n}.f64`, `${n}.p0.i64`, `${n}x`, `${n}.x.y`, n.slice(0, -1), `${n}.`]) names.add(v);
     }
+    for (const [n] of X86_INTRINSICS) {
+      for (const v of [n, `${n}.i32`, `${n}.v4f32`, `${n}x`, `${n}.x.y`, n.slice(0, -1), `${n}.`]) names.add(v);
+    }
     for (const v of ["llvm.", "llvm.x", "llvm.zzz", "llvm.a", "llvm.ctpop.i32.junk", "llvm.trap.x", "llvm.prefetch.p0", "llvm.sadd.with.overflow.i32", "llvm.with.overflow"]) names.add(v);
+    for (const v of ["llvm.x86", "llvm.x86.", "llvm.x86.zzz", "llvm.x86.a", "llvm.x86.sse2", "llvm.x86.sse2.pausex", "llvm.x86.sse2.pause.i8", "llvm.x86x.sse2.pause", "llvm.x8"]) names.add(v);
     const diffs: string[] = [];
     for (const n of names) {
       const real = realLookup(n);
@@ -100,8 +112,8 @@ describe.skipIf(!HAVE && !REQUIRE)("intrinsic table vs libLLVM", () => {
       if (mine !== real) diffs.push(`${n}: model ${mine}, libLLVM ${real}`);
     }
     expect(diffs).toEqual([]);
-    // Target-specific names: libLLVM finds them in their target's table; the model stops.
-    for (const n of ["llvm.x86.sse2.pause", "llvm.aarch64.isb", "llvm.wasm.get.exception", "llvm.amdgcn.dispatch.ptr"]) {
+    // Other targets' names: libLLVM finds them in their target's table; the model stops.
+    for (const n of ["llvm.aarch64.isb", "llvm.wasm.get.exception", "llvm.amdgcn.dispatch.ptr"]) {
       expect(realLookup(n)).toBeGreaterThan(GENERIC_INTRINSICS.length);
       expect(modelLookup(n)).toBe("stop");
     }
@@ -121,6 +133,10 @@ describe.skipIf(!HAVE && !REQUIRE)("intrinsic table vs libLLVM", () => {
           return alt === 0 ? [lib.LLVMIntTypeInContext(rc, 32), L.LLVMIntTypeInContext(mc, 32)] : [lib.LLVMIntTypeInContext(rc, 128), L.LLVMIntTypeInContext(mc, 128)];
         case "ptr":
           return [lib.LLVMPointerTypeInContext(rc, alt), L.LLVMPointerTypeInContext(mc, alt)];
+        case "vecint":
+          return alt === 0
+            ? [lib.LLVMVectorType(lib.LLVMIntTypeInContext(rc, 32), 4), L.LLVMVectorType(L.LLVMIntTypeInContext(mc, 32), 4)]
+            : [lib.LLVMVectorType(lib.LLVMIntTypeInContext(rc, 1), 16), L.LLVMVectorType(L.LLVMIntTypeInContext(mc, 1), 16)];
         default:
           return alt === 0 ? [lib.LLVMPointerTypeInContext(rc, 0), L.LLVMPointerTypeInContext(mc, 0)] : [lib.LLVMIntTypeInContext(rc, 16), L.LLVMIntTypeInContext(mc, 16)];
       }
@@ -174,10 +190,25 @@ describe("intrinsic table (model only)", () => {
     expect(L.LLVMLookupIntrinsicID(new TextEncoder().encode("llvm.trapXYZ"), 9)).toBe(L.LLVMLookupIntrinsicID("llvm.trap", 9));
   });
 
-  test("stops: target tables, signatures the model lacks, unnamed struct overloads", () => {
-    expect(() => L.LLVMLookupIntrinsicID("llvm.x86.sse2.pause", 19)).toThrow(/llir: the x86 intrinsic table/);
+  test("an x86 intrinsic: ID, target bit, declaration", () => {
+    const id = L.LLVMLookupIntrinsicID("llvm.x86.sse2.pause", 19);
+    expect(X86_INTRINSICS[id - X86_INTRINSICS_OFFSET - 1]![0]).toBe("llvm.x86.sse2.pause");
+    expect(L.LLVMRustIsTargetIntrinsic(id)).toBe(true);
+    expect(L.LLVMIntrinsicIsOverloaded(id).is_true()).toBe(false);
+    // Not overloaded: a suffix is not the intrinsic.
+    expect(L.LLVMLookupIntrinsicID("llvm.x86.sse2.pause.i8", 22)).toBe(0);
     const mc = L.LLVMContextCreate();
     const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const f = L.LLVMGetIntrinsicDeclaration(mm, id, [], 0) as unknown as IrFunction;
+    expect([f.name, printTypeToString(f.functionType)]).toEqual(["llvm.x86.sse2.pause", "void ()"]);
+  });
+
+  test("stops: target tables, signatures the model lacks, unnamed struct overloads", () => {
+    expect(() => L.LLVMLookupIntrinsicID("llvm.aarch64.isb", 16)).toThrow(/llir: the aarch64 intrinsic table/);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const lfence = L.LLVMLookupIntrinsicID("llvm.x86.sse2.lfence", 20);
+    expect(() => L.LLVMGetIntrinsicDeclaration(mm, lfence, [], 0)).toThrow(/llir: the signature of llvm.x86.sse2.lfence \(IntrinsicsX86.td\) is not in the IR model/);
     const memcpy = L.LLVMLookupIntrinsicID("llvm.memcpy", 11);
     expect(memcpy).toBeGreaterThan(0);
     expect(() => L.LLVMGetIntrinsicDeclaration(mm, memcpy, [], 0)).toThrow(/llir: the signature of llvm.memcpy \(Intrinsics.td\) is not in the IR model/);
