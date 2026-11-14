@@ -248,28 +248,11 @@ export class LlvmCodegenBackend implements CodegenBackend {
     return llvm_util_target_cpu(sess.early_sess);
   }
   codegen_crate(tcx: TyCtxt): unknown {
-    // back/llvm_backend.rs:336: the offload check, which stops below (no lane yet; plan-m7 D18), then
+    // back/llvm_backend.rs:336: the offload check, which stops (no lane yet; plan-m7 D18), then
     // `rustc_codegen_ssa::base::codegen_crate(LlvmCodegenBackend(()), tcx)`.
-    // PORT: only the head of that function (base.rs:723-739), which is everything before LLVM: the CPU checks and the
-    // collector and partitioner, which print `-Zprint-mono-items` and write `-Zdump-mono-stats`. No `// rustc:` marker, as
-    // base.rs's `codegen_crate` stays to be ported. The stop that follows never counts as success: docs/handoff/mono-wire.md
-    // says how a suite reads this output.
-    const offload = tcx.sess.opts.unstable_opts.offload;
-    if (offload.some((o) => o.$ === "Device") || offload.some((o) => o.$ === "Host")) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
-    if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
-      // The target has no default cpu, but none is set explicitly
-      tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));
-    }
-
-    const target_cpu = tcx.sess.opts.cg.target_cpu;
-    if (target_cpu !== undefined && tcx.sess.target.unsupported_cpus.includes(target_cpu)) {
-      // The target cpu is explicitly listed as an unsupported cpu
-      tcx.dcx().emit_fatal(CpuUnsupported_diagnostic({ target_cpu }));
-    }
-
-    // Run the monomorphization collector and partition the collected items into
-    // codegen units.
-    tcx.collect_and_partition_mono_items(null);
+    // PORT: only the head of that function (`mono_collection_head`), which is everything before LLVM. The stop that follows never
+    // counts as success: docs/handoff/mono-wire.md says how a suite reads this output.
+    mono_collection_head(tcx);
 
     return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)");
   }
@@ -300,6 +283,31 @@ export class LlvmCodegenBackend implements CodegenBackend {
     // This should produce either a finished executable or library.
     link_binary(sess, LlvmArchiveBuilderBuilder, compiled_modules, crate_info, metadata, outputs, this.name());
   }
+}
+
+/**
+ * Not upstream: the head of the LLVM backend's `codegen_crate`, as this stand-in runs it (lane mono-wire), for
+ * scripts/mono-run.ts (`mono-ui`'s subject), which stops after mono collection. That is back/llvm_backend.rs:336's offload check,
+ * which stops (plan-m7 D18), then rustc_codegen_ssa base.rs:723-739: the CPU checks, then the collector and partitioner, which
+ * print `-Zprint-mono-items` and write `-Zdump-mono-stats`. The ported `codegen_crate` (back/llvm_backend.ts) runs the same lines itself.
+ */
+export function mono_collection_head(tcx: TyCtxt): void {
+  const offload = tcx.sess.opts.unstable_opts.offload;
+  if (offload.some((o) => o.$ === "Device") || offload.some((o) => o.$ === "Host")) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
+  if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
+    // The target has no default cpu, but none is set explicitly
+    tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));
+  }
+
+  const target_cpu = tcx.sess.opts.cg.target_cpu;
+  if (target_cpu !== undefined && tcx.sess.target.unsupported_cpus.includes(target_cpu)) {
+    // The target cpu is explicitly listed as an unsupported cpu
+    tcx.dcx().emit_fatal(CpuUnsupported_diagnostic({ target_cpu }));
+  }
+
+  // Run the monomorphization collector and partition the collected items into
+  // codegen units.
+  tcx.collect_and_partition_mono_items(null);
 }
 
 /** PORT: build constant of the oracle (its bundled LLVM), like `CFG_VERSION`; see `LlvmCodegenBackend`. */
