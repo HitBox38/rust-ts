@@ -17,6 +17,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { REPO } from "../../../scripts/lib/common.ts";
+import { IMPLEMENTED } from "../../rust_ts/llvm/ffi.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const HERE = import.meta.dir;
@@ -44,9 +45,15 @@ const CASES = readdirSync(CASES_DIR)
  * symbol-export-metadata: `exported_non_generic_symbols_helper` is ported; the stop is the encoder's
  * `encode_exported_symbols`, whose element encoder `(ExportedSymbol, SymbolExportInfo)` is not ported. Re-pinned by
  * exported-symbols-codec: that codec is ported, so metadata is written; the stop is codegen's mono item collection.
+ * Re-pinned by cg-register (the ported LLVM backend runs codegen): the stop is the IR model's, in `LLVMRustOptimize`, as the
+ * rlib embeds bitcode. Under `CI` (the gate's unit step sets it) the model's LLVM init stops first, at
+ * `LLVMRustDisableSystemDialogsOnCrash`, until lane fixers-57 implements it (`IMPLEMENTED` then has it).
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)",
+  refine_rpitit:
+    process.env.CI !== undefined && !IMPLEMENTED.has("LLVMRustDisableSystemDialogsOnCrash")
+      ? "llir: LLVMRustDisableSystemDialogsOnCrash"
+      : "llir: LLVMRustOptimize's ThinLTO buffer (ThinLTOBitcodeWriterPass inside the pass pipeline: -Cembed-bitcode for an rlib built with link output, --emit=thin-link-bitcode)",
 };
 
 /**

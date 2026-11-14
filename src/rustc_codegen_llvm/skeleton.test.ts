@@ -122,7 +122,8 @@ describe("stub counts per lane", () => {
   // Every `unported("<lane>: ...")` in the crate's sources, by lane: trait methods, the cross-lane surface (review F2) and the
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
-    "cg-asm": 4,
+    // cg-register (wave 40q) ported `inline_asm_call` (asm.rs:536), which `black_box` reaches in every std program.
+    "cg-asm": 3,
     // 21 cg-contract left; cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs (`build_global_var_di_node`,
     // `apply_vcall_visibility_metadata`, `create_vtable_di_node`). Left: the 9 metadata.rs fns that debuginfo/mod.rs and those
     // three call past their `-g` checks (wave 44, plan-m7 D9).

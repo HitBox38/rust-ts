@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN, REPO } from "../../scripts/lib/common.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
+import { IMPLEMENTED } from "../rust_ts/llvm/ffi.ts";
 import { all_cases, clean_env, common_args, fresh_dir, HERE as ORACLE_HERE, normalize, parse, RUSTC } from "./partitioning_oracle/common.ts";
 
 const MAIN = join(REPO, "src/rust_ts/main.ts");
@@ -37,7 +38,14 @@ describe("the lazy providers", () => {
 describe.skipIf(SKIP)("the real driver", () => {
   const sysroot = (): string => Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
 
-  test("prints -Zprint-mono-items and writes -Zdump-mono-stats, then stops before LLVM, never reporting success", () => {
+  // cg-register (wave 40q): the stop moved into the ported LLVM backend, which runs codegen: the IR model's, in `LLVMRustOptimize`,
+  // as the rlib embeds bitcode. Under `CI` (the gate's unit step sets it) the model's LLVM init stops first, at
+  // `LLVMRustDisableSystemDialogsOnCrash`, until lane fixers-57 implements it (`IMPLEMENTED` then has it).
+  const codegen_stop =
+    process.env.CI !== undefined && !IMPLEMENTED.has("LLVMRustDisableSystemDialogsOnCrash")
+      ? "llir: LLVMRustDisableSystemDialogsOnCrash"
+      : "llir: LLVMRustOptimize's ThinLTO buffer (ThinLTOBitcodeWriterPass inside the pass pipeline: -Cembed-bitcode for an rlib built with link output, --emit=thin-link-bitcode)";
+  test("prints -Zprint-mono-items and writes -Zdump-mono-stats, then stops in codegen, never reporting success", () => {
     const c = all_cases().find((c) => c.name === "stats-json")!;
     const out = fresh_dir("wire-stats-json");
     const r = Bun.spawnSync(["bun", MAIN, "--sysroot", sysroot(), ...common_args(c, out, "port")], { env: clean_env(), stdout: "pipe", stderr: "pipe" });
@@ -46,7 +54,7 @@ describe.skipIf(SKIP)("the real driver", () => {
     expect(want.stdout).toContain("MONO_ITEM ");
     expect(readFileSync(join(out, "dump", c.dump!), "utf8")).toBe(want.dump!);
     expect(r.exitCode).toBe(70);
-    expect(want.stderr + r.stderr.toString()).toBe(`${want.stderr}rust-ts: unported: rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)\n`);
+    expect(want.stderr + r.stderr.toString()).toBe(`${want.stderr}rust-ts: unported: ${codegen_stop}\n`);
   });
 
   test("does not evaluate the crate on a run with no codegen", () => {
