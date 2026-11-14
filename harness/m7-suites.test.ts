@@ -156,6 +156,25 @@ const libc = {
   viaAux: s.hostLibcConflict("tests/ui/array-slice-vec/subslice-patterns-const-eval.rs", undefined, ["tests/ui/process/fds-are-cloexec.rs"]),
   hello: s.namesLibcCrate(read(${JSON.stringify(join(REPO, "harness/corpus/miri/hello.rs"))}, "utf8")),
   reason: s.DUPLICATE_LIBC_REASON,
+  // Review harness-m7b F3: an extern crate whose own cfg, or an enclosing item's, is false on the host does not load the crate.
+  gated: (() => {
+    const linux = new Set(["unix", 'target_os="linux"', 'target_family="unix"']);
+    const mac = new Set(["unix", 'target_os="macos"', 'target_family="unix"']);
+    const t = {
+      own: '#[cfg(target_os = "linux")]\\nextern crate libc;',
+      fn: '#[cfg(target_os = "linux")]\\nfn main() {\\n    extern crate libc;\\n}',
+      unixFn: '#[cfg(unix)]\\nfn f() { let x = "}"; extern crate libc; }',
+      notWin: "#[cfg(not(windows))]\\nmod m {\\n    extern crate libc;\\n}",
+      sibling: '#[cfg(target_os = "linux")]\\nfn a() {}\\nextern crate libc;',
+      anyOf: '#[cfg(any(target_os = "linux", target_os = "macos"))]\\nextern crate libc;',
+      unknown: "#[cfg(some_feature_check(1))]\\nextern crate libc;",
+      string: 'fn f() { let s = "extern crate libc;"; }',
+      block: "/* extern crate libc; */ fn f() {}",
+    };
+    return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, [s.libcLoadedOn(v, linux), s.libcLoadedOn(v, mac)]]));
+  })(),
+  reviewThree: ["tests/ui/intrinsics/panic-uninitialized-zeroed.rs", "tests/ui/process/env-null-vars.rs", "tests/ui/runtime/out-of-stack.rs"].map((f) => s.hostLibcConflict(f, undefined)),
+  evalCfg: [s.evalCfg('all(unix, not(target_os = "linux"))', new Set(["unix"])), s.evalCfg("true", new Set()), s.evalCfg("all(unix", new Set(["unix"]))],
 };
 const { asSubjectSide } = await import(${JSON.stringify(join(REPO, "scripts/oracle-self.ts"))});
 console.log(JSON.stringify({
@@ -174,6 +193,12 @@ console.log(JSON.stringify({
   helpersNone: (() => { try { s.withTestHelpers(["x"], "/h"); return "no throw"; } catch (e) { return e.message; } })(),
   opts: s.nativeRunOpts({ flags: ["a b"], env: [["K", "v=w"]], unsetEnv: ["U"], errorPatterns: ["boom"], regexErrorPatterns: ["r+"], checkStdout: true }, "run-fail"),
   optsPass: s.nativeRunOpts(undefined, "run-pass"),
+  optsLibtest: s.nativeRunOpts({ flags: [], env: [], unsetEnv: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false, shouldFail: true }, "run-fail", true),
+  masked: ["native-hello", "run-pass-native", "run-fail-native", "ir-run-pass", "mir-o2"].map((n) => get(n).maskProgramOutput === true),
+  unstableLists: Object.fromEntries(Object.entries(s.NATIVE_UNSTABLE).map(([k, v]) => [k, Object.values(v).every((r) => r.length > 40) ? Object.keys(v).length : -1])),
+  unstableHooked: ["run-pass-native", "run-fail-native"].map((n) => get(n).unstable().length),
+  harnessSkips: Object.keys(s.NATIVE_HARNESS_SKIPS),
+  linkEnv: s.NATIVE_LINK_ENV,
   optsBadEnv: (() => { try { s.nativeRunOpts({ flags: [], env: [["", "x"]], unsetEnv: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false }, "run-pass"); return "no throw"; } catch (e) { return e.message; } })(),
 }));
 `;
@@ -207,6 +232,20 @@ console.log(JSON.stringify({
   expect([j.libc.cloexec, j.libc.plain, j.libc.viaAux, j.libc.hello]).toEqual([true, false, true, false]);
   expect(j.libc.reason).toContain("two libc candidates");
   expect(j.libc.reason).toContain("E0464");
+  expect(j.libc.gated).toEqual({
+    own: [true, false],
+    fn: [true, false],
+    unixFn: [true, true],
+    notWin: [true, true],
+    sibling: [true, true],
+    anyOf: [true, true],
+    unknown: [true, true],
+    string: [false, false],
+    block: [false, false],
+  });
+  // The review's cases on this host: the two cfg(linux) ones load no libc here (kept), out-of-stack's cfg(unix) one does (skipped).
+  expect(j.libc.reviewThree).toEqual([false, false, true]);
+  expect(j.libc.evalCfg).toEqual([true, true, null]);
   // scripts/oracle-self.ts: the oracle's command as the subject side, still with the oracle's compiler.
   expect(j.selfSide).toEqual(["--side", "subject", "--runs", "1"]);
   expect(j.selfIr).toEqual(["--side", "subject"]);
@@ -215,6 +254,15 @@ console.log(JSON.stringify({
   expect(j.helpersNone).toContain("-Crpath");
   expect(j.opts).toEqual(["--expect", "run-fail", "--arg", "a b", "--env", "K=v=w", "--unset", "U", "--error-pattern", "boom", "--regex-error-pattern", "r+", "--check-stdout"]);
   expect(j.optsPass).toEqual(["--expect", "run-pass"]);
+  // Review harness-m7b: should-fail (N5), and a --test program runs one test at a time (F1).
+  expect(j.optsLibtest).toEqual(["--expect", "run-fail", "--should-fail", "--libtest"]);
+  // F1: the program-output mask is the native suites' alone; their unstable cases are listed, each with a diagnosed reason.
+  expect(j.masked).toEqual([true, true, true, false, false]);
+  expect(j.unstableLists).toEqual({ "run-pass-native": 18, "run-fail-native": 7 });
+  expect(j.unstableHooked).toEqual([18, 7]);
+  // N3: the harness-caused case left; N2: the link variables in the key.
+  expect(j.harnessSkips).toEqual(["tests/ui/process-termination/process-termination-blocking-io.rs"]);
+  expect(j.linkEnv).toEqual(["SDKROOT", "DEVELOPER_DIR", "LIBRARY_PATH"]);
   expect(j.optsBadEnv).toContain("exec-env");
   // Report only: no baseline, so not in the gate's defaults.
   const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));

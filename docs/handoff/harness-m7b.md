@@ -8,9 +8,9 @@ Branch `t3/add-m7b-report-suites`, from `e80bc814`. No port code: nothing under 
 |---|---|
 | `ir-run-pass` | Done. 3,479 cases. Criterion 70% (M7b), with M7c's 95% in `criteria.ts` |
 | `ir-run-pass-o0` | Done. 3,479 cases. Report |
-| `ir-host` | Done. 3,412 cases, compiletest's own case set for the host, less 20 duplicate-libc cases. Report |
+| `ir-host` | Done. 3,415 cases, compiletest's own case set for the host, less 17 duplicate-libc cases. Report |
 | `native-hello` | Done. 1 case. Criterion 100% (M7b) |
-| `run-pass-native` | Done. 3,412 cases (20 duplicate-libc cases skipped). Criterion 80% (M7b), with M7c's 98% in `criteria.ts`. **Heavy split not done:** see "Heavy" |
+| `run-pass-native` | Done. 3,414 cases (17 duplicate-libc cases and 1 harness case skipped, 18 listed UNSTABLE). Criterion 80% (M7b), with M7c's 98% in `criteria.ts`. **Heavy split not done:** see "Heavy" |
 | `run-fail-native` | Done. 289 cases, with compiletest's run verdict. Criterion 95% (M7c) |
 | mono-run N1, N2, N4 | Done |
 
@@ -35,9 +35,9 @@ Say if either should go.
 |---|---|---:|---|---|---|
 | `ir-run-pass` | IR N1 (`irSuite`) | 3,479 (488) | x86_64-unknown-linux-gnu | `main.ts` | M7b ≥ 70%; M7c ≥ 95% in `criteria.ts` |
 | `ir-run-pass-o0` | IR N1 | 3,479 (488) | x86_64-unknown-linux-gnu | `main.ts` | report until M7c |
-| `ir-host` | IR N1 | 3,412 (555) | aarch64-apple-darwin | `main.ts` | report |
+| `ir-host` | IR N1 | 3,415 (552) | aarch64-apple-darwin | `main.ts` | report |
 | `native-hello` | native | 1 | host | `main.ts` | M7b MATCH (100%, every case) |
-| `run-pass-native` | native | 3,412 (555) | host | `main.ts` | M7b ≥ 80%; M7c ≥ 98% |
+| `run-pass-native` | native | 3,414 (553) | host | `main.ts` | M7b ≥ 80%; M7c ≥ 98% |
 | `run-fail-native` | native | 289 (37) | host | `main.ts` | M7c ≥ 95% |
 
 The plan counts 3,478 for `ir-run-pass`; it is 3,479, as harness-m7a found for `mir-o2`. The plan's 294 for `run-fail-native` is the x86_64 count (`run-fail-miri`). On the host compiletest's `only-*`, `ignore-*` and `needs-*` leave 289.
@@ -121,6 +121,8 @@ Each sampled case's oracle command, then the same command as the subject side (`
 | `run-pass-native` | 50 | 50 | 0 | 0 |
 | `run-fail-native` | 50 | 48 | 2 | 0 |
 | `ir-run-pass` | 50 | 50 | 0 | 0 |
+
+**Corrected after review harness-m7b (N6):** a sample of 50 understated it. The review's full oracle pass found 15 of 289 `run-fail-native` and 23 of 3,412 `run-pass-native` cases UNSTABLE. Most of them were libtest output and interleaving, which two runs catch only some of the time. See "Review harness-m7b: fixes".
 
 The two UNSTABLE cases are real nondeterminism, caught by the two runs:
 - `mir/alignment/borrow_misaligned_field_projection.rs`: the misaligned address in its abort message.
@@ -258,13 +260,103 @@ The 75 existing suites are still identical to the dump taken before this lane's 
 
 The two earlier `run-pass-native` MATCHes, both E0464, are gone: the sample now holds no case the oracle fails to compile.
 
-**A follow-up this re-run showed.** `test-attrs/test-panic-abort-nocapture.rs` was UNSTABLE in the first `run-fail-native` sample, but this time its two oracle runs agreed, so its output was cached. Two runs catch most nondeterminism, not all of it. That case, and any other a full run finds UNSTABLE even once, should go into `run-fail-native`'s `Suite.unstable` list with its cause. I have not diagnosed the cause; the first sample saw its stdout differ. Until then a later port MATCH or DIFF on it may be chance.
+**Corrected after review harness-m7b (N6).** I first wrote that this re-run showed `test-panic-abort-nocapture.rs` "UNSTABLE once, then stable", and that two runs catch most nondeterminism. Both were wrong:
+- That pair agreed by chance. The review saw 4 of 6 oracle invocations UNSTABLE, and the only varying line was libtest's `finished in 0.0Xs`. It is now masked (F1), and its old cache entry is stale through the wrapper's hash in the key.
+- Two runs catch an address every time, but interleaving only some of the time. The full pass below needed a third run to catch 4 cases. Every case found unstable is now listed in `Suite.unstable` with its cause.
 
-## Heavy (M7c's "+ heavy"): a follow-up
+## Heavy (M7c's "+ heavy"): answered, none on the oracle side
 
-No sampled case is slow natively: the oracle's maximum was 3.0 s, including two runs. Without a full oracle timing I cannot name a heavy set, and I did not guess one.
+The full oracle pass answers this (review N6).
+- **Mine:** run-pass-native p50 1.6 s, p99 2.0 s, max 3.4 s per case (compile, then three runs), at load 2-28.
+- **The review's:** max 12.5 s at load up to 16.
 
-Follow-up: a full oracle-side timing of `run-pass-native`. For example, `bun scripts/oracle-self.ts --suite run-pass-native --jobs 6`, about 17 min of wall at load. Then a `run-pass-native-heavy` sibling for whatever exceeds a limit, as `MIRI_HEAVY` does. Until then, M7c's group is `run-pass-native` alone.
+Nothing comes near the 30 s run limit or the 180 s oracle limit, so the oracle side needs no heavy set. A heavy set, if any, will come from the port's compile times once it links. M7c's group stays `run-pass-native` alone.
+
+## Review harness-m7b: fixes
+
+The review (`docs/reviews/harness-m7b.md` at `99a5229d`) was FAIL on F1-F3. Root's decision for F1 and F2 is `docs/state/history.jsonl`, 2026-11-14T14:53, "harness-m7b (review F1, F2)".
+
+| # | Fix |
+|---|---|
+| F1 | **libtest programs made deterministic, per the decision.** |
+| | - **`RUST_TEST_THREADS=1`:** the suite passes the wrapper `--libtest` when the compiler argv has `--test`, and the wrapper sets the variable before `exec-env`, so a test's own value still wins (tested). |
+| | - **Masks in the harness's existing mechanism:** `scripts/lib/unstable.ts` gets `maskLibtestTime` and `maskProgramOutput`. The latter is the thread-id mask plus libtest's `finished in N.NNs`, which is anchored to libtest's `test result:` line, so a program's own "finished in" text still compares. |
+| | - **Applied to stdout and stderr:** `maskedTexts` takes an optional output mask, and difftest's `compared` passes `maskProgramOutput` for suites with the new `Suite.maskProgramOutput`, which only the three native suites set. The cache keeps raw text, as before. |
+| | - **The wrapper agrees with difftest:** its two-run check (`runsDiffer`) uses the same mask. |
+| | - **The oracle key covers it:** `native-run.ts` (the environment) and `lib/unstable.ts` (the masks) are both hashed into it. |
+| | - Then every native case's oracle ran twice, plus a third run (below). Each case still UNSTABLE is diagnosed and listed in `NATIVE_UNSTABLE`, so in `Suite.unstable`, with its reason. |
+| F2 | **UNSTABLE leaves the M7 denominators.** `criteria.ts` gets `excludeUnstable`, set on every M7 percent group: `mir-o2`, `mono-ui`, `run-pass-native` (M7b and M7c), `ir-run-pass` (M7b and M7c) and `run-fail-native`. It reads gate.json's per-suite `unstable` list, and a gate.json without one is a problem, not a silent pass. |
+| | - **Unchanged on purpose:** `allCases` groups (`ir-hello`, `native-hello`) still count every case, so an UNSTABLE hello is not met. The M6 groups are untouched: their output on the last accepted gate (`gate-20261114-065555-root-0e2v`) is byte-identical before and after. |
+| | - **M7a on that gate reads as recorded:** `mir-o2` and `mono-ui` 3475/3479 with 0 unstable. |
+| | - **Tests:** the review's 274/289 case now reads 274/274, and an M6 group still counts its UNSTABLE cases. |
+| F3 | **cfg-gated `extern crate libc`.** `libcLoadedOn` blanks comments and string and char literals, then looks for `#[cfg(...)]` gates on the `extern crate` item and on every enclosing item or block. It evaluates them against the host's `--print=cfg` facts (all, any, not, name, `name = "value"`). A gate that does not parse counts as true, so a doubtful case is still skipped. The test is read from source; no test is compiled. |
+| | - **Result:** the review's 3 cases are kept (`panic-uninitialized-zeroed.rs#default`, `#strict`, `env-null-vars.rs`), and the 17 that do hit E0464 stay skipped. |
+| | - **Tests:** synthetic gates (own, enclosing fn, sibling item, `not`, `any`, unknown, in a string, in a comment) and the real files. |
+| N1 | After each run the wrapper also kills every process whose environment holds this case's `HOME=<case dir>/home` (`ps -axwwE`, about 30 ms), which is unique per case and inherited by every descendant. A `setsid()` child is killed (tested). **Limit, documented in the header:** a descendant that leaves the group and clears or changes its environment survives, still sandboxed. |
+| N2 | `SDKROOT`, `DEVELOPER_DIR` and `LIBRARY_PATH` (`NATIVE_LINK_ENV`) are in `nativeOracleKey`. |
+| N3 | `RUST_TEST_TMPDIR=<case dir>/tmp` for every program, as bootstrap gives compiletest. `stdio-from.rs` now passes on the oracle. `process-termination-blocking-io.rs` is skipped with a reason (`NATIVE_HARNESS_SKIPS`), because the sandbox denies localhost by design. The full pass found no other case whose verdict is "not met". |
+| N4 | The timeout test uses 4 s, which leaves room for a freshly written binary's first start. The other tests that spawn get 20-30 s Bun limits. |
+| N5 | `should-fail` is parsed in run mode (`RunProps.shouldFail`, passed as `--should-fail`). The verdict adds `native-run: compiletest should-fail: met (a check failed)` or `not met (every check passed)`, as compiletest's `ShouldPanic::Yes`. The check lines stay as they were. |
+| N6 | The corrections above, in "Oracle against oracle" and "Heavy". |
+
+### UNSTABLE, before and after
+
+| Suite | Before: the review's full pass | After the F1 fixes (full pass, three runs per case) | Listed in `Suite.unstable` |
+|---|---:|---:|---:|
+| `run-pass-native` | 23 of 3,412 | 17 of 3,414: 13 by the two runs, 4 more by the third run | 18: those 17, and `threads-sendsync/yield.rs`, which the review saw |
+| `run-fail-native` | 15 of 289 | **7** of 289 | 7 |
+| `native-hello` | 0 | 0 | 0 |
+
+**What each listed case is:**
+- **Addresses:**
+  - `binops.rs`, `cast-region-to-uint.rs` and the 3 `equal-pointers-unequal/*/segfault.rs` (run-pass);
+  - the 6 `mir/alignment/*` and `vec-index-bounds-check-overflow.rs` (run-fail).
+- **Thread interleaving:** `panic-handler-flail-wildly.rs`, `park-timeout-wakeup-59020.rs`, `spawn-fn.rs`, `task-comm-14.rs`, `task-comm-3.rs`, `yield.rs`.
+- **A hash seed:** `hashmap-debug-format.rs`.
+- **A thread id the line-anchored mask cannot reach:**
+  - in std's stack-overflow message: `stack-probes.rs#aarch64`, `stack-probes-lto.rs#aarch64`;
+  - inside a `{:?}`-printed child stderr: `rt-explody-panic-payloads.rs`, `running-with-no-runtime.rs`.
+- **rustc's own `RUSTC_LOG=info` naming its random link temp directory** (`work/rustc<6 random>/symbols.o`): `log-backtrace.rs`, `def-path-hash-ice-157238.rs`.
+
+The reason for each is in `NATIVE_UNSTABLE`. **No libtest case is unstable after the fixes:** all 50 now give equal output across three runs.
+
+**Full pass:** `bun scripts/oracle-self.ts --suite <s> --jobs 6`. run-fail-native took 129 s, run-pass-native 1,623 s.
+- One run-pass case fails to compile on the oracle: `layout/randomize.rs#randomize-layout`, E0080, as in every run suite.
+- No compiletest verdict reads "not met".
+
+### Counts now
+
+| Suite | Cases (skipped) |
+|---|---|
+| `run-pass-native` | 3,414 (553) |
+| `ir-host` | 3,415 (552) |
+| `run-fail-native` | 289 (37) |
+| `native-hello` | 1 |
+| `ir-run-pass`, `ir-run-pass-o0` | 3,479 (488) |
+
+### Checks for this fix
+
+| Check | Result |
+|---|---|
+| `bunx tsc --noEmit -p .` | clean |
+| `bun test ./harness/ ./scripts/` | 575 pass, 0 fail, 92 s, at load 3-5 |
+| `oracle-self --suite run-pass-native --sample 100` | 100 equal, 0 unstable, 0 differ |
+| `oracle-self --suite run-fail-native --sample 50` | 49 equal, 1 unstable: `borrow_misaligned_field_projection.rs`, which is listed, and `oracle-self` does not read the list |
+| `run-fail-native --sample 50` (difftest) | 49 UNPORTED (`ssa-link-b`), 1 UNSTABLE: that listed case, scored by the list's reason |
+| `ir-hello` | 2/2 MATCH |
+| `mir-o2 --sample 200` | 200/200 MATCH |
+| `mono-ui --sample 200` | 199 MATCH, 1 DIFF: `explicit-tail-calls/callee_is_track_caller.rs`, not protected, the same as the first round |
+| The 75 existing suites | identical to the dump taken before this lane's first edit |
+| criteria.ts on `gate-20261114-065555-root-0e2v` | M6 output byte-identical to the old criteria.ts. M7a: `mir-o2` and `mono-ui` 3475/3479, as recorded |
+
+**`scripts/unstable.test.ts` updated:** it pins which suites have an `unstable` list, and the two native suites now have one.
+
+**Unit-step wall of this lane's tests:**
+- `native-run.test.ts`: 7.5 s, mostly the 4 s timeout case (N4);
+- `mono-run.test.ts`: 0.9 s;
+- the M7b test: under 1 s.
+
+**Disk:** 9.6 GiB free at the end. The full passes write no oracle cache (`oracle-self` never does). This round added only the difftest samples' entries, under 1 MiB, and `$RUST_TS_DATA/native` is 32 KiB (the test helpers; case directories are emptied after each run).
 
 ## Review mono-run-head nits
 
@@ -293,7 +385,8 @@ None: no port code. (`mono-run.ts`'s new `Unported` throws are harness stops, li
 - `965e96be`: the suites, the wrapper, compiletest's target override, criteria groups, gate's `oracleRuns`, the mono-run nits, the tests, and the `ir-hello` test fix.
 - `7ba72293`: the native key covers the case directories' root; `scripts/oracle-self.ts`.
 - `106929e3`: this handoff.
-- The duplicate-libc follow-up: skips, tests, this section.
+- `941ed6c4`: the duplicate-libc follow-up: skips, tests, its section.
+- The review harness-m7b fixes (F1-F3, N1-N6): its section.
 
 ## Files
 

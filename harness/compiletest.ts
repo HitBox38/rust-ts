@@ -142,6 +142,8 @@ export interface RunProps {
   errorPatterns: string[];
   regexErrorPatterns: string[];
   checkStdout: boolean;
+  /** `should-fail` (directives.rs `ShouldFail`): compiletest runs the test as `ShouldPanic::Yes`, so it passes when one of its checks fails. */
+  shouldFail: boolean;
 }
 
 export interface Skip {
@@ -931,7 +933,7 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
     normalizeStderr: [],
     stderrPerBitwidth: false,
     dontCheckCompilerStderr: false,
-    run: { flags: [], env: [], unsetEnv: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false },
+    run: { flags: [], env: [], unsetEnv: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false, shouldFail: false },
   };
   for (const ln of lines) {
     if (!appliesTo(ln, revision)) continue;
@@ -976,6 +978,7 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
       const rp = nameValueDirective(ln, "regex-error-pattern");
       if (rp !== undefined) p.run.regexErrorPatterns.push(rp);
       p.run.checkStdout ||= nameDirective(ln, "check-stdout");
+      p.run.shouldFail ||= nameDirective(ln, "should-fail");
     }
     if (ln.name === "add-minicore") throw new Reject("`add-minicore` (builds minicore) is not reproduced");
     if (ln.name === "incremental") throw new Reject("`incremental` (incremental directory) is not reproduced");

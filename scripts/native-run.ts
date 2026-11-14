@@ -16,14 +16,16 @@
 //   `native-run: no program` and exits 0.
 // - **The program**, as runtest.rs `exec_compiled_test_general` runs it, made safe:
 //   - `argv` is `<case dir>/work/a` and the `--arg`s (`run-flags`); cwd `<case dir>/work` (`output_base_dir`); stdin empty.
-//   - Environment: **not inherited.** `PATH=/usr/bin:/bin:/usr/sbin:/sbin`, `HOME=<case dir>/home`, `TMPDIR=<case dir>/tmp`, the dylib
+//   - Environment: **not inherited.** `PATH=/usr/bin:/bin:/usr/sbin:/sbin`, `HOME=<case dir>/home`, `TMPDIR` and `RUST_TEST_TMPDIR`
+//     `=<case dir>/tmp`, with `--libtest` `RUST_TEST_THREADS=1` (`programEnv`), the dylib
 //     path compiletest's `compose_and_run` sets (`add_dylib_path`: the `--lib-path`s, then `<case dir>/work/auxiliary`, as
 //     `DYLD_LIBRARY_PATH` on macOS, `LD_LIBRARY_PATH` elsewhere), then each `--env` (`exec-env`), then each `--unset` removed
 //     (`unset-exec-env`), in compiletest's order. So `RUST_BACKTRACE` and the caller's variables never reach it.
 //   - Under `sandbox-exec` (macOS), the `DYLD_*` variables set by `/usr/bin/env` inside it (SIP removes them on the way through `perl`
 //     and `sandbox-exec`): **no network** (`(deny network*)`, localhost included) and no file writes outside `<case dir>` and
 //     `/dev`. In its own process group (`perl`'s `setpgrp`, then `exec`), so a timeout kills what it started too, and that group is
-//     killed after it ends.
+//     killed after it ends; then every process left with this case's `HOME` in its environment (`killEscaped`: a `setsid()` child). A
+//     descendant that both leaves the group and clears or changes its environment survives, still sandboxed.
 //   - A limit of `--run-timeout` ms (default 30 s) per run.
 // - Then, on stdout: `native-run: exit <code>` (or `signal <name>`, or `timed out after <ms> ms`); with `--expect`, compiletest's verdict
 //   on that run (`compiletestVerdict`); `native-run: program stdout follows`, then the program's stdout as it wrote it. On stderr:
@@ -39,7 +41,7 @@
 import { existsSync, mkdirSync, realpathSync, rmSync, writeSync } from "node:fs";
 import { isAbsolute, join, sep } from "node:path";
 import { addLockHolder, releaseHeldLocks, withCaseLock } from "./lib/case-lock.ts";
-import { maskThreadId } from "./lib/unstable.ts";
+import { maskProgramOutput, maskThreadId } from "./lib/unstable.ts";
 
 /** Past every limit a suite sets (its oracle's 300 s, retried with the retry factor), and a dead owner's lock goes sooner. */
 const LOCK_MAX_HOLD_MS = 2 * 3_600_000;
@@ -65,12 +67,16 @@ export interface NativeRunArgs {
   errorPatterns: string[];
   regexErrorPatterns: string[];
   checkStdout: boolean;
+  /** compiletest's `should-fail` (`--should-fail`): the test passes when one of its checks fails. */
+  shouldFail: boolean;
+  /** The program was built with `--test` (`--libtest`): it runs with `RUST_TEST_THREADS=1`. */
+  libtest: boolean;
   compiler: string[];
 }
 
 /** Parses the command line (see the header); throws on a malformed one. */
 export function parseNativeRunArgs(argv: string[]): NativeRunArgs {
-  const a: Partial<NativeRunArgs> = { runs: 1, runTimeoutMs: DEFAULT_RUN_TIMEOUT_MS, libPaths: [], args: [], env: [], unset: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false };
+  const a: Partial<NativeRunArgs> = { runs: 1, runTimeoutMs: DEFAULT_RUN_TIMEOUT_MS, libPaths: [], args: [], env: [], unset: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false, shouldFail: false, libtest: false };
   let compiler: string[] | undefined;
   for (let i = 0; i < argv.length; i++) {
     const o = argv[i]!;
@@ -110,6 +116,8 @@ export function parseNativeRunArgs(argv: string[]): NativeRunArgs {
     } else if (o === "--error-pattern") a.errorPatterns!.push(val());
     else if (o === "--regex-error-pattern") a.regexErrorPatterns!.push(val());
     else if (o === "--check-stdout") a.checkStdout = true;
+    else if (o === "--should-fail") a.shouldFail = true;
+    else if (o === "--libtest") a.libtest = true;
     else throw new Error(`native-run: unknown option ${o}`);
   }
   if (compiler === undefined) throw new Error("native-run: missing `--` before the compiler command");
@@ -138,9 +146,16 @@ export function nativeDirRefusal(dir: string): string | undefined {
 export const sandboxProfile = (dir: string): string =>
   `(version 1)(allow default)(deny network*)(deny file-write*)(allow file-write* (subpath "${dir}") (subpath "/dev"))`;
 
-/** The program's environment (see the header), in compiletest's order: the dylib path, `exec-env`, then `unset-exec-env`. */
-export function programEnv(a: Pick<NativeRunArgs, "dir" | "libPaths" | "env" | "unset">, platform: string = process.platform): Record<string, string> {
-  const env: Record<string, string> = { PATH: "/usr/bin:/bin:/usr/sbin:/sbin", HOME: join(a.dir, "home"), TMPDIR: join(a.dir, "tmp") };
+/**
+ * The program's environment (see the header), in compiletest's order: the fixed part, the dylib path, `exec-env`, then `unset-exec-env`.
+ * The fixed part has `RUST_TEST_TMPDIR`, which bootstrap gives compiletest and so every test program (review harness-m7b N3:
+ * tests/ui/std/stdio-from.rs reads it), as `<case dir>/tmp`; and for a libtest program `RUST_TEST_THREADS=1` (root's decision for review
+ * harness-m7b F1: one test at a time, so the `test x ... ok` lines come in a fixed order; compiletest checks only a run test's exit and error
+ * patterns, so the order is the harness's to fix). A test's own `exec-env` still wins over both.
+ */
+export function programEnv(a: Pick<NativeRunArgs, "dir" | "libPaths" | "env" | "unset" | "libtest">, platform: string = process.platform): Record<string, string> {
+  const env: Record<string, string> = { PATH: "/usr/bin:/bin:/usr/sbin:/sbin", HOME: join(a.dir, "home"), TMPDIR: join(a.dir, "tmp"), RUST_TEST_TMPDIR: join(a.dir, "tmp") };
+  if (a.libtest) env.RUST_TEST_THREADS = "1";
   // util.rs `dylib_env_var`, and `add_dylib_path` (lib path, then the aux dir, before an inherited value, of which there is none).
   env[platform === "darwin" ? "DYLD_LIBRARY_PATH" : platform === "win32" ? "PATH" : "LD_LIBRARY_PATH"] = [...a.libPaths, join(a.dir, "work", "auxiliary")].join(platform === "win32" ? ";" : ":");
   for (const [k, v] of a.env) env[k] = v;
@@ -177,12 +192,24 @@ export const describeEnd = (e: RunEnd): string => ("exit" in e ? `exit ${e.exit}
  * on `get_output` (stderr, or stdout then stderr with `check-stdout`). A regex that does not compile in JS is said to be unchecked, never
  * guessed. A timed-out run has no result: compiletest would have waited.
  */
-export function compiletestVerdict(a: Pick<NativeRunArgs, "expect" | "errorPatterns" | "regexErrorPatterns" | "checkStdout">, end: RunEnd, stdout: string, stderr: string): string[] {
+export function compiletestVerdict(a: Pick<NativeRunArgs, "expect" | "errorPatterns" | "regexErrorPatterns" | "checkStdout" | "shouldFail">, end: RunEnd, stdout: string, stderr: string): string[] {
   if (a.expect === undefined) return [];
   if ("timedOut" in end) return [`native-run: compiletest ${a.expect}: no result (timed out)`];
+  const lines = checkLines(a, end, stdout, stderr);
+  if (!a.shouldFail) return lines;
+  // `should-fail` (review harness-m7b N5): compiletest runs the test as `ShouldPanic::Yes`, so it passes when any check above fails (each
+  // failure is a panic in runtest), and fails when every check passes. The lines above stay as they are.
+  const failed = lines.filter((l) => l.includes(": not met (") || l.endsWith(": not found"));
+  return [...lines, `native-run: compiletest should-fail: ${failed.length > 0 ? "met (a check failed)" : "not met (every check passed)"}`];
+}
+
+/** `compiletestVerdict`'s lines before `should-fail`. */
+function checkLines(a: Pick<NativeRunArgs, "expect" | "errorPatterns" | "regexErrorPatterns" | "checkStdout">, end: RunEnd, stdout: string, stderr: string): string[] {
+  if (a.expect === undefined || "timedOut" in end) return [];
   const result = "exit" in end && end.exit === 0 ? "Pass" : "exit" in end && end.exit >= 1 && end.exit <= 127 ? "Fail" : "Crash";
   const ok = a.expect === "run-pass" ? result === "Pass" : a.expect === "run-fail" ? result === "Fail" : a.expect === "run-crash" ? result === "Crash" : result !== "Pass";
   const lines = [`native-run: compiletest ${a.expect}: ${ok ? "met" : "not met"} (${result})`];
+
   const output = a.checkStdout ? stdout + stderr : stderr;
   for (const p of a.errorPatterns) lines.push(`native-run: compiletest error-pattern '${p.trim()}': ${output.includes(p.trim()) ? "found" : "not found"}`);
   // `check_regex_error_patterns` trims too (`pattern.trim()`), before `Regex::new`.
@@ -280,18 +307,45 @@ async function runProgram(a: NativeRunArgs, exe: string, lock: string): Promise<
     return { end, stdout: Buffer.from(stdout), stderr: Buffer.from(stderr) };
   } finally {
     clearTimeout(timer);
-    // What the program left running in its group.
+    // What the program left running in its group, then what left the group (review harness-m7b N1).
     killGroup(p.pid, "SIGKILL");
+    killEscaped(a.dir);
     running.group = undefined;
   }
+}
+
+/**
+ * Kills every process whose environment holds this case's `HOME=<case dir>/home` (`ps -E`): what the program started and left behind
+ * outside its group, such as a child that called `setsid()` (review harness-m7b N1). Every descendant inherits that variable, which is
+ * unique to the case, unless it cleared or changed its environment: **such a process can survive the run**, sandboxed (no network, writes
+ * only under the case directory). No run-mode test at the pin calls `setsid`, `setpgid`, `process_group` or `daemon` (the review's grep).
+ */
+export function killEscaped(dir: string): number[] {
+  const mark = `HOME=${join(dir, "home")}`;
+  const r = Bun.spawnSync(["/bin/ps", "-axwwE", "-o", "pid=,command="], { stdout: "pipe", stderr: "ignore" });
+  const killed: number[] = [];
+  for (const line of r.stdout.toString().split("\n")) {
+    const m = /^\s*(\d+) (.*)$/.exec(line);
+    if (!m || Number(m[1]) === process.pid) continue;
+    // As an environment entry: a word of its own, not inside a longer value.
+    if (!` ${m[2]} `.includes(` ${mark} `)) continue;
+    try {
+      process.kill(Number(m[1]), "SIGKILL");
+      killed.push(Number(m[1]));
+    } catch {
+      // Gone already.
+    }
+  }
+  return killed;
 }
 
 /** Why two runs of the oracle's program are not the same result, or `undefined`. */
 export function runsDiffer(x: { end: RunEnd; stdout: string; stderr: string }, y: { end: RunEnd; stdout: string; stderr: string }): string | undefined {
   if ("timedOut" in x.end || "timedOut" in y.end) return "a run timed out";
   if (describeEnd(x.end) !== describeEnd(y.end)) return `the two runs ended differently (${describeEnd(x.end)}, ${describeEnd(y.end)})`;
-  if (x.stdout !== y.stdout) return "the two runs' stdout differ";
-  if (maskThreadId(cutBacktraces(x.stderr)) !== maskThreadId(cutBacktraces(y.stderr))) return "the two runs' stderr differ";
+  // difftest's masks for these suites (`Suite.maskProgramOutput`), and the backtrace cut this wrapper prints.
+  if (maskProgramOutput(x.stdout) !== maskProgramOutput(y.stdout)) return "the two runs' stdout differ";
+  if (maskProgramOutput(maskThreadId(cutBacktraces(x.stderr))) !== maskProgramOutput(maskThreadId(cutBacktraces(y.stderr)))) return "the two runs' stderr differ";
   return undefined;
 }
 

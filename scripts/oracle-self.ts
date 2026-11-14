@@ -1,6 +1,7 @@
 // Oracle against oracle, for a suite whose sides run one wrapper with `--side oracle|subject` (scripts/native-run.ts, scripts/ir-run.ts;
 // lane harness-m7b): for each sampled case, the suite's oracle command, then the same command as the subject side (`--side subject`, and
-// for native-run one run, `--runs 1`) still with the oracle's compiler, compared as difftest compares (stdout, stderr with its masks, exit).
+// for native-run one run, `--runs 1`) still with the oracle's compiler, compared as difftest compares (stdout, stderr with its masks, and
+// `Suite.maskProgramOutput`'s, exit). For a native suite that makes three runs of each program: the oracle's two, then the subject side's.
 // It checks the harness, not the port: two equal outputs show that the wrapper's two sides agree when the compilers do, and that the case
 // is stable; a case whose oracle output carries native-run's unstable mark is counted apart. Never reads or writes the oracle cache.
 //
@@ -13,7 +14,7 @@ import { suite as getSuite, type Case } from "../harness/suites.ts";
 import { sample } from "./difftest.ts";
 import { RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, pool, run } from "./lib/common.ts";
 import { caseEnv } from "./lib/env.ts";
-import { EXIT_MARK, STDERR_MARK, maskedTexts } from "./lib/unstable.ts";
+import { EXIT_MARK, STDERR_MARK, maskProgramOutput, maskedTexts } from "./lib/unstable.ts";
 
 /** `cmd`, a wrapper's oracle command, as its subject side: `--side subject`, and one run where it has `--runs` (before the compiler's `--`). */
 export function asSubjectSide(cmd: readonly string[]): string[] {
@@ -40,9 +41,9 @@ if (import.meta.main) {
   const res = await pool(cases, jobs, async (c) => {
     const o = await run(s.oracle([c]), opts(c));
     const sub = await run(asSubjectSide(s.oracle([c])), opts(c));
-    const [x, y] = maskedTexts(s.miri === true, render(o), render(sub));
+    const [x, y] = maskedTexts(s.miri === true, render(o), render(sub), s.maskProgramOutput ? maskProgramOutput : undefined);
     const unstable = /^native-run: unstable: (.*)$/m.exec(o.stderr)?.[1];
-    return { id: c.id, equal: unstable === undefined && !o.timedOut && x === y, unstable: unstable ?? null, timedOut: o.timedOut || sub.timedOut, oracleExit: o.code, ms: Math.round(o.ms) };
+    return { id: c.id, equal: unstable === undefined && !o.timedOut && x === y, unstable: unstable ?? null, timedOut: o.timedOut || sub.timedOut, oracleExit: o.code, notMet: /^native-run: compiletest [^:]+: not met/m.test(o.stdout), ms: Math.round(o.ms) };
   });
   const out = join(ensureDir(RUNS), `oracle-self-${s.name}-${nowId()}.jsonl`);
   writeFileSync(out, res.map((r) => JSON.stringify(r)).join("\n") + "\n");

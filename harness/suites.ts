@@ -129,6 +129,12 @@ export interface Suite {
    * command.
    */
   miri?: boolean;
+  /**
+   * The suite compares programs' output (the native suites, scripts/native-run.ts): difftest masks stdout and stderr further with
+   * scripts/lib/unstable.ts `maskProgramOutput` (the thread id, also on stdout, and libtest's `finished in N.NNs`; root's decision for review
+   * harness-m7b F1). The cache keeps the raw text.
+   */
+  maskProgramOutput?: boolean;
   /** An IR suite (scripts/ir-run.ts): the compiler argv of a case, for scripts/ir-diff.ts. */
   irArgs?(c: Case): string[];
   /** An IR suite: the normal form tier it is read at (`irSuite` requires it). Anything but N1 needs a recorded decision: scripts/lib/ir-normal.ts `irTierError`. */
@@ -2322,7 +2328,7 @@ export function nativeCmd(suite: string, side: "oracle" | "subject", c: Case, co
   return [process.execPath, NATIVE_RUN, "--dir", nativeDir(suite, c), "--side", side, "--runs", side === "oracle" ? "2" : "1", ...opts, "--", ...compiler(rustc)];
 }
 /** scripts/native-run.ts's options for compiletest's run props of a test (`--expect` only for a run mode). */
-export function nativeRunOpts(run: RunProps | undefined, mode: string | undefined): string[] {
+export function nativeRunOpts(run: RunProps | undefined, mode: string | undefined, libtest = false): string[] {
   const env = run?.env ?? [];
   const bad = env.find(([k]) => k === "" || k.includes("="));
   if (bad) throw new Error(`exec-env \`${bad[0]}=${bad[1]}\` has no variable name the wrapper can set`);
@@ -2334,6 +2340,8 @@ export function nativeRunOpts(run: RunProps | undefined, mode: string | undefine
     ...(run?.errorPatterns ?? []).flatMap((p) => ["--error-pattern", p]),
     ...(run?.regexErrorPatterns ?? []).flatMap((p) => ["--regex-error-pattern", p]),
     ...(run?.checkStdout ? ["--check-stdout"] : []),
+    ...(run?.shouldFail ? ["--should-fail"] : []),
+    ...(libtest ? ["--libtest"] : []),
   ];
 }
 /**
@@ -2382,6 +2390,8 @@ export function rustTestHelpersDir(): string {
   return (testHelpersMemo = dir);
 }
 let nativeKeyMemo: string | undefined;
+/** Inherited variables that change a native link, in `nativeOracleKey`. */
+export const NATIVE_LINK_ENV = ["SDKROOT", "DEVELOPER_DIR", "LIBRARY_PATH"];
 /**
  * `Suite.oracleKey` of a native suite: the wrapper and the masks it applies (scripts/lib/unstable.ts), the oracle rustc build (and so its
  * std), and what else decides the program and its run on this machine: `cc -v` and `ld -v` (the link), the SDK version, the OS build
@@ -2396,10 +2406,13 @@ const nativeOracleKey = (): string => {
     return `${r.exitCode}\0${r.stdout.toString()}\0${r.stderr.toString()}`;
   };
   const tools = [out(["cc", "-v"]), out(["ld", "-v"]), out(["xcrun", "--show-sdk-version"]), out(["sw_vers"])];
-  return (nativeKeyMemo = hash([hash(readFileSync(NATIVE_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "unstable.ts"))), rustcDriverHash(), join(DATA, "native"), ...tools].join("\0")));
+  // The caller's variables that reach the compile (scripts/lib/env.ts does not scrub them) and change the link: `SDKROOT` (rustc and `cc`),
+  // `DEVELOPER_DIR` (`xcrun`), `LIBRARY_PATH` (`cc`, `ld`) (review harness-m7b N2).
+  const linkEnv = NATIVE_LINK_ENV.map((k) => `${k}=${process.env[k] ?? "<unset>"}`);
+  return (nativeKeyMemo = hash([hash(readFileSync(NATIVE_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "unstable.ts"))), rustcDriverHash(), join(DATA, "native"), ...tools, ...linkEnv].join("\0")));
 };
 /** A native suite (see above). */
-const nativeSuite = (d: { name: string; description: string; cwd: string; cases: () => Case[]; skipped?: () => SkippedCase[]; criterion?: Suite["criterion"] }): Suite => ({
+const nativeSuite = (d: { name: string; description: string; cwd: string; cases: () => Case[]; skipped?: () => SkippedCase[]; unstable?: () => UnstableCase[]; criterion?: Suite["criterion"] }): Suite => ({
   name: d.name,
   milestone: "M7",
   description: d.description,
@@ -2413,6 +2426,8 @@ const nativeSuite = (d: { name: string; description: string; cwd: string; cases:
   ...(d.skipped ? { skipped: d.skipped } : {}),
   caseLock: (c) => `${nativeDir(d.name, c)}.case.lock`,
   oracleKey: nativeOracleKey,
+  maskProgramOutput: true,
+  ...(d.unstable ? { unstable: d.unstable } : {}),
   oracle: ([c]) => nativeCmd(d.name, "oracle", c!, oracleRustcCmd),
   subject: ([c]) => nativeCmd(d.name, "subject", c!, (a) => [...bunCmd(RUSTC_DRIVER_ENTRY), ...a]),
   ...(d.criterion ? { criterion: d.criterion } : {}),
@@ -2427,19 +2442,227 @@ const nativeSuite = (d: { name: string; description: string; cwd: string; cases:
  */
 export const DUPLICATE_LIBC_REASON =
   "skipped on the host: it has `extern crate libc`, and the oracle's host sysroot holds two libc candidates (std's rlib and rustc-dev's rmeta, which compiletest's stage sysroot lacks), so both sides fail with E0464 and the case would test nothing (root's decision 2026-11-14)";
-/** `extern crate libc` (with any `as` rename), outside a `//` comment. `#![feature(rustc_private)]` alone does not load it. */
-const EXTERN_CRATE_LIBC = /\bextern\s+crate\s+libc\b/;
-/** Whether `text` names the `libc` crate (see `EXTERN_CRATE_LIBC`); `//` comments are dropped first, block comments are not (an over-approximation). */
-export const namesLibcCrate = (text: string): boolean => text.split("\n").some((l) => EXTERN_CRATE_LIBC.test(l.replace(/\/\/.*$/, "")));
+/** `extern crate libc` (with any `as` rename). `#![feature(rustc_private)]` alone does not load it. */
+const EXTERN_CRATE_LIBC = /\bextern\s+crate\s+libc\b/g;
+/**
+ * `text` with comments and the contents of string and char literals blanked out, each byte kept in place (so offsets stay valid): what
+ * `libcLoadedOn` scans for braces and `extern crate`. Line and nested block comments, `"..."` with escapes, raw strings `r#"..."#`, and char
+ * literals (`'x'`, `'\n'`, told from a lifetime `'a` by the closing quote). A sketch of the lexer, enough for test files; review harness-m7b F3.
+ */
+export function blankRustNoise(text: string): string {
+  const out = text.split("");
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to; k++) if (out[k] !== "\n") out[k] = " ";
+  };
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i]!;
+    if (c === "/" && text[i + 1] === "/") {
+      const e = text.indexOf("\n", i);
+      const end = e < 0 ? text.length : e;
+      blank(i, end);
+      i = end;
+    } else if (c === "/" && text[i + 1] === "*") {
+      let depth = 1;
+      let j = i + 2;
+      while (j < text.length && depth > 0) {
+        if (text[j] === "/" && text[j + 1] === "*") (depth++, (j += 2));
+        else if (text[j] === "*" && text[j + 1] === "/") (depth--, (j += 2));
+        else j++;
+      }
+      blank(i, j);
+      i = j;
+    } else if ((c === "r" || (c === "b" && text[i + 1] === "r")) && /^b?r#*"/.test(text.slice(i, i + 260)) && !/\w/.test(text[i - 1] ?? "")) {
+      const m = /^b?r(#*)"/.exec(text.slice(i))!;
+      const close = `"${m[1]}`;
+      const e = text.indexOf(close, i + m[0].length);
+      const end = e < 0 ? text.length : e + close.length;
+      blank(i + m[0].length, end - close.length);
+      i = end;
+    } else if (c === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === "\\" ? 2 : 1;
+      blank(i + 1, j);
+      i = j + 1;
+    } else if (c === "'") {
+      const m = /^'(?:\\(?:u\{[0-9a-fA-F]+\}|x[0-9a-fA-F]{2}|.)|[^\\'\n])'/u.exec(text.slice(i, i + 16));
+      if (m) {
+        blank(i + 1, i + m[0].length - 1);
+        i += m[0].length;
+      } else i++;
+    } else i++;
+  }
+  return out.join("");
+}
+/** The host's cfg facts, as `rustc --print=cfg --target <host>` gives them (`name` and `name="value"`): a target fact, not a compile of a test. */
+let hostCfgMemo: Set<string> | undefined;
+export function hostCfg(): Set<string> {
+  if (hostCfgMemo) return hostCfgMemo;
+  const r = Bun.spawnSync([...oracleRustcCmd(["--print=cfg", "--target", oracleHost()])], { stdout: "pipe", stderr: "pipe", env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" } });
+  if (r.exitCode !== 0) die(`cannot read the host's cfg: ${r.stderr.toString().trim().split("\n")[0]}`);
+  return (hostCfgMemo = new Set(r.stdout.toString().split("\n").map((l) => l.trim()).filter(Boolean)));
+}
+/**
+ * A `cfg(...)` predicate (the text inside the parentheses) on the facts `cfg`: `name`, `name = "value"`, `all(..)`, `any(..)`, `not(..)`,
+ * `true`, `false`. Undefined when it does not parse: the caller then assumes it holds.
+ */
+export function evalCfg(pred: string, cfg: ReadonlySet<string>): boolean | undefined {
+  let i = 0;
+  const ws = () => {
+    while (/\s/.test(pred[i] ?? "")) i++;
+  };
+  const parse = (): boolean => {
+    ws();
+    const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(pred.slice(i));
+    if (!m) throw new Error("no name");
+    const name = m[0];
+    i += name.length;
+    ws();
+    if (pred[i] === "(") {
+      i++;
+      const args: boolean[] = [];
+      ws();
+      while (pred[i] !== ")") {
+        args.push(parse());
+        ws();
+        if (pred[i] === ",") i++;
+        else if (pred[i] !== ")") throw new Error("expected , or )");
+        ws();
+      }
+      i++;
+      if (name === "all") return args.every(Boolean);
+      if (name === "any") return args.some(Boolean);
+      if (name === "not" && args.length === 1) return !args[0];
+      throw new Error(`unknown ${name}()`);
+    }
+    if (pred[i] === "=") {
+      i++;
+      ws();
+      const v = /^"([^"\\]*)"/.exec(pred.slice(i));
+      if (!v) throw new Error("no value");
+      i += v[0].length;
+      return cfg.has(`${name}="${v[1]}"`);
+    }
+    if (name === "true") return true;
+    if (name === "false") return false;
+    return cfg.has(name);
+  };
+  try {
+    const r = parse();
+    ws();
+    return i === pred.length ? r : undefined;
+  } catch {
+    return undefined;
+  }
+}
+/** The predicates of the `#[cfg(...)]` attributes in `attrs` (outer attributes only; `cfg_attr` does not gate an item). */
+function cfgAttrs(attrs: string): string[] {
+  const out: string[] = [];
+  const re = /#\s*\[\s*cfg\s*\(/g;
+  for (let m = re.exec(attrs); m; m = re.exec(attrs)) {
+    let depth = 1;
+    let j = m.index + m[0].length;
+    const start = j;
+    while (j < attrs.length && depth > 0) {
+      if (attrs[j] === "(") depth++;
+      else if (attrs[j] === ")") depth--;
+      j++;
+    }
+    if (depth === 0) out.push(attrs.slice(start, j - 1));
+  }
+  return out;
+}
+/**
+ * Whether a crate whose source is `text` loads the `libc` crate on a target with the cfg facts `cfg` (review harness-m7b F3): some
+ * `extern crate libc` none of whose gates is false. Its gates are the `#[cfg(...)]` attributes on the `extern crate` item itself and on each
+ * enclosing item (`fn`, `mod`, a block): the text between the previous `;`, `{` or `}` and the item, or its opening brace. A gate that does
+ * not parse counts as true, so a doubtful case is still skipped. Read from the source, never by compiling it.
+ */
+export function libcLoadedOn(text: string, cfg: ReadonlySet<string>): boolean {
+  const clean = blankRustNoise(text);
+  /** The attribute text of the item or block opening at `at`: back to the previous `;`, `{` or `}`. */
+  const attrsBefore = (at: number): string => {
+    let j = at - 1;
+    while (j >= 0 && !";{}".includes(clean[j]!)) j--;
+    return text.slice(j + 1, at);
+  };
+  for (const m of clean.matchAll(EXTERN_CRATE_LIBC)) {
+    const gates = [...cfgAttrs(attrsBefore(m.index!))];
+    // Each enclosing `{`, innermost first.
+    let depth = 0;
+    for (let j = m.index! - 1; j >= 0; j--) {
+      const ch = clean[j];
+      if (ch === "}") depth++;
+      else if (ch === "{") {
+        if (depth > 0) depth--;
+        else gates.push(...cfgAttrs(attrsBefore(j)));
+      }
+    }
+    if (gates.every((g) => evalCfg(g, cfg) !== false)) return true;
+  }
+  return false;
+}
+/** Whether `text` loads `libc` on the host (`libcLoadedOn` with `hostCfg()`). */
+export const namesLibcCrate = (text: string): boolean => libcLoadedOn(text, hostCfg());
 /**
  * Whether case file `file` (relative to the upstream checkout) or a file it may read, `mod`, `#[path]`, the include macros (scripts/lib/deps.ts
  * `caseDeps`), or one of its aux crates' files (`auxFiles`), names the `libc` crate: `DUPLICATE_LIBC_REASON`.
  */
 export function hostLibcConflict(file: string, env: Case["env"], auxFiles: readonly string[] = []): boolean {
+  // (A file that `mod` or `include!` pulls in is read as a crate of its own: an attribute on the `mod` item that names it is not seen.)
   const texts = [file, ...auxFiles].map((f) => readFileSync(join(UPSTREAM, f), "utf8"));
   for (const [p, st] of caseDeps(UPSTREAM, file, env)) if (st !== "-" && st !== "dir" && st !== "other" && !st.startsWith("ls:")) texts.push(readFileSync(join(UPSTREAM, p), "utf8"));
   return texts.some(namesLibcCrate);
 }
+/**
+ * Native cases whose oracle result the harness itself decides, so a MATCH would test nothing (review harness-m7b N3); id -> why. The sandbox
+ * denies the network, localhost included (scripts/native-run.ts `sandboxProfile`), by design.
+ */
+export const NATIVE_HARNESS_SKIPS: Record<string, string> = {
+  "tests/ui/process-termination/process-termination-blocking-io.rs":
+    "it binds a TCP listener on 127.0.0.1, which the native run's sandbox denies (no network, localhost included), so the oracle's program panics on `bind` and both sides fail alike",
+};
+/**
+ * Native cases whose oracle output is not reproducible after the masks and `RUST_TEST_THREADS=1` (root's decision for review harness-m7b F1),
+ * by suite; id -> the diagnosed cause. Found by running every case's oracle twice (scripts/oracle-self.ts) and diagnosed one by one
+ * (docs/handoff/harness-m7b.md).
+ */
+const ADDRESS = (what: string) => `the program prints ${what}, an address that ASLR changes on every run`;
+const INTERLEAVING = (what: string) => `threads interleave: ${what} in an order that changes from run to run`;
+const TID_ELSEWHERE = (where: string) => `an OS thread id ${where}, where the line-anchored thread-id mask (\`maskThreadId\`, \`thread '<name>' (<tid>) panicked\`) does not reach`;
+const RUSTC_LOG_TEMP = "the compile runs with `RUSTC_LOG=info` (rustc-env), and rustc's log of the link line names its temp directory, `rustc<6 random characters>` (`work/rustc1RD28V/symbols.o`)";
+export const NATIVE_UNSTABLE: Record<string, Record<string, string>> = {
+  "run-pass-native": {
+    "tests/ui/abi/stack-probes.rs#aarch64": TID_ELSEWHERE("in std's stack-overflow message, `thread 'main' (<tid>) has overflowed its stack`, which the program prints from its children"),
+    "tests/ui/abi/stack-probes-lto.rs#aarch64": TID_ELSEWHERE("in std's stack-overflow message, `thread 'main' (<tid>) has overflowed its stack`, which the program prints from its children"),
+    "tests/ui/attributes/log-backtrace.rs": RUSTC_LOG_TEMP,
+    "tests/ui/rustc-env/def-path-hash-ice-157238.rs": RUSTC_LOG_TEMP,
+    "tests/ui/binop/binops.rs": ADDRESS("two stack addresses (`q = 16ef972b0, r = 16ef972c0`)"),
+    "tests/ui/cast/cast-region-to-uint.rs": ADDRESS("a stack address (`&x=16b4ef2e0`)"),
+    "tests/ui/codegen/equal-pointers-unequal/as-cast/segfault.rs": ADDRESS("a pointer (`0x1036dd680`)"),
+    "tests/ui/codegen/equal-pointers-unequal/exposed-provenance/segfault.rs": ADDRESS("a pointer (`0x100ac9840`)"),
+    "tests/ui/codegen/equal-pointers-unequal/strict-provenance/segfault.rs": ADDRESS("a pointer (`0x101259880`)"),
+    "tests/ui/collections/hashmap/hashmap-debug-format.rs": "a `HashMap`'s Debug output follows its random hash seed: one run prints `Found {\"two\": 2, \"one\": 1}, but expected ...`, another nothing",
+    "tests/ui/panics/panic-handler-flail-wildly.rs": INTERLEAVING("the panicking threads' messages come out (`panicked at ...:25:5` or `:35:5` first)"),
+    "tests/ui/std/park-timeout-wakeup-59020.rs": INTERLEAVING("`Parking1` and `Parking2` come out"),
+    "tests/ui/threads-sendsync/spawn-fn.rs": INTERLEAVING("the spawned threads' and the parent's lines come out"),
+    "tests/ui/threads-sendsync/task-comm-14.rs": INTERLEAVING("the senders' numbers come out"),
+    "tests/ui/threads-sendsync/task-comm-3.rs": INTERLEAVING("`Starting`, `Sending Message` and `Ending` come out"),
+    "tests/ui/threads-sendsync/yield.rs": INTERLEAVING("the two threads' numbers come out"),
+    "tests/ui/runtime/rt-explody-panic-payloads.rs": TID_ELSEWHERE("inside a child's stderr that the program prints with `{:?}` (`stderr: \"\\nthread 'main' (<tid>) panicked ...`)"),
+    "tests/ui/runtime/running-with-no-runtime.rs": TID_ELSEWHERE("inside a child's stderr that the program prints with `{:?}` (`Ok(\"\\nthread '<unnamed>' (<tid>) panicked ...`)"),
+  },
+  "run-fail-native": {
+    "tests/ui/array-slice-vec/vec-index-bounds-check-overflow.rs": ADDRESS("a heap address and an index computed from it (`ov1 base = 0x100b61670`, `the index is 538362574`)"),
+    "tests/ui/mir/alignment/borrow_misaligned_field_projection.rs": ADDRESS("the misaligned stack address in its panic (`but is 0x16f7bf2a9`)"),
+    "tests/ui/mir/alignment/misaligned_borrow.rs": ADDRESS("the misaligned stack address in its panic (`but is 0x16ef4b2a9`)"),
+    "tests/ui/mir/alignment/misaligned_lhs.rs": ADDRESS("the misaligned stack address in its panic (`but is 0x16ee972a9`)"),
+    "tests/ui/mir/alignment/misaligned_mut_borrow.rs": ADDRESS("the misaligned stack address in its panic (`but is 0x16b1332a9`)"),
+    "tests/ui/mir/alignment/misaligned_rhs.rs": ADDRESS("the misaligned stack address in its panic (`but is 0x16afef2a9`)"),
+    "tests/ui/mir/alignment/two_pointers.rs": ADDRESS("the misaligned stack address in its panic (`but is 0x16f4f32a1`)"),
+  },
+};
+const nativeUnstable = (suite: string) => (): UnstableCase[] => Object.entries(NATIVE_UNSTABLE[suite] ?? {}).map(([id, reason]) => ({ id, reason }));
 const nativeMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
 /** The native cases of the run modes `modes` (see above), with the skips of those modes' tests. */
 function nativeCorpus(modes: readonly string[]): { cases: Case[]; skipped: SkippedCase[] } {
@@ -2458,8 +2681,13 @@ function nativeCorpus(modes: readonly string[]): { cases: Case[]; skipped: Skipp
       skipped.push({ id: c.id, reason: DUPLICATE_LIBC_REASON });
       continue;
     }
+    if (Object.hasOwn(NATIVE_HARNESS_SKIPS, c.id)) {
+      skipped.push({ id: c.id, reason: `not run natively: ${NATIVE_HARNESS_SKIPS[c.id]}` });
+      continue;
+    }
     try {
-      const args = [...nativeRunOpts(c.run, c.mode), "--lib-path", lib, "--", ...withTestHelpers(dropOutput(c.args), helpers)];
+      const rustc = withTestHelpers(dropOutput(c.args), helpers);
+      const args = [...nativeRunOpts(c.run, c.mode, rustc.includes("--test")), "--lib-path", lib, "--", ...rustc];
       cases.push(pinSessionEnv({ id: c.id, file: c.file, args, env: { ...NOCORE_ENV, ...c.env, ...env } }));
     } catch (e) {
       skipped.push({ id: c.id, reason: `not run natively: ${e instanceof Error ? e.message : String(e)}` });
@@ -2540,6 +2768,7 @@ SUITES.push(
     cwd: UPSTREAM,
     cases: () => nativeCorpus(RUN_PASS_MODES).cases,
     skipped: () => nativeCorpus(RUN_PASS_MODES).skipped,
+    unstable: nativeUnstable("run-pass-native"),
     criterion: { percent: 80, what: M7B("M7b: run-pass-native >= 80% (M7c: >= 98%, with its heavy cases)") },
   }),
   nativeSuite({
@@ -2549,6 +2778,7 @@ SUITES.push(
     cwd: UPSTREAM,
     cases: () => nativeCorpus(RUN_FAIL_MODES).cases,
     skipped: () => nativeCorpus(RUN_FAIL_MODES).skipped,
+    unstable: nativeUnstable("run-fail-native"),
     criterion: { percent: 95, what: M7B("M7c: run-fail-native >= 95%") },
   }),
 );

@@ -26,7 +26,8 @@
 // stderr only, never in stdout and never in what is cached (`maskThreadId`, `maskLongTypeHash`, `stderrMask`, `maskedTexts`,
 // scripts/lib/unstable.ts; lane harness-w40). A single-mode diff file shows the raw text, a split suite's the masked text, so an
 // audit of a split suite reads the id in the cached entry. A Miri suite masks the thread id only when its host process ICEd, and
-// then only `thread 'rustc'`. A batch suite has no stderr to compare, so it masks nothing.
+// then only `thread 'rustc'`. A batch suite has no stderr to compare, so it masks nothing. A suite with `Suite.maskProgramOutput` (the native
+// suites, which compare a program's output) masks stdout and stderr further with `maskProgramOutput`: the thread id and libtest's time.
 //
 // Environment: both sides run with the caller's environment minus the variables scripts/lib/env.ts scrubs
 // (`RUSTC_LOG*`, `RUST_BACKTRACE`, `RUSTC_BOOTSTRAP`, `CLICOLOR_FORCE`, `CARGO_*`, ...), plus the case's own
@@ -76,7 +77,7 @@ import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, p
 import { withCaseLock } from "./lib/case-lock.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
 import { caseEnv } from "./lib/env.ts";
-import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, maskedTexts, stderrMask, unstableOracleReason } from "./lib/unstable.ts";
+import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, maskProgramOutput, maskedTexts, stderrMask, unstableOracleReason } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { verifyMiriOracle } from "./lib/miri.ts";
 import { ORACLE_RETRY_FACTOR, oracleSysroot, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
@@ -696,7 +697,7 @@ export async function runSubject(s: Suite, cases: Case[], impl: string, stats?: 
  */
 export function compared(s: Suite, o: Output, sub: Output): [Output, Output] {
   if (s.mode !== "single") return [o, sub];
-  const [ot, st] = maskedTexts(s.miri === true, o.text, sub.text);
+  const [ot, st] = maskedTexts(s.miri === true, o.text, sub.text, s.maskProgramOutput ? maskProgramOutput : undefined);
   return [{ ...o, text: ot }, { ...sub, text: st }];
 }
 

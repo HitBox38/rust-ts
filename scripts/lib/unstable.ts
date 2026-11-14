@@ -78,6 +78,22 @@ export const maskLongTypeHash = (stderr: string): string =>
 export const stderrMask = (miri: boolean, oracleStderr: string): ((stderr: string) => string) =>
   !miri ? (e) => maskLongTypeHash(maskThreadId(e)) : isIceStderr(oracleStderr) ? (e) => maskLongTypeHash(maskRustcThreadId(e)) : maskLongTypeHash;
 
+/**
+ * libtest's summary line ends with the run's wall time, `test result: ok. 1 passed; ...; finished in 0.01s`, which no two runs share. This masks
+ * only those digits (lane harness-m7b, root's decision for review harness-m7b F1): compiletest's own tests do the same with `normalize-stdout`
+ * (tests/ui/test-attrs/test-panic-abort-nocapture.rs). Anchored to that line, so a program's own "finished in" text still compares. A literal
+ * `<time>` gets one more `<`, as in `maskThreadId`.
+ */
+export const maskLibtestTime = (text: string): string =>
+  text.replace(/^(test result: [^\n]*; finished in )(\d+\.\d+|<+time>)(s)$/gm, (_m, a: string, t: string, b: string) => `${a}${t.startsWith("<") ? `<${t}` : "<time>"}${b}`);
+
+/**
+ * The extra mask of a suite whose programs' output is compared (`Suite.maskProgramOutput`: the native suites; root's decision for review
+ * harness-m7b F1): on stdout as on stderr, the thread id (`maskThreadId`: libtest prints a captured panic, `thread '<test>' (<tid>) panicked`,
+ * on stdout) and libtest's time (`maskLibtestTime`). scripts/native-run.ts uses the same to decide whether its two oracle runs agree.
+ */
+export const maskProgramOutput = (text: string): string => maskLibtestTime(maskThreadId(text));
+
 /** The markers of a single-mode output's text (difftest `render`). */
 export const STDERR_MARK = "\n--- stderr ---\n";
 export const EXIT_MARK = "\n--- exit: ";
@@ -95,12 +111,14 @@ function stderrRange(text: string): [number, number] | undefined {
 
 /**
  * The two rendered texts a single-mode case compares: both sides' stderr masked (`stderrMask`), stdout and the exit code
- * as they are. What is cached and what the diff files show keep the raw text. A text with no markers (a subject that
- * timed out) stays as it is.
+ * as they are. With `output` (`Suite.maskProgramOutput`: `maskProgramOutput`), stdout and stderr also get that mask. What is cached and
+ * what the diff files show keep the raw text. A text with no markers (a subject that timed out) stays as it is.
  */
-export function maskedTexts(miri: boolean, oracle: string, subject: string): [string, string] {
+export function maskedTexts(miri: boolean, oracle: string, subject: string, output?: (text: string) => string): [string, string] {
   const o = stderrRange(oracle);
-  const mask = stderrMask(miri, o ? oracle.slice(o[0], o[1]) : "");
-  const masked = (text: string, r: [number, number] | undefined) => (r ? text.slice(0, r[0]) + mask(text.slice(r[0], r[1])) + text.slice(r[1]) : text);
+  const base = stderrMask(miri, o ? oracle.slice(o[0], o[1]) : "");
+  const mask = output ? (e: string) => output(base(e)) : base;
+  const head = (text: string, r: [number, number]) => (output ? output(text.slice(0, r[0] - STDERR_MARK.length)) + STDERR_MARK : text.slice(0, r[0]));
+  const masked = (text: string, r: [number, number] | undefined) => (r ? head(text, r) + mask(text.slice(r[0], r[1])) + text.slice(r[1]) : text);
   return [masked(oracle, o), masked(subject, stderrRange(subject))];
 }
