@@ -1787,6 +1787,24 @@ export class Module {
     return specs.get(0) ?? 64;
   }
 
+  // llvm: llvm/lib/IR/DataLayout.cpp:820 DataLayout::getPointerABIAlignment
+  /** The ABI alignment in bytes of a pointer in address space `AS` (lane ir-fix-a): `getPointerSpec(AS).ABIAlign`, the spec of
+   *  that address space, else address space 0's; `DataLayout::DataLayout()` gives address space 0's an ABI alignment of 8
+   *  (DataLayout.cpp:193). Read as `pointerSpecBitWidth` reads the specs: `parsePointerSpec` (DataLayout.cpp:436) takes the ABI
+   *  alignment from the third component, in bits (`parseAlignment`). */
+  pointerABIAlignment(AS: number): number {
+    // PORT: as `pointerSpecBitWidth`, only plain pointer specs `p[<n>]:<size>:<abi>[...]`; any other stops rather than guess.
+    const specs = new Map<number, number>();
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("p")) continue;
+      const m = /^p(\d*):(\d+):(\d+)(:|$)/.exec(s);
+      if (m === null) return unported(`llir: data layout pointer spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      specs.set(m[1] === "" ? 0 : Number(m[1]), Number(m[3]) / 8);
+    }
+    if (AS !== 0 && specs.has(AS)) return specs.get(AS)!;
+    return specs.get(0) ?? 8;
+  }
+
   /** The data layout's `F<type><abi>` spec (`parseSpecification`, DataLayout.cpp:603; lane llir-folder): `getFunctionPtrAlign()`
    *  in bytes (undefined when the layout has none) and `getFunctionPtrAlignType()` (Independent by default). */
   functionPtrAlign(): { align: number | undefined; type: "Independent" | "MultipleOfFunctionAlign" } {

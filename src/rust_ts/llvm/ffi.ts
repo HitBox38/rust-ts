@@ -14,7 +14,7 @@ export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Conte
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 285 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 286 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -258,6 +258,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustCreateUWTableAttr",
   "LLVMRustCreateAllocSizeAttr",
   "LLVMRustCreateAllocKindAttr",
+  "LLVMRustCreateMemoryEffectsAttr",
   "LLVMRustCreateRangeAttribute",
   "LLVMRustAddFunctionAttributes",
   "LLVMRustAddCallSiteAttributes",
@@ -1123,7 +1124,7 @@ export const LLVMRustCreateAllocSizeAttr: (C: Context, size_arg: number) => Attr
 export const LLVMRustCreateAllocKindAttr: (C: Context, size_arg: bigint) => Attribute = bind("LLVMRustCreateAllocKindAttr", impl0.LLVMRustCreateAllocKindAttr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2031 LLVMRustCreateMemoryEffectsAttr
-export const LLVMRustCreateMemoryEffectsAttr: (C: Context, effects: MemoryEffects) => Attribute = stub("LLVMRustCreateMemoryEffectsAttr");
+export const LLVMRustCreateMemoryEffectsAttr: (C: Context, effects: MemoryEffects) => Attribute = bind("LLVMRustCreateMemoryEffectsAttr", impl0.LLVMRustCreateMemoryEffectsAttr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2041 LLVMRustCreateRangeAttribute
 export const LLVMRustCreateRangeAttribute: (C: Context, NumBits: number, LowerWords: readonly bigint[], UpperWords: readonly bigint[]) => Attribute = bind("LLVMRustCreateRangeAttribute", impl0.LLVMRustCreateRangeAttribute);
