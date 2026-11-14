@@ -4,6 +4,7 @@
 // `LLVMIntrinsicIsOverloaded` for every ID; the x86 names are the run of IDs whose first component after `llvm.` is `x86`).
 // intrinsics.oracle.test.ts re-reads it from libLLVM.dylib and fails on any difference. An x86 intrinsic's ID is its index in this
 // table plus `X86_INTRINSICS_OFFSET + 1` (`Adjust` in `Intrinsic::lookupIntrinsicID`, Intrinsics.cpp:766).
+// Written by gen_intrinsics_x86.ts (hand-run; review ir-fix-a N3): do not edit the table by hand.
 
 /** `TargetInfos[x86].Offset` at the pin: the number of names before the x86 table in `IntrinsicNameTable` (header). */
 export const X86_INTRINSICS_OFFSET = 14685;
