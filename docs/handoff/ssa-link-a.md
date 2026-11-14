@@ -5,7 +5,7 @@ Every function of `compiler/rustc_codegen_ssa/src/back/link.rs` before `exec_lin
 one exported stub table, `xlane` (the convention of `rustc_codegen_ssa/mir/mod.ts`). Each stub stops with
 `unported("<lane>: <fn>")`, so root can wire it at integration and tests can replace it.
 
-Branch `t3/8973fabc`, on `main` at bcbd0c28.
+Branch `t3/ssa-link-a-linker-prep` (worktree t3-8973fabc), on `main` at bcbd0c28.
 
 ## Files touched
 
