@@ -75,6 +75,44 @@ test("M7a: the plan's four figures (plan-m7 §6 Gates), as groups of their own (
   expect(m7a).toEqual([["ir-hello", 100], ["mir-o2", 99], ["mono-ui", 99], ["check-rg", "33 of 34"]]);
 });
 
+test("M7b and M7c: the plan's figures (plan-m7 §6 Gates; lane harness-m7b), one group each", () => {
+  const of = (m: string) => GROUPS.filter((g) => g.milestone === m).map((g) => [g.suites.join("+"), g.percent, g.allCases === true]);
+  expect(of("M7b")).toEqual([["native-hello", 100, true], ["run-pass-native", 80, false], ["ir-run-pass", 70, false]]);
+  expect(of("M7c")).toEqual([["run-pass-native", 98, false], ["run-fail-native", 95, false], ["ir-run-pass", 95, false]]);
+  // `--milestone M7` selects all of M7a-c; `M7b` only its own.
+  expect(GROUPS.filter((g) => g.milestone.startsWith("M7b")).length).toBe(3);
+  // native-hello's one case: an oracle timeout is not left out.
+  const hello = GROUPS.find((g) => g.name === "plan-m7 M7b native-hello")!;
+  expect(groupResult(hello, gate([s("native-hello", 0, 1, ["hello"])])).met).toBe(false);
+  expect(groupResult(hello, gate([s("native-hello", 1, 1)])).met).toBe(true);
+  // 80% on the exact counts.
+  const rp = GROUPS.find((g) => g.name === "plan-m7 M7b run-pass-native")!;
+  expect(groupResult(rp, gate([{ ...s("run-pass-native", 80, 100), unstable: [] }])).met).toBe(true);
+  expect(groupResult(rp, gate([{ ...s("run-pass-native", 79, 100), unstable: [] }])).met).toBe(false);
+});
+
+test("M7's percent groups leave UNSTABLE out of the denominator, as plan-m7 §6 says; M6's do not (review harness-m7b F2)", () => {
+  const withUnstable = (suite: string, match: number, total: number, unstable: string[], oracleTimeouts: string[] = []) => ({ ...s(suite, match, total, oracleTimeouts), unstable });
+  // The review's case: 274 MATCH of 289 with 15 UNSTABLE meets 95% only with them left out.
+  const rf = GROUPS.find((g) => g.name === "plan-m7 M7c run-fail-native")!;
+  const fifteen = Array.from({ length: 15 }, (_, i) => `u${i}`);
+  const r = groupResult(rf, gate([withUnstable("run-fail-native", 274, 289, fifteen)]));
+  expect([r.match, r.of, r.unstable, r.percent, r.met]).toEqual([274, 274, 15, 100, true]);
+  // ORACLE_TIMEOUT and UNSTABLE both come out.
+  const both = groupResult(rf, gate([withUnstable("run-fail-native", 270, 289, fifteen, ["t1", "t2"])]));
+  expect([both.of, both.oracleTimeouts, both.unstable]).toEqual([272, 2, 15]);
+  // A gate.json without the list cannot decide it.
+  expect(groupResult(rf, gate([s("run-fail-native", 289, 289)])).problems).toEqual(["run-fail-native: this gate.json has no unstable list to leave out"]);
+  // Every M7 percent group but the every-case ones leaves them out; no M6 group does, and M6's figures are as before.
+  expect(GROUPS.filter((g) => g.milestone.startsWith("M7") && !g.count && !g.allCases).every((g) => g.excludeUnstable)).toBe(true);
+  expect(GROUPS.filter((g) => g.milestone.startsWith("M6")).some((g) => g.excludeUnstable)).toBe(false);
+  const m6 = groupResult(group("M6b run-fail"), gate([withUnstable("run-fail-miri", 270, 294, ["a", "b"], ["t"])]));
+  expect([m6.of, m6.unstable, m6.met]).toEqual([293, 0, true]);
+  // native-hello counts every case: an UNSTABLE hello is not met.
+  const hello = GROUPS.find((g) => g.name === "plan-m7 M7b native-hello")!;
+  expect(groupResult(hello, gate([withUnstable("native-hello", 0, 1, ["hello"])])).met).toBe(false);
+});
+
 describe("a count group: check-rg's crates", () => {
   const rg = group("check-rg");
   const base = readFileSync(join(import.meta.dir, "..", "harness", "baseline", "check-rg.txt"), "utf8").split("\n").filter(Boolean);

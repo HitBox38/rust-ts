@@ -1,11 +1,12 @@
 // The subject of `mono-ui` (harness/suites.ts; plan-m7 §6; lane mono-wire's "Decision for root", taken by root): rustc's command line through the real driver, with a
 // backend that stops at the end of mono collection and reports success, as Miri's driver sets its own backend. Not a port and not an entry a user runs.
 //
-// `src/rust_ts/main.ts` runs codegen (the stand-in forwards it to the ported LLVM backend, lane cg-register), so it cannot stop after collection.
+// `src/rust_ts/main.ts` runs codegen, so it cannot stop after collection: since cg-register (b52d34f6, wave 40q) its backend stand-in forwards
+// `codegen_crate`, `join_codegen`, `link` and LLVM's statistics to the ported LLVM backend (src/rust_ts/codegen_backend.ts `ported_backend`).
 // Here `codegen_crate` runs only the head the backend runs before LLVM (`mono_collection_head`, src/rust_ts/codegen_backend.ts: the offload check, the CPU
 // checks, then the collector and partitioner), and reports a check-only result (`CompiledModules`, which `Linker::link` takes without `join_codegen`). A stop in
 // that head is still UNPORTED, and difftest needs no new rule. **It compares nothing codegen would do after partitioning:** LLVM warnings, link errors. The
-// oracle's run does them.
+// oracle's run does them. Nothing here loads rustc_codegen_llvm or the IR model: every method that would forward is overridden (scripts/mono-run.test.ts).
 // Exit codes as main.ts: rustc's own, plus 70 = reached unported code.
 import { FatalErrorMarker } from "../src/rustc_span/fatal_error.ts";
 import { ensure_stack } from "../src/rust_ts/stack.ts";
@@ -32,6 +33,22 @@ async function main(): Promise<number> {
       return new CompiledModules([], undefined);
     }
     override link(): void {}
+    // Never reached: `Linker::link` takes `CompiledModules` without it (queries.ts). Overridden so that nothing here can forward.
+    override join_codegen(): never {
+      throw new Unported("scripts/mono-run.ts: join_codegen after a mono-collection-only codegen");
+    }
+    // Review mono-run-head N2: these three forward to the ported backend, which would print LLVM's statistics for a compile that ran no
+    // codegen. The stand-in's `init` stops their flags first today (`-Ztime-llvm-passes`, `-Zprint-codegen-stats[-json]`); if it ever does
+    // not, this stops here, UNPORTED, instead of scoring a DIFF.
+    override print_pass_timings(): void {
+      throw new Unported("scripts/mono-run.ts: print_pass_timings after a mono-collection-only codegen (-Z time-llvm-passes)");
+    }
+    override print_statistics(): void {
+      throw new Unported("scripts/mono-run.ts: print_statistics after a mono-collection-only codegen (-Z print-codegen-stats)");
+    }
+    override print_statistics_json(): string {
+      throw new Unported("scripts/mono-run.ts: print_statistics_json after a mono-collection-only codegen (-Z print-codegen-stats-json)");
+    }
   }
   const callbacks = {
     config(config: Config): void {

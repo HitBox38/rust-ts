@@ -57,8 +57,9 @@ test("UNSTABLE status, the M3 ui lists, and the gate's refusal to protect listed
   expect(j.masked).toEqual(["MATCH", "DIFF", "DIFF", "DIFF", "DIFF"]);
   expect(j.unstableStaysFirst).toBe("UNSTABLE");
   expect(j.batchIsUntouched).toBe("x");
-  // The one measured case left: miri-pass's own program's id (MIRI_PASS_UNSTABLE, lane harness-m6c); miri-pass-heavy shares the list.
-  expect(j.withUnstable).toEqual(["miri-pass", "miri-pass-heavy"]);
+  // The one measured case left: miri-pass's own program's id (MIRI_PASS_UNSTABLE, lane harness-m6c); miri-pass-heavy shares the list. The
+  // native suites list their programs' diagnosed nondeterminism (NATIVE_UNSTABLE, lane harness-m7b, root's decision for review harness-m7b F1).
+  expect(j.withUnstable).toEqual(["miri-pass", "miri-pass-heavy", "run-pass-native", "run-fail-native"]);
   expect(j.tydump).toEqual([]);
   expect(j.thirdump).toEqual([]);
   expect(j.mirdump).toEqual([]);
