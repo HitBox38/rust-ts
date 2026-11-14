@@ -22,6 +22,49 @@ Branch `t3/fix-ir-run-pass-differences` (from `e80bc814`; no merges). Commits at
 - **One unit test outside this lane fails:** `skeleton.test.ts` "one stub per owning file". It expects the old SIMD stub. Root's
   one-line change is under [For root](#for-root).
 
+## Review round 1 (`docs/reviews/ir-fix-a.md` at `5153022c`: FAIL on F1)
+- **F1 fixed (`5691508a`):** `simd_shuffle_const_generic` emitted an error for every out-of-bounds index. rustc emits only the first:
+  `collect::<Option<Vec<_>>>()` goes through `iter::try_process`, which takes no element after the first `None`.
+  - The port now loops in order: it emits the error for the first out-of-bounds index, then returns `const_null(llret_ty)`. The
+    `i32::try_from(total_len).unwrap()` panic stays in place before the comparison.
+  - The `// PORT:` comment and PORT decision 4 below are corrected.
+  - `e_cg_oob` (`&[9, 1, 10, 11]`) is in `simd_err.rs`. The oracle prints one error; the test also asserts that count. `f_cg` is in
+    `simd.rs`.
+  - With the old code put back, `simd_intrinsic.test.ts` fails on `simd_err.rs`.
+- **N1, all of it, fixtures regenerated from the pinned rustc (`5691508a`):**
+  - `simd.rs` adds:
+    - `f_cg` and `f_cg_wide` (`simd_shuffle_const_generic`);
+    - `f_insert_dyn`, `f_extract_dyn`;
+    - `f_ne_i32`, `f_le_u32`, `f_gt_f32`;
+    - `f_max_nsz`, `f_min_nsz`;
+    - `f_rem_i32`, `f_rem_u32`;
+    - `f_reduce_any_u8`.
+  - `simd_err.rs` adds:
+    - `e_cg_oob`, `e_cg_len`;
+    - `InvalidBitmask`;
+    - `minmax_red`'s `ReturnType` and `UnsupportedSymbol`, and `bitwise_red`'s boolean `UnsupportedSymbol`;
+    - `UnsupportedOperation` on `simd_shl` and on `simd_maximum_number_nsz`;
+    - `simd_insert` out of bounds.
+    - It now has 23 errors.
+  - Both fixtures needed `adt_const_params` / `unsized_const_params` and a `const_param_ty` lang item (`ConstParamTy_` for `u32`,
+    `usize`, `[T]` and `&T`).
+  - Nothing in N1's list is left uncovered.
+- **N4 (`5691508a`):** `simd_oracle/simd_stop.rs` calls `simd_fsqrt`, an arm that is not ported. The test expects exit 70 and the
+  stderr `rust-ts: unported: cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic simd_fsqrt`. It also
+  checks that the oracle compiles the fixture cleanly. Root deletes `skeleton.test.ts:115` at integration.
+- **N3 (`38385bd8`):** `src/rust_ts/llvm/gen_intrinsics_x86.ts` is a hand-run generator.
+  - `bun src/rust_ts/llvm/gen_intrinsics_x86.ts` rewrites `intrinsics_x86.ts` from the oracle's libLLVM. `--check` throws an
+    `ERROR:` unless the committed file is what it would write.
+  - Run on this tree, it reproduced the committed table and offset byte for byte. The only change it made is one header line naming
+    itself.
+  - With `X86_INTRINSICS_OFFSET` mutated, `--check` fails.
+  - The script is not imported and no test runs it. `intrinsics.oracle.test.ts` still checks the table on every unit run.
+  - It sits beside the table rather than under `tools/`, which isn't this lane's. It covers the x86 table only;
+    `GENERIC_INTRINSICS` still has no generator.
+- **N2 is root's:** pin `IntrinsicsX86.td` and `ModRef.h` (below).
+- **Unit time:** `simd_intrinsic.test.ts` now runs 6 tests in about 3.5 s. The lane's added total is about 5 s, within the 15 s
+  budget.
+
 ## Before and after (N1, file form, x86_64-unknown-linux-gnu)
 
 ### `-O`, 300 files
@@ -111,7 +154,8 @@ Branch `t3/fix-ir-run-pass-differences` (from `e80bc814`; no merges). Commits at
   as a child process.
   - `simd_oracle/simd.rs`: 37 functions, one per arm and element kind. The IR must equal the pinned rustc's
     (`x86_64-unknown-linux-gnu.O.ll`), less comments, `; preds` tails and attribute-group numbers.
-  - `simd_oracle/simd_err.rs`: 14 `InvalidMonomorphization` cases. The stderr must equal `simd_err.stderr` byte for byte.
+  - `simd_oracle/simd_err.rs`: 14 `InvalidMonomorphization` cases, 23 since review round 1. The stderr must equal `simd_err.stderr`
+    byte for byte.
   - With the pinned toolchain present, both fixtures are re-made and must be unchanged.
   - Passes with `CI` unset and with `CI=true`.
 
@@ -155,7 +199,10 @@ Branch `t3/fix-ir-run-pass-differences` (from `e80bc814`; no merges). Commits at
    - Both were fetched from `raw.githubusercontent.com/rust-lang/llvm-project/aab11ee0…` into the scratchpad.
    - Neither carries a `// llvm:` marker, since the markers this lane added are all in files already pinned: Attributes.cpp:281,
      :538 and DataLayout.cpp:820. `coverage.ts --check` passes without the two files. Pinning them makes the citations checkable.
-3. **The x86 table is data from the oracle**, as the generic table is. A generator under `tools/` (not this lane's) could produce both.
+3. **The x86 table is data from the oracle**, as the generic table is. It now has a hand-run generator beside it,
+   `gen_intrinsics_x86.ts` (review N3). One under `tools/` could produce the generic table too.
+4. **`skeleton.test.ts:115`:** delete it at integration. `simd_intrinsic.test.ts`'s `simd_stop.rs` test now pins the stop that names
+   cg-intrinsic-b (review N4).
 
 ## `unported(...)` left or added
 - **intrinsic.ts, `cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic <name>`:**
@@ -196,7 +243,8 @@ Branch `t3/fix-ir-run-pass-differences` (from `e80bc814`; no merges). Commits at
    - The macros become closures.
    - `if cfg!(debug_assertions)` stays a comment.
    - `fn_args[2].expect_const()` is `GenericArg.expect_const(fn_args[2])`.
-   - `.collect::<Option<Vec<_>>>()` maps every element, so each error is emitted, then tests for a `None`.
+   - `.collect::<Option<Vec<_>>>()` stops at the first `None`, as `iter::try_process` does. So only the first out-of-bounds index
+     emits its error (review F1; the first version mapped every element, which was wrong).
    - `i32::try_from(total_len).unwrap()` keeps its panic.
 5. **va_arg.ts:**
    - Ported ahead of cg-intrinsic-b.
@@ -237,8 +285,13 @@ Run at `90c24ec6` with `RUST_TS_AGENT=ir-fix-a`, `--sample 200 --jobs 6`:
 - **`bun test ./src/rustc_codegen_llvm/ ./src/rustc_codegen_ssa/ ./src/rust_ts/ ./scripts/lib/unit-steps.test.ts`:** 613 tests across 69
   files, **612 pass, 1 fail**. The same result with `CI` empty and with `CI=true`, about 64 s each.
   - The one failure is `skeleton.test.ts` "one stub per owning file", not this lane's file (see [For root](#for-root)).
-- **Added unit-test wall time,** about 3.5 s in all:
-  - `simd_intrinsic.test.ts` about 1.9 s;
+- **After review round 1:** `CI=true`, the same command gives 615 tests across 69 files, **614 pass, 1 fail** (the same
+  skeleton test).
+  - `mir-o2` `--sample 200 --jobs 6`: 200/200 MATCH (`irfixa-r1-mir-o2`).
+  - `ir-hello`: 2/2 MATCH (`irfixa-r1-ir-hello`).
+  - tsc and `coverage.ts --check` are unchanged and clean.
+- **Added unit-test wall time,** about 5 s in all:
+  - `simd_intrinsic.test.ts` about 3.5 s, after review round 1;
   - `va_arg.test.ts` about 1.3 s;
   - the added oracle checks in `intrinsics.oracle.test.ts` and `folder.oracle.test.ts` under 0.2 s together.
 - **Environment variables the new tests read:** only `RUST_TS_REQUIRE_PROBES` and `RUST_TS_AGENT`, as `intrinsic.test.ts` does. They
@@ -247,11 +300,11 @@ Run at `90c24ec6` with `RUST_TS_AGENT=ir-fix-a`, `--sample 200 --jobs 6`:
 
 ## Files touched
 - **IR model (`src/rust_ts/llvm/`):**
-  - `intrinsics_x86.ts` (new), `intrinsics.ts`, `intrinsics.oracle.test.ts`;
+  - `intrinsics_x86.ts` (new), `gen_intrinsics_x86.ts` (new), `intrinsics.ts`, `intrinsics.oracle.test.ts`;
   - `core.ts`, `ffi.ts` (regenerated), `folder.oracle.test.ts`;
   - `ir.ts`, `fold.ts`.
 - **`src/rustc_codegen_llvm/`:**
-  - `intrinsic.ts`, `simd_intrinsic.test.ts` (new), `simd_oracle/` (new: `simd.rs`, `simd_err.rs`, `x86_64-unknown-linux-gnu.O.ll`,
+  - `intrinsic.ts`, `simd_intrinsic.test.ts` (new), `simd_oracle/` (new: `simd.rs`, `simd_err.rs`, `simd_stop.rs`, `x86_64-unknown-linux-gnu.O.ll`,
     `simd_err.stderr`);
   - `va_arg.ts`, `va_arg.test.ts` (new), `va_arg_oracle/` (new: `va.rs`, `x86_64-unknown-linux-gnu.O.ll`).
 - **Docs:** `docs/handoff/ir-fix-a.md`.
@@ -263,7 +316,10 @@ Run at `90c24ec6` with `RUST_TS_AGENT=ir-fix-a`, `--sample 200 --jobs 6`:
 - `746445a0` port the head of generic_simd_intrinsic
 - `de860a59` port va_arg.rs's emit_va_arg and the x86_64 SysV path
 - `90c24ec6` the ABI alignment of a declared pointer global in the IR model
-- `17c33511` and the next commit: this handoff
+- `17c33511` and `e6ce457b`: this handoff
+- `5691508a` review F1, N1 and N4: `simd_shuffle_const_generic` stops at its first out-of-bounds index, with the fixtures
+- `38385bd8` review N3: the hand-run generator of the x86 intrinsic table
+- the next commit: this handoff, updated for review round 1
 
 ## The sample
 - **Corpus:** the run-pass corpus is the files of `run-pass-miri` and `run-pass-miri-heavy` (`harness/suites.ts`: tests/ui run-pass
@@ -274,7 +330,9 @@ Run at `90c24ec6` with `RUST_TS_AGENT=ir-fix-a`, `--sample 200 --jobs 6`:
   - the `-Copt-level=0` sample is the first 150 of the same list;
   - the exploration sample is positions 301-600.
 - **How each file ran:** `bun scripts/ir-diff.ts <checkout>/<path> --opt O|0`, the file form (`irFileArgs`), 6 at a time. The run
-  ids are `irfixa-{before,after}-{O,0}-<index>` under `$RUST_TS_DATA/runs/`, and `irfixa-explore-O-<index>` for the exploration.
+  ids were `irfixa-{before,after}-{O,0}-<index>` under `$RUST_TS_DATA/runs/`, and `irfixa-explore-O-<index>` for the exploration.
+  - They were deleted after review round 1 to free disk (about 550 MB).
+  - The `irfixa-prot-*` and `irfixa-r1-*` difftest runs are kept.
 
 <details><summary>The 300 files, in order (the first 150 are the <code>-Copt-level=0</code> sample)</summary>
 
