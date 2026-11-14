@@ -564,8 +564,8 @@ export function each_linked_rlib(info: CrateInfo, crate_type: CrateType | undefi
     const fmt = fmts[cnum];
     if (fmt === "NotLinked" || fmt === "Dynamic" || fmt === "IncludedFromDylib") continue;
     if (fmt === undefined) return Err(LinkRlibError.MissingFormat);
-    const crate_name = info.crate_name.get(cnum)!;
-    const used_crate_source = info.used_crate_source.get(cnum)!;
+    const crate_name = crate_info_crate_name(info, cnum);
+    const used_crate_source = crate_info_used_crate_source(info, cnum);
     if (used_crate_source.rlib !== undefined) {
       f(cnum, used_crate_source.rlib);
     } else if (used_crate_source.rmeta !== undefined) {
@@ -791,7 +791,7 @@ export function link_rlib(
 /// There's no need to include metadata in a static archive, so ensure to not link in the metadata
 /// object file (and also don't prepare the archive with a metadata file).
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:754 link_staticlib
-function link_staticlib(
+export function link_staticlib(
   sess: Session,
   archive_builder_builder: ArchiveBuilderBuilder,
   rmeta_link_cache: RmetaLinkCache,
@@ -1252,7 +1252,7 @@ export function report_linker_output(sess: Session, levels: CodegenLintLevelSpec
 /// This will invoke the system linker/cc to create the resulting file. This links to all upstream
 /// files as well.
 // rustc: compiler/rustc_codegen_ssa/src/back/link.rs:1232 link_natively
-function link_natively(
+export function link_natively(
   sess: Session,
   archive_builder_builder: ArchiveBuilderBuilder,
   rmeta_link_cache: RmetaLinkCache,

@@ -22,7 +22,7 @@
 //
 // Skips (visibly) if the pinned rustc is unavailable; fails instead under RUST_TS_REQUIRE_PROBES=1.
 import { afterEach, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN } from "../../../scripts/lib/common.ts";
 import type { Crate } from "../../rustc_ast/lib.ts";
@@ -35,7 +35,7 @@ import { CrateInfo_new } from "../base.ts";
 import { type CompiledModule, CompiledModules } from "../lib.ts";
 import type { ArchiveBuilderBuilder } from "./archive.ts";
 import { debug_Command } from "./command.ts";
-import { link_output_kind, self_contained_components, xlane } from "./link.ts";
+import { link_natively, link_output_kind, self_contained_components, xlane } from "./link.ts";
 import { disable_localization } from "./linker.ts";
 import { CASES, HERE, type LinkCase, case_args, normalise, parse_command } from "./linker_oracle/common.ts";
 import { RmetaLinkCache } from "./rmeta_link.ts";
@@ -92,12 +92,8 @@ function with_tcx(args: string[], sys: string, f: (tcx: TyCtxt) => void): void {
 const saved = { ...xlane };
 afterEach(() => Object.assign(xlane, saved));
 
-function module(name: string, object: string): CompiledModule {
-  return { name, kind: "Regular", object, global_asm_object: undefined, dwarf_object: undefined, bytecode: undefined, assembly: undefined, llvm_ir: undefined };
-}
-
-/** The port's line for one case, and the symbol names `add_linked_symbol_object` was given. */
-function port_line(c: LinkCase, want: string, sys: string, tmpdir: string): { line: string; added: string[]; linked: string[]; relocs: number } {
+/** The parts of a case that come from the fixture (see the header). */
+function inputs(c: LinkCase, want: string) {
   const oracle = parse_command(want);
   // The fixture's paths are normalised: `$WORK` back to this run's work directory (the port's line is normalised again).
   const real = (a: string): string => a.replace("$WORK", WORK);
@@ -110,6 +106,18 @@ function port_line(c: LinkCase, want: string, sys: string, tmpdir: string): { li
     cgus.map((o, i) => module(`cgu${i}`, o)),
     others.length === 1 ? { ...module("allocator", others[0]!), kind: "Allocator" } : undefined,
   );
+  const out = real(oracle.args[oracle.args.indexOf("-o") + 1]!);
+  const sdkroot = oracle.env.find(([k]) => k === "SDKROOT")?.[1];
+  return { oracle, compiled_modules, out, sdkroot };
+}
+
+function module(name: string, object: string): CompiledModule {
+  return { name, kind: "Regular", object, global_asm_object: undefined, dwarf_object: undefined, bytecode: undefined, assembly: undefined, llvm_ir: undefined };
+}
+
+/** The port's line for one case, and the symbol names `add_linked_symbol_object` was given. */
+function port_line(c: LinkCase, want: string, sys: string, tmpdir: string): { line: string; added: string[]; linked: string[]; relocs: number } {
+  const { compiled_modules, out, sdkroot } = inputs(c, want);
 
   const added: string[] = [];
   let relocs = 0;
@@ -121,7 +129,6 @@ function port_line(c: LinkCase, want: string, sys: string, tmpdir: string): { li
     relocs++;
     return { $: "Ok", _0: null };
   };
-  const sdkroot = oracle.env.find(([k]) => k === "SDKROOT")?.[1];
   xlane.apple_get_sdk_root = () => sdkroot;
   xlane.create_dylib_metadata_wrapper = () => new Uint8Array([0x72, 0x6d, 0x65, 0x74, 0x61]);
   const abb: ArchiveBuilderBuilder = {
@@ -140,7 +147,6 @@ function port_line(c: LinkCase, want: string, sys: string, tmpdir: string): { li
     const linker = sess.opts.cg.linker;
     if (linker === undefined) throw new globalThis.Error("ERROR: the case has no -C linker");
     const flavor = sess.target.linker_flavor;
-    const out = real(oracle.args[oracle.args.indexOf("-o") + 1]!);
     // The case's own expectation of `link_output_kind` (ssa-linker's common.ts) is checked against the port's function.
     expect(`${c.name}: ${link_output_kind(sess, c.crate_type)}`).toBe(`${c.name}: ${c.output_kind}`);
     const components = self_contained_components(sess, c.crate_type, linker);
@@ -193,4 +199,42 @@ test.skipIf(SKIP)("linker_with_args builds the oracle's --print link-args line f
     results.push(c.name);
   }
   expect(results.length).toBe(CASES.length - 1);
+}, 120_000);
+
+// `link_natively` (link.rs:1232) end to end, on one case per target: `linker_and_flavor`, `self_contained_components`,
+// `linker_with_args`, the environment, `--print link-args` to a file (link.rs:1281) and `exec_linker` (link.rs:2105) running
+// the linker. The linker is a script named `cc` that writes the arguments it got, one per line, and exits 0. The printed line
+// must be the oracle's, and the arguments the linker got must be the oracle's arguments.
+test.skipIf(SKIP)("link_natively prints the oracle's link-args and runs the linker with its arguments", () => {
+  const sys = sysroot();
+  rmSync(WORK, { recursive: true, force: true });
+  const argv_file = join(WORK, "argv");
+  mkdirSync(join(WORK, "fake"), { recursive: true });
+  writeFileSync(join(WORK, "fake", "cc"), `#!/bin/sh\nprintf '%s\\n' "$@" > '${argv_file}'\nexit 0\n`);
+  chmodSync(join(WORK, "fake", "cc"), 0o755);
+  for (const name of ["host-bin", "linux-bin"]) {
+    const c = CASES.find((x) => x.name === name)!;
+    const want = readFileSync(join(HERE, "oracle", `${c.name}.args`), "utf8").trim();
+    const { oracle, compiled_modules, out, sdkroot } = inputs(c, want);
+    const tmpdir = join(WORK, "out", c.name, "rustcPORT00");
+    mkdirSync(tmpdir, { recursive: true });
+    xlane.Object_add_symbol = (_file, _symbol) => 0 as ReturnType<typeof xlane.Object_add_symbol>;
+    xlane.apple_add_data_and_relocation = () => ({ $: "Ok", _0: null });
+    xlane.apple_get_sdk_root = () => sdkroot;
+    const printed = join(WORK, `${c.name}.link-args`);
+    rmSync(argv_file, { force: true });
+    with_tcx(["--print", `link-args=${printed}`, ...case_args(c, WORK, sys)], sys, (tcx) => {
+      const crate_info = CrateInfo_new(tcx, tcx.sess.opts.cg.target_cpu ?? tcx.sess.target.cpu);
+      const abb: ArchiveBuilderBuilder = {
+        new_archive_builder: () => {
+          throw new globalThis.Error("ERROR: no archive is built without LTO");
+        },
+      };
+      link_natively(tcx.sess, abb, new RmetaLinkCache(), c.crate_type, out, compiled_modules, crate_info, {} as EncodedMetadata, tmpdir, "llvm");
+    });
+    expect(`${c.name}: ${normalise(readFileSync(printed, "utf8").trim(), WORK, sys)}`).toBe(`${c.name}: ${want}`);
+    expect(existsSync(argv_file)).toBe(true);
+    const got = readFileSync(argv_file, "utf8").split("\n").slice(0, -1).map((a) => normalise(a, WORK, sys));
+    expect(got).toEqual(oracle.args);
+  }
 }, 120_000);

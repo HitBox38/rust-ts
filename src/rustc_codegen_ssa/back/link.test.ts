@@ -9,7 +9,8 @@ import type { Linkage } from "../../rustc_middle/middle/dependency_format.ts";
 import type { CrateType } from "../../rustc_structures/crate_type.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { CrateInfo } from "../lib.ts";
-import { each_linked_rlib, escape_string, ignored_for_lto, link_rlib, linker_and_flavor, preserve_objects_for_their_debuginfo, print_native_static_libs, xlane } from "./link.ts";
+import { each_linked_rlib, escape_string, ignored_for_lto, link_rlib, link_staticlib, linker_and_flavor, preserve_objects_for_their_debuginfo, print_native_static_libs, xlane } from "./link.ts";
+import type { RmetaLinkCache } from "./rmeta_link.ts";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -302,4 +303,72 @@ test("link_rlib's members, in order (link.rs:545)", () => {
 test("escape_string and report_linker_output's line filters (link.rs:1629, :1061)", () => {
   expect(escape_string(new TextEncoder().encode("ok\n"))).toBe("ok\n");
   expect(escape_string(new Uint8Array([0x61, 0xff, 0x0a, 0x22]))).toBe('Non-UTF-8 output: a\\xff\\n\\"');
+});
+
+// ---- lane ssa-link-b: review ssa-link-a N2 ------------------------------------------------------------------------------
+
+test("link_staticlib: the base archive, the upstream rlib's member filter, the build and the native-static-libs note (link.rs:754)", () => {
+  create_default_session_globals_then(() => {
+    const dir = mkdtempSync(join(tmpdir(), "rust-ts-link-staticlib-"));
+    const saved = { ...xlane };
+    try {
+      const added: [string, string][] = [];
+      const archives: [string, string, boolean[]][] = [];
+      const built: [string, unknown][] = [];
+      const ab: ArchiveBuilder = {
+        add_file: (path, kind) => void added.push([path_file_name(path)!, kind]),
+        add_archive: (path, kind) => {
+          // The skip filter on each kind of member an rlib holds: metadata, the rmeta-link member, a Rust object, another file.
+          const filter = kind.$ === "Rlib" ? ([["lib.rmeta", "Other"], ["lib.rmeta-link", "Other"], ["a.a-cgu.0.rcgu.o", "RustObj"], ["x.o", "Other"]] as const).map(([n, k]) => kind._1(n, k)) : [];
+          archives.push([path, kind.$, filter]);
+          return Ok(null);
+        },
+        build: (output, symbols) => {
+          built.push([output, symbols]);
+          return true;
+        },
+      };
+      const notes: string[] = [];
+      const sess = {
+        target: target("x86_64-unknown-linux-gnu"),
+        internal_target_features: new Set(),
+        unstable_target_features: new Set(),
+        lto: () => "No",
+        opts: {
+          unstable_opts: { packed_bundled_libs: false, staticlib_hide_internal_symbols: false, staticlib_rename_internal_symbols: false },
+          prints: [{ kind: "NativeStaticLibs", out: OutFileName.Stdout }],
+        },
+        dcx: () => ({ ...fatal_dcx(), emit_note: () => {}, note: (m: string) => notes.push(m) }),
+      } as unknown as Session;
+      const lib = { name: Sym.intern("x"), kind: { $: "Dylib", as_needed: undefined }, verbatim: false, cfg: undefined } as unknown as NativeLib;
+      const crate_info = {
+        used_libraries: [],
+        crate_types: ["StaticLib"],
+        dependency_formats: new Map([["StaticLib", ["NotLinked", "Static"]]]),
+        used_crates: [CRATE_A],
+        crate_name: new Map([[CRATE_A, NAME]]),
+        used_crate_source: new Map([[CRATE_A, { rlib: "/r/liba.rlib" }]]),
+        native_libraries: new Map([[CRATE_A, [lib]]]),
+        compiler_builtins: undefined,
+        is_no_builtins: new Set(),
+        exported_symbols: new Map(),
+      } as unknown as CrateInfo;
+      const compiled_modules = { modules: [{ name: "a", object: "/o/a.o", global_asm_object: undefined, dwarf_object: undefined }], allocator_module: undefined } as unknown as CompiledModules;
+      const cache = { native_lib_filenames: () => [undefined] } as unknown as RmetaLinkCache;
+      xlane.extract_bundled_libs = () => Ok(null);
+      xlane.relevant_lib = () => true;
+      link_staticlib(sess, { new_archive_builder: () => ab }, cache, compiled_modules, crate_info, {} as EncodedMetadata, join(dir, "liba.a"), { as_ref: () => dir } as unknown as MaybeTempDir);
+      // `RlibFlavor::StaticlibBase` (:771): the modules' objects, no metadata and no rmeta-link member.
+      expect(added).toEqual([["a.o", "RustObj"]]);
+      // The upstream rlib, filtered (:799-819): metadata and rmeta-link are skipped, objects kept (no LTO, nothing bundled).
+      expect(archives).toEqual([["/r/liba.rlib", "Rlib", [true, true, false, false]]]);
+      // `ab.build(out_filename, None)` without hiding or renaming (:878).
+      expect(built).toEqual([[join(dir, "liba.a"), undefined]]);
+      // `--print native-static-libs` (:905-909): the upstream crate's dylib.
+      expect(notes).toEqual(["native-static-libs: -lx"]);
+    } finally {
+      Object.assign(xlane, saved);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
