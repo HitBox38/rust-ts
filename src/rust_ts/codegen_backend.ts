@@ -309,6 +309,9 @@ let PORTED_LLVM_INITED = false;
  * own `init` is not called: its `global_llvm_features` would emit `-Ctarget-feature` warnings a second time, and its other
  * values are the stand-in's, already in the session. The statistics forwards (no session: `print_pass_timings` and the others are
  * only reached after `join_codegen`) only load the backend.
+ * The model's init therefore runs just before the CPU checks (base.rs:723-733), where upstream runs it before everything. No
+ * output changes (`configure_llvm` prints nothing on a path the port reaches); only the order of stops can: a compile that
+ * upstream fails with `CpuRequired` stops in the model first when its init stops (review cg-register N2; no protected case).
  */
 function ported_backend(sess: EarlySession | undefined): PortedLlvmCodegenBackend {
   if (PORTED_BACKEND === undefined) {

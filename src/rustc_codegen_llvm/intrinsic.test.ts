@@ -384,18 +384,12 @@ describe("codegen_intrinsic_call against the oracle (x86_64-unknown-linux-gnu, -
     expect(declare(printed, "rust_eh_personality")).toBe(declare(ir, "rust_eh_personality"));
   });
   test("black_box: the store into the return place, then inline_asm_call", () => {
-    // PORT (cg-register): two states, by whether the IR model implements `LLVMRustInlineAsmVerify` yet (docs/handoff/cg-register.md,
-    // a model change outside that lane): without it the call stops there, after the store; with it the `asm` call follows, as the
-    // oracle's 4th line. The case ends there (the oracle's load and `ret` are the caller's); the `!srcloc` node's number is the
-    // module's, and its value the span (`DUMMY_SP` here), so the line is compared without it.
-    if (!ffi.IMPLEMENTED.has("LLVMRustInlineAsmVerify")) {
-      expect(stops).toEqual(["llir: LLVMRustInlineAsmVerify"]);
-      expect(body(printed, "f_bb").split("\n")).toEqual(body(ir, "f_bb").split("\n").slice(0, 3));
-    } else {
-      expect(stops).toEqual([]);
-      const lines = (b: string): string[] => b.split("\n").map((l) => l.replace(/, !srcloc !\d+$/, ", !srcloc"));
-      expect(lines(body(printed, "f_bb"))).toEqual(lines(body(ir, "f_bb")).slice(0, 4));
-    }
+    // The `asm` call follows the store, as the oracle's 4th line (the IR model's `LLVMRustInlineAsmVerify`, root at integ-w57). The
+    // case ends there (the oracle's load and `ret` are the caller's); the `!srcloc` node's number is the module's, and its value the
+    // span (`DUMMY_SP` here), so the line is compared without it.
+    expect(stops).toEqual([]);
+    const lines = (b: string): string[] => b.split("\n").map((l) => l.replace(/, !srcloc !\d+$/, ", !srcloc"));
+    expect(lines(body(printed, "f_bb"))).toEqual(lines(body(ir, "f_bb")).slice(0, 4));
   });
 });
 

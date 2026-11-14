@@ -7,7 +7,6 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN, REPO } from "../../scripts/lib/common.ts";
 import type { Providers } from "../rustc_middle/util/mod.ts";
-import { IMPLEMENTED } from "../rust_ts/llvm/ffi.ts";
 import { all_cases, clean_env, common_args, fresh_dir, HERE as ORACLE_HERE, normalize, parse, RUSTC } from "./partitioning_oracle/common.ts";
 
 const MAIN = join(REPO, "src/rust_ts/main.ts");
@@ -39,12 +38,9 @@ describe.skipIf(SKIP)("the real driver", () => {
   const sysroot = (): string => Bun.spawnSync([...RUSTC, "--print", "sysroot"]).stdout.toString().trim();
 
   // cg-register (wave 40q): the stop moved into the ported LLVM backend, which runs codegen: the IR model's, in `LLVMRustOptimize`,
-  // as the rlib embeds bitcode. Under `CI` (the gate's unit step sets it) the model's LLVM init stops first, at
-  // `LLVMRustDisableSystemDialogsOnCrash`, until lane fixers-57 implements it (`IMPLEMENTED` then has it).
+  // as the rlib embeds bitcode (fixers-57 made `LLVMRustDisableSystemDialogsOnCrash` the Unix no-op, so `CI` no longer moves it).
   const codegen_stop =
-    process.env.CI !== undefined && !IMPLEMENTED.has("LLVMRustDisableSystemDialogsOnCrash")
-      ? "llir: LLVMRustDisableSystemDialogsOnCrash"
-      : "llir: LLVMRustOptimize's ThinLTO buffer (ThinLTOBitcodeWriterPass inside the pass pipeline: -Cembed-bitcode for an rlib built with link output, --emit=thin-link-bitcode)";
+    "llir: LLVMRustOptimize's ThinLTO buffer (ThinLTOBitcodeWriterPass inside the pass pipeline: -Cembed-bitcode for an rlib built with link output, --emit=thin-link-bitcode)";
   test("prints -Zprint-mono-items and writes -Zdump-mono-stats, then stops in codegen, never reporting success", () => {
     const c = all_cases().find((c) => c.name === "stats-json")!;
     const out = fresh_dir("wire-stats-json");
@@ -69,5 +65,8 @@ describe.skipIf(SKIP)("the real driver", () => {
     const modules = readFileSync(list, "utf8").split("\n");
     expect(modules.some((m) => m.endsWith("/src/rustc_interface/passes.ts"))).toBe(true);
     expect(modules.filter((m) => m.includes("/src/rustc_monomorphize/"))).toEqual([]);
+    // Lazy load (plan-m7 D14; review cg-register N1, root at integ-w57): a check-only compile never loads the ported backend
+    // or the IR model, including through `link`, which `Linker::link` calls on every compile.
+    expect(modules.filter((m) => m.includes("/src/rustc_codegen_llvm/") || m.includes("/src/rust_ts/llvm/"))).toEqual([]);
   });
 });
