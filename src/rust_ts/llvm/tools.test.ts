@@ -36,7 +36,9 @@ import {
   triple_probe,
   with_cl_args,
 } from "./tools.ts";
-import { CL_ARGS, CODEGEN_LEVEL, type Level, settingsFor, tmFromRecorded } from "./tools_oracle/fixtures.ts";
+import { initialize_available_targets } from "./target.ts";
+import { tmArgs } from "./tm_fixture.ts";
+import { CL_ARGS, CODEGEN_LEVEL, type Level, settingsFor } from "./tools_oracle/fixtures.ts";
 import { COMBOS, TARGET } from "./tools_oracle/record.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -54,8 +56,20 @@ if (!HAVE && !REQUIRE) console.log("SKIP: the pinned LLVM tools on aarch64 macOS
 
 const HERE = join(import.meta.dir, "tools_oracle");
 const WRITE_ORACLE = join(import.meta.dir, "..", "..", "rustc_codegen_llvm", "back", "write_oracle");
-const recordedTm = (target: string, level: Level): TargetMachine =>
-  tmFromRecorded(readFileSync(join(WRITE_ORACLE, `${target}.tm`), "utf8").split("\n")[1]!, CODEGEN_LEVEL[level]) as unknown as TargetMachine;
+/**
+ * A real target machine (llir-init's `LLVMRustCreateTargetMachine`, after `initialize_available_targets`) from cg-write's recorded
+ * call for `target`'s codegen unit (the fixture's second line), with `level` in place of the recorded -Copt-level=0 level and
+ * `features` in place of the recorded `""` (review llir-tools-recheck N3; llir-tools-recheck-2 note 4).
+ */
+function recordedTm(target: string, level: Level, features?: string): TargetMachine {
+  initialize_available_targets();
+  const args = tmArgs(readFileSync(join(WRITE_ORACLE, `${target}.tm`), "utf8").split("\n")[1]!);
+  args[6] = CODEGEN_LEVEL[level];
+  if (features !== undefined) args[2] = features;
+  const tm = L.LLVMRustCreateTargetMachine(...args);
+  if (tm === undefined) throw new Error(`ERROR: no target machine for ${target}: ${LLVMRustGetLastError() ?? ""}`);
+  return tm;
+}
 const X86 = "x86_64-unknown-linux-gnu";
 const HOST = "aarch64-apple-darwin";
 const bin = (): string => pinned_tool("opt").replace(/\/opt$/, "");
@@ -118,7 +132,7 @@ describe("opt_plan (no tools)", () => {
     expect(() => opt_plan({ ...s, SanitizerOptions: { ...s.SanitizerOptions!, sanitize_cfi: true } }, tm)).toThrow(Unported);
   });
   test("llc's flags for cg-write's recorded target machines", () => {
-    const flags = llc_target_flags(recordedTm(X86, "2") as never);
+    const flags = llc_target_flags(recordedTm(X86, "2"));
     expect(flags).toEqual([
       `-mtriple=${X86}`,
       "-mcpu=x86-64",
@@ -129,6 +143,10 @@ describe("opt_plan (no tools)", () => {
       "-function-sections=true",
       "-unique-section-names=true",
       "-asm-verbose=false",
+      // rustc always passes a split DWARF file name, `""` without split debuginfo (write.rs:249-259 `path_to_cstring_helper`), and
+      // `LLVMRustCreateTargetMachine` sets `MCOptions.SplitDwarfFile` from any non-null one. The structural view this test used to
+      // read mapped `""` to unset (review llir-tools-recheck N3); llc's objects are the same with or without the empty flag.
+      "-split-dwarf-file=",
       "-x86-relax-relocations=false",
       "-use-ctors=false",
       "-emulated-tls=false",
@@ -136,7 +154,7 @@ describe("opt_plan (no tools)", () => {
       "-no-trap-after-noreturn",
       "-stack-size-section=false",
     ]);
-    const host = llc_target_flags(recordedTm(HOST, "0") as never);
+    const host = llc_target_flags(recordedTm(HOST, "0"));
     expect(host.slice(0, 4)).toEqual(["-mtriple=arm64-apple-macosx11.0.0", "-mcpu=apple-m1", "-relocation-model=pic", "-O0"]);
     expect(host).toContain("-data-sections=false");
   });
@@ -292,8 +310,7 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect(rustTry).not.toContain('"target-features"');
     const global = /"target-features"="([^"]*)"/.exec(groupOf(/define [^@]*@(_RNv\S*4main)\(/.exec(text)![1]!))![1]!;
     expect(global).toContain("+avx2");
-    const tm = tmFromRecorded(readFileSync(join(WRITE_ORACLE, `${X86}.tm`), "utf8").split("\n")[1]!, "Default");
-    const withFeatures = { ...tm, Features: global } as unknown as TargetMachine;
+    const withFeatures = recordedTm(X86, "2", global);
     const M = new Module(new Context(), "cu");
     set_module_text(M, text);
     const stop = (f: () => unknown): string => {
@@ -310,7 +327,7 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
       /^llir: LLVMRustWriteOutputFile with global target features .*\(llc appends -mattr to every function's own target-features, overriding #\[target_feature\]; review llir-tools F1\/F2\)$/,
     );
     // The same module through a machine without global features runs.
-    expect(optimize(M, tm as unknown as TargetMachine, "2")).toBe(L.LLVMRustResult.Success);
+    expect(optimize(M, recordedTm(X86, "2"), "2")).toBe(L.LLVMRustResult.Success);
   });
 
   test("F3: a tool killed by a signal is ICE-class like any failure: the first error line, and the input kept", () => {
@@ -369,8 +386,12 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     const M = new Module(new Context(), "split");
     const text = `; ModuleID = 'x'\nsource_filename = "split"\ntarget triple = "${X86}"\n\ndefine void @f() {\n  ret void\n}\n\n!llvm.module.flags = !{!0}\n\n!0 = !{i32 4, !"EnableSplitLTOUnit", i32 1}\n`;
     set_module_text(M, text);
-    // What the stop prevents: opt --thinlto-bc on that text fails.
-    expect(run_pinned_tool("opt", ["--thinlto-bc", "-passes=assign-guid", "-o", "-", "-"], bytes(text)).status).not.toBe(0);
+    // What the stop prevents: opt --thinlto-bc on that text aborts in the verifier, on the second flag it adds (review
+    // llir-tools-recheck-2 note 1: the reason, not only the failure).
+    const raw = run_pinned_tool("opt", ["--thinlto-bc", "-passes=assign-guid", "-o", "-", "-"], bytes(text));
+    expect([raw.status, raw.signal]).toEqual([134, "SIGABRT"]);
+    expect(raw.stderr).toContain("module flag identifiers must be unique (or of 'require' type)");
+    expect(raw.stderr).toContain('!"EnableSplitLTOUnit"');
     let caught: unknown;
     try {
       L.LLVMRustModuleSerialize(M, true);
