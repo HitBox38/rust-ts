@@ -1,8 +1,8 @@
 // The oracle crate of simd_intrinsic.test.ts (lane ir-fix-a): one `#[no_mangle]` function per arm of `generic_simd_intrinsic`
 // (intrinsic.rs:2047) that the port has, over a minimal `#![no_core]` (the lang items of tests/auxiliary/minicore.rs these
 // signatures need). `-O` keeps the bodies free of the stack traffic `-Copt-level=0` adds around each call.
-#![feature(no_core, lang_items, intrinsics, rustc_attrs, auto_traits, repr_simd)]
-#![allow(internal_features, non_camel_case_types)]
+#![feature(no_core, lang_items, intrinsics, rustc_attrs, auto_traits, repr_simd, adt_const_params, unsized_const_params)]
+#![allow(internal_features, incomplete_features, non_camel_case_types)]
 #![no_core]
 #![crate_type = "lib"]
 
@@ -16,6 +16,17 @@ pub trait Sized: MetaSized {}
 pub trait Copy: Sized {}
 #[lang = "freeze"]
 pub unsafe auto trait Freeze {}
+#[lang = "const_param_ty"]
+pub trait ConstParamTy_ {}
+impl ConstParamTy_ for u32 {}
+impl<T: ConstParamTy_> ConstParamTy_ for [T] {}
+impl<T: ConstParamTy_ + ?Sized> ConstParamTy_ for &T {}
+impl ConstParamTy_ for usize {}
+#[lang = "unsize"]
+pub trait Unsize<T: PointeeSized>: PointeeSized {}
+#[lang = "coerce_unsized"]
+pub trait CoerceUnsized<T: PointeeSized> {}
+impl<'a, T: PointeeSized + Unsize<U>, U: PointeeSized> CoerceUnsized<&'a U> for &'a T {}
 impl Copy for u8 {}
 impl Copy for u32 {}
 impl Copy for i32 {}
@@ -102,6 +113,23 @@ pub unsafe fn simd_or<T>(x: T, y: T) -> T;
 pub unsafe fn simd_xor<T>(x: T, y: T) -> T;
 #[rustc_intrinsic]
 pub unsafe fn simd_neg<T>(x: T) -> T;
+// Review ir-fix-a N1: the ported arms the first version of this fixture left out.
+#[rustc_intrinsic]
+pub unsafe fn simd_shuffle_const_generic<T, U, const IDX: &'static [u32]>(x: T, y: T) -> U;
+#[rustc_intrinsic]
+pub unsafe fn simd_insert_dyn<T, U>(x: T, idx: u32, val: U) -> T;
+#[rustc_intrinsic]
+pub unsafe fn simd_extract_dyn<T, U>(x: T, idx: u32) -> U;
+#[rustc_intrinsic]
+pub unsafe fn simd_ne<T, U>(x: T, y: T) -> U;
+#[rustc_intrinsic]
+pub unsafe fn simd_le<T, U>(x: T, y: T) -> U;
+#[rustc_intrinsic]
+pub unsafe fn simd_gt<T, U>(x: T, y: T) -> U;
+#[rustc_intrinsic]
+pub unsafe fn simd_maximum_number_nsz<T>(x: T, y: T) -> T;
+#[rustc_intrinsic]
+pub unsafe fn simd_minimum_number_nsz<T>(x: T, y: T) -> T;
 
 #[no_mangle]
 pub unsafe fn f_splat_u8(x: u8) -> u8x16 { simd_splat(x) }
@@ -175,3 +203,27 @@ pub unsafe fn f_xor(a: i32x4, b: i32x4) -> i32x4 { simd_xor(a, b) }
 pub unsafe fn f_neg_i32(a: i32x4) -> i32x4 { simd_neg(a) }
 #[no_mangle]
 pub unsafe fn f_neg_f32(a: f32x4) -> f32x4 { simd_neg(a) }
+#[no_mangle]
+pub unsafe fn f_cg(a: i32x4, b: i32x4) -> i32x4 { simd_shuffle_const_generic::<_, _, { &[7, 1, 5, 0] }>(a, b) }
+#[no_mangle]
+pub unsafe fn f_cg_wide(a: i32x4, b: i32x4) -> i32x8 { simd_shuffle_const_generic::<_, _, { &[0, 1, 2, 3, 4, 5, 6, 7] }>(a, b) }
+#[no_mangle]
+pub unsafe fn f_insert_dyn(a: i32x4, i: u32, v: i32) -> i32x4 { simd_insert_dyn(a, i, v) }
+#[no_mangle]
+pub unsafe fn f_extract_dyn(a: i32x4, i: u32) -> i32 { simd_extract_dyn(a, i) }
+#[no_mangle]
+pub unsafe fn f_ne_i32(a: i32x4, b: i32x4) -> i32x4 { simd_ne(a, b) }
+#[no_mangle]
+pub unsafe fn f_le_u32(a: u32x4, b: u32x4) -> i32x4 { simd_le(a, b) }
+#[no_mangle]
+pub unsafe fn f_gt_f32(a: f32x4, b: f32x4) -> i32x4 { simd_gt(a, b) }
+#[no_mangle]
+pub unsafe fn f_max_nsz(a: f32x4, b: f32x4) -> f32x4 { simd_maximum_number_nsz(a, b) }
+#[no_mangle]
+pub unsafe fn f_min_nsz(a: f32x4, b: f32x4) -> f32x4 { simd_minimum_number_nsz(a, b) }
+#[no_mangle]
+pub unsafe fn f_rem_i32(a: i32x4, b: i32x4) -> i32x4 { simd_rem(a, b) }
+#[no_mangle]
+pub unsafe fn f_rem_u32(a: u32x4, b: u32x4) -> u32x4 { simd_rem(a, b) }
+#[no_mangle]
+pub unsafe fn f_reduce_any_u8(a: u8x16) -> bool { simd_reduce_any(a) }

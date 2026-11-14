@@ -2,7 +2,8 @@
 // rustc, through the port's whole driver and the IR model.
 //
 // The oracle crates are simd_oracle/simd.rs, a `#![no_core]` lib with one `#[no_mangle]` function per ported arm (and per
-// element kind where the arm branches on it), and simd_oracle/simd_err.rs, whose calls fail the arms' checks. The fixtures are
+// element kind where the arm branches on it), simd_oracle/simd_err.rs, whose calls fail the arms' checks, and simd_oracle/simd_stop.rs,
+// which calls an arm that is not ported (review ir-fix-a N4: the port must stop with exit 70, naming the fill lane cg-intrinsic-b). The fixtures are
 // the pinned rustc's output for `--crate-type lib --target x86_64-unknown-linux-gnu --emit=llvm-ir -Cno-prepopulate-passes -O`:
 // `x86_64-unknown-linux-gnu.O.ll` for simd.rs, and `simd_err.stderr` (stderr, exit 1) for simd_err.rs. With the pinned
 // toolchain present they are re-made and must be unchanged.
@@ -65,14 +66,24 @@ describe("generic_simd_intrinsic's ported arms against the oracle", () => {
     const want = oracle("x86_64-unknown-linux-gnu.O.ll");
     // The fixture covers every ported arm (header): splat, the comparisons, shuffle, insert / extract, select_bitmask,
     // bitmask, the min / max and bitwise reductions, the binary and unary arithmetic.
-    for (const f of ["f_splat_u8", "f_lt_f32", "f_shuffle_wide", "f_select_bitmask_array", "f_bitmask_array", "f_reduce_any", "f_rem_f32", "f_neg_f32"]) expect(want).toContain(`@${f}(`);
+    // Review ir-fix-a N1 added `simd_shuffle_const_generic`, the `*_dyn` arms, `ne` / `le` / `gt`, the `*_nsz` arms and integer `rem`.
+    for (const f of ["f_splat_u8", "f_lt_f32", "f_shuffle_wide", "f_select_bitmask_array", "f_bitmask_array", "f_reduce_any", "f_rem_f32", "f_neg_f32", "f_cg", "f_insert_dyn", "f_extract_dyn", "f_ne_i32", "f_le_u32", "f_gt_f32", "f_max_nsz", "f_min_nsz", "f_rem_i32", "f_rem_u32"])
+      expect(want).toContain(`@${f}(`);
     expect(comparable(r.ir ?? "")).toEqual(comparable(want));
   });
 
   test("simd_err.rs: the port's InvalidMonomorphization errors are the oracle's", () => {
     const r = compile([process.execPath, MAIN], "simd_err.rs", "port_err.ll");
     expect(r.code).toBe(1);
+    // Review ir-fix-a F1: `simd_shuffle_const_generic` reports only its first out-of-bounds index, as `collect::<Option<_>>` stops.
+    expect(oracle("simd_err.stderr").match(/simd_shuffle_const_generic` intrinsic: SIMD index/g)?.length).toBe(1);
     expect(r.stderr).toBe(oracle("simd_err.stderr"));
+  });
+
+  test("simd_stop.rs: an arm that is not ported stops, naming cg-intrinsic-b", () => {
+    const r = compile([process.execPath, MAIN], "simd_stop.rs", "port_stop.ll");
+    expect(r.code).toBe(70);
+    expect(r.stderr).toContain("rust-ts: unported: cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic simd_fsqrt");
   });
 });
 
@@ -81,6 +92,11 @@ describe.skipIf(!HAVE && !REQUIRE)("the oracle fixtures are current", () => {
     const r = compile([join(SYSROOT, "bin", "rustc")], "simd.rs", "oracle.ll");
     expect(r.code).toBe(0);
     expect(r.ir).toBe(oracle("x86_64-unknown-linux-gnu.O.ll"));
+  });
+  test("simd_stop.rs compiles under the oracle", () => {
+    const r = compile([join(SYSROOT, "bin", "rustc")], "simd_stop.rs", "oracle_stop.ll");
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
   });
   test("simd_err.stderr", () => {
     const r = compile([join(SYSROOT, "bin", "rustc")], "simd_err.rs", "oracle_err.ll");

@@ -45,7 +45,6 @@ import { type DefId, LOCAL_CRATE, debug_DefId } from "../rustc_span/def_id.ts";
 import { DEPRECATED_LLVM_INTRINSIC } from "../rustc_lint_defs/builtin.gen.ts";
 import { GenericArg, type GenericArgsRef, debug_GenericArgs, fold_GenericArgs } from "../rustc_middle/ty/generic_args.ts";
 import type { BinOp } from "../rustc_middle/mir/syntax.ts";
-import type { Const } from "../rustc_middle/ty/decls.ts";
 import { Instance } from "../rustc_middle/ty/instance.ts";
 import { type TyAndLayout, debug_TyAndLayout_Ty } from "../rustc_middle/ty/layout.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
@@ -2290,24 +2289,28 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
 
     const total_len = in_len * 2;
 
-    // `.map(..).collect::<Option<Vec<_>>>()`: the map runs over every element (each out-of-bounds index emits its error), and
-    // the result is `None` if any was.
-    const indices: (Value | undefined)[] = idx.map((val: Const, arg_idx: number) => {
-      const idx_ = val.to_leaf().to_i32();
+    // `.map(..).collect::<Option<Vec<_>>>()`: `FromIterator<Option<A>> for Option<V>` (`iter::try_process`) takes no element after the
+    // first `None`, so the closure runs up to and including the first out-of-bounds index: only that one emits its error, and the
+    // result is `None` (review ir-fix-a F1).
+    const indices: Value[] = [];
+    let all_in_bounds = true;
+    for (let arg_idx = 0; arg_idx < idx.length; arg_idx++) {
+      const idx_ = idx[arg_idx]!.to_leaf().to_i32();
       // `i32::try_from(total_len).unwrap()`
       if (total_len > 0x7fffffff) return panic("called `Result::unwrap()` on an `Err` value: TryFromIntError(())");
       if (idx_ >= total_len) {
         bx.sess().dcx().emit_err(InvalidMonomorphization_diagnostic({ $: "SimdIndexOutOfBounds", span, name, arg_idx, total_len: BigInt(total_len) }));
-        return undefined;
+        all_in_bounds = false;
+        break;
       } else {
-        return bx.const_i32(idx_);
+        indices.push(bx.const_i32(idx_));
       }
-    });
-    if (indices.some((v) => v === undefined)) {
+    }
+    if (!all_in_bounds) {
       return { $: "Ok", _0: bx.const_null_inherent(llret_ty) };
     }
 
-    return { $: "Ok", _0: bx.shuffle_vector(args[0]!.immediate(debug_Value), args[1]!.immediate(debug_Value), bx.const_vector(indices as Value[])) };
+    return { $: "Ok", _0: bx.shuffle_vector(args[0]!.immediate(debug_Value), args[1]!.immediate(debug_Value), bx.const_vector(indices)) };
   }
 
   if (name === sym.simd_shuffle) {
