@@ -88,7 +88,8 @@ plus an unused `#[inline(never)] pub fn root_pub` and `pub static ROOT_DATA`, bu
 rlib -Cembed-bitcode=no` and the same four flag sets. The rlib crate type keeps both items global with default visibility,
 outside the StaticLib export set, so the oracle's hide archive differs from plain in 2 bytes per target (ELF `st_other`
 0 -> 2, Mach-O `n_type` 0x0f -> 0x1f), and both differs from rename. The test asserts those differences as well as port =
-oracle. (`-Cembed-bitcode=no` only keeps `.llvmbc` out of the objects, to keep the fixture small.)
+oracle. (`-Cembed-bitcode=no` only keeps the embedded bitcode out of the objects, ELF's `.llvmbc` section and Mach-O's
+`__LLVM,__bitcode`, to keep the fixture small.)
 
 **Mutation check (review F1)**, each applied to `symbol_edit.ts` and reverted (file byte-identical afterwards):
 

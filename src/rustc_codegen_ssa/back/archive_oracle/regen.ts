@@ -10,7 +10,8 @@
 // to `pub/nc.rs` (the crate keeps the name `nc`), and add `--crate-type rlib` to the four staticlib builds: the rlib crate
 // type keeps both items reachable, global with default visibility, yet outside the StaticLib export set, so hide changes
 // their visibility byte. (With staticlib alone they are dropped or internalized.) `-Cembed-bitcode=no` keeps the rlib crate
-// type's `.llvmbc` sections out of the objects, which only makes the fixture smaller.
+// type's embedded bitcode out of the objects (ELF's `.llvmbc` section, Mach-O's `__LLVM,__bitcode`), which only makes the
+// fixture smaller.
 // fixtures.json holds, per target and build, the archive's member names in order, the members' input bytes and the
 // archive's bytes; equal byte strings are stored once (`blobs`, by SHA-256).
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
