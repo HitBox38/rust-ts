@@ -12,7 +12,7 @@
 // PORT: only the definitions the read path and the writer (write/macho.ts) use are ported. The `E: Endian` type parameter is
 // erased (see elf.ts); `MachHeader*::magic` is `U32<BigEndian>`, read with `BigEndian`.
 
-import { U16, U32, U64 } from "./endian.ts";
+import { type Endianness, U16, U32, U64 } from "./endian.ts";
 import { type Pod, pod_bytes, pod_struct, pod_u8 } from "./pod.ts";
 
 // Definitions from "/usr/include/mach/machine.h".
@@ -687,3 +687,122 @@ export const N_SECT = 0xe;
 export const N_WEAK_REF = 0x0040;
 /// coalesced symbol is a weak definition
 export const N_WEAK_DEF = 0x0080;
+
+/// A relocation entry.
+///
+/// Mach-O relocations have plain and scattered variants, with the
+/// meaning of the fields depending on the variant.
+///
+/// This type provides functions for determining whether the relocation
+/// is scattered, and for accessing the fields of each variant.
+/// PORT: the two `U32<E>` words as their values; the writer stores them with the file's endianness (write/macho.ts). Only
+/// `RelocationInfo::relocation` makes one: the read side (`r_scattered`, `info`, `scattered_info`) is not ported.
+export interface Relocation {
+  r_word0: number;
+  r_word1: number;
+}
+
+/*
+ * Format of a relocation entry of a Mach-O file.  Modified from the 4.3BSD
+ * format.  The modifications from the original format were changing the value
+ * of the r_symbolnum field for "local" (r_extern == 0) relocation entries.
+ * This modification is required to support symbols in an arbitrary number of
+ * sections not just the three sections (text, data and bss) in a 4.3BSD file.
+ * Also the last 4 bits have had the r_type tag added to them.
+ */
+
+export class RelocationInfo {
+  constructor(
+    /// offset in the section to what is being relocated
+    public r_address: number,
+    /// symbol index if r_extern == 1 or section ordinal if r_extern == 0
+    public r_symbolnum: number,
+    /// was relocated pc relative already
+    public r_pcrel: boolean,
+    /// 0=byte, 1=word, 2=long, 3=quad
+    public r_length: number,
+    /// does not include value of sym referenced
+    public r_extern: boolean,
+    /// if not 0, machine specific relocation type
+    public r_type: number,
+  ) {}
+
+  /// Combine the fields into a `Relocation`.
+  // crate: object-0.39.1/src/macho.rs:3202 relocation
+  relocation(endian: Endianness): Relocation {
+    const r_word0 = this.r_address >>> 0;
+    const r_word1 =
+      endian === "Little"
+        ? ((this.r_symbolnum & 0x00ff_ffff) |
+            (Number(this.r_pcrel) << 24) |
+            ((this.r_length & 0x3) << 25) |
+            (Number(this.r_extern) << 27) |
+            ((this.r_type & 0xff) << 28)) >>>
+          0
+        : ((this.r_symbolnum >>> 8) |
+            (Number(this.r_pcrel) << 7) |
+            ((this.r_length & 0x3) << 5) |
+            (Number(this.r_extern) << 4) |
+            (this.r_type & 0xf)) >>>
+          0;
+    return { r_word0, r_word1 };
+  }
+}
+
+/*
+ * Relocation types used in a generic implementation.
+ */
+export const GENERIC_RELOC_VANILLA = 0;
+
+/*
+ * Relocation types used in the arm implementation.
+ */
+export const ARM_RELOC_VANILLA = 0;
+
+/*
+ * Relocation types used in the arm64 implementation.
+ */
+/// for pointers
+export const ARM64_RELOC_UNSIGNED = 0;
+/// must be followed by a ARM64_RELOC_UNSIGNED
+export const ARM64_RELOC_SUBTRACTOR = 1;
+/// a B/BL instruction with 26-bit displacement
+export const ARM64_RELOC_BRANCH26 = 2;
+/// pc-rel distance to page of target
+export const ARM64_RELOC_PAGE21 = 3;
+/// offset within page, scaled by r_length
+export const ARM64_RELOC_PAGEOFF12 = 4;
+/// must be followed by PAGE21 or PAGEOFF12
+export const ARM64_RELOC_ADDEND = 10;
+// Represents a pointer to a symbol (like ARM64_RELOC_UNSIGNED).
+// Additionally, the resulting pointer is signed.
+export const ARM64_RELOC_AUTHENTICATED_POINTER = 11;
+
+/*
+ * Relocation types used in the ppc implementation.
+ */
+/// generic relocation as described above
+export const PPC_RELOC_VANILLA = 0;
+
+/*
+ * Relocations for x86_64 are a bit different than for other architectures in
+ * Mach-O.
+ */
+/// for absolute addresses
+export const X86_64_RELOC_UNSIGNED = 0;
+/// for signed 32-bit displacement
+export const X86_64_RELOC_SIGNED = 1;
+/// a CALL/JMP instruction with 32-bit displacement
+export const X86_64_RELOC_BRANCH = 2;
+/// a MOVQ load of a GOT entry
+export const X86_64_RELOC_GOT_LOAD = 3;
+/// other GOT references
+export const X86_64_RELOC_GOT = 4;
+/// must be followed by a X86_64_RELOC_UNSIGNED
+export const X86_64_RELOC_SUBTRACTOR = 5;
+/// for signed 32-bit displacement with a -1 addend
+export const X86_64_RELOC_SIGNED_1 = 6;
+/// for signed 32-bit displacement with a -2 addend
+export const X86_64_RELOC_SIGNED_2 = 7;
+/// for signed 32-bit displacement with a -4 addend
+export const X86_64_RELOC_SIGNED_4 = 8;

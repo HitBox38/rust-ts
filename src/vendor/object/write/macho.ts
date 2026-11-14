@@ -4,19 +4,29 @@
 //
 // PORT: as in elf/object.ts, the `impl Object` methods are functions taking the object: mod.ts dispatches to them and must
 // stay loadable before this module. The two public setters are functions too (`set_macho_cpu_subtype(file, ..)`).
-// Relocations are not ported (`Section.relocations` is always empty, mod.ts), so the methods only `add_relocation` and
-// `set_symbol_data` reach (`macho_tlv_bootstrap`, `macho_add_thread_var`, `macho_translate_relocation`,
-// `macho_adjust_addend`) stop `unported`, and `macho_write` stops `unported` on a section with relocations. Symbols are
-// written in upstream's shape, though rustc's wrapper files add none.
 // PORT: `buffer.write(&pod)` of the `repr(C)` Mach-O structs writes their fields in order (`FieldWriter`): they have no
 // padding. Their sizes are the `POD.size` of the structs in ../macho.ts. `u64` values are `number`s: addresses, sizes and
 // offsets of a wrapper object stay below 2^53.
-import { panic, unported } from "../../../std/panic.ts";
+import { debug_str } from "../../../std/fmt.ts";
+import { panic } from "../../../std/panic.ts";
 import { Err, Ok } from "../../../std/result.ts";
-import { AddressSize, Architecture, SectionFlags, SectionKind, type SymbolFlags } from "../common.ts";
+import { AddressSize, Architecture, type RelocationEncoding, type RelocationKind, SectionFlags, SectionKind, type SymbolFlags } from "../common.ts";
 import type { Endianness } from "../endian.ts";
 import * as macho from "../macho.ts";
-import { Error, type Object, type Result, type Section, type StandardSection, type StandardSegment, type Symbol, SymbolSection } from "./mod.ts";
+import {
+  debug_RelocationInternal,
+  Error,
+  type Object,
+  type RelocationInternal,
+  type Result,
+  type Section,
+  type SectionId,
+  type StandardSection,
+  type StandardSegment,
+  Symbol,
+  type SymbolId,
+  SymbolSection,
+} from "./mod.ts";
 import { type StringId, StringTable } from "./string.ts";
 import { align, align_u64, write_align, type WritableBuffer } from "./util.ts";
 
@@ -203,9 +213,14 @@ export function macho_symbol_flags(symbol: Symbol): SymbolFlags {
 }
 
 // crate: object-0.39.1/src/write/macho.rs:193 macho_tlv_bootstrap
-export function macho_tlv_bootstrap(_self: Object): never {
-  // PORT: only `macho_add_thread_var` calls this, and `add_symbol` is not ported (mod.ts).
-  return unported("object::write::Object::macho_tlv_bootstrap (Mach-O TLS symbols)");
+function macho_tlv_bootstrap(self: Object): SymbolId {
+  if (self.tlv_bootstrap !== undefined) {
+    return self.tlv_bootstrap;
+  } else {
+    const id = self.add_symbol(new Symbol(b("_tlv_bootstrap"), 0, 0, "Text", "Dynamic", false, { $: "Undefined" }, { $: "None" }));
+    self.tlv_bootstrap = id;
+    return id;
+  }
 }
 
 /// Create the `__thread_vars` entry for a TLS variable.
@@ -217,27 +232,208 @@ export function macho_tlv_bootstrap(_self: Object): never {
 ///
 /// If `symbol_id` is not for a TLS variable, then it is returned unchanged.
 // crate: object-0.39.1/src/write/macho.rs:221 macho_add_thread_var
-export function macho_add_thread_var(_self: Object, _symbol_id: number): never {
-  // PORT: only `set_symbol_data` calls this, and it is not ported (mod.ts): rustc's wrapper files add no symbols.
-  return unported("object::write::Object::macho_add_thread_var (Mach-O TLS symbols)");
+export function macho_add_thread_var(self: Object, symbol_id: SymbolId): SymbolId {
+  let symbol = self.symbol_mut(symbol_id);
+  if (symbol.kind !== "Tls") {
+    return symbol_id;
+  }
+
+  // Create the initializer symbol.
+  const name = new Uint8Array(symbol.name.length + 9);
+  name.set(symbol.name);
+  name.set(b("$tlv$init"), symbol.name.length);
+  const init_symbol_id = self.add_raw_symbol(new Symbol(name, 0, 0, "Tls", "Compilation", false, { $: "Undefined" }, { $: "None" }));
+
+  // Add the tlv entry.
+  // Three pointers in size:
+  //   - __tlv_bootstrap - used to make sure support exists
+  //   - spare pointer - used when mapped by the runtime
+  //   - pointer to symbol initializer
+  const section = self.section_id("TlsVariables");
+  const address_size_ = Architecture.address_size(self.architecture());
+  if (address_size_ === undefined) return panic("called `Option::unwrap()` on a `None` value");
+  const address_size = AddressSize.bytes(address_size_);
+  const size = address_size * 3;
+  const data = new Uint8Array(size);
+  const offset = self.append_section_data(section, data, address_size);
+
+  const tlv_bootstrap = macho_tlv_bootstrap(self);
+  unwrap_write(
+    self.add_relocation(section, {
+      offset,
+      symbol: tlv_bootstrap,
+      addend: 0n,
+      flags: { $: "Generic", kind: "Absolute", encoding: "Generic", size: address_size * 8 },
+    }),
+  );
+  unwrap_write(
+    self.add_relocation(section, {
+      offset: offset + address_size * 2,
+      symbol: init_symbol_id,
+      addend: 0n,
+      flags: { $: "Generic", kind: "Absolute", encoding: "Generic", size: address_size * 8 },
+    }),
+  );
+
+  // Update the symbol to point to the tlv.
+  symbol = self.symbol_mut(symbol_id);
+  symbol.value = offset;
+  symbol.size = size;
+  symbol.section = { $: "Section", _0: section };
+
+  return init_symbol_id;
+}
+
+/** `.unwrap()` of a `write::Result<()>`: `Error`'s derived `Debug` in the panic message. */
+function unwrap_write(r: Result<null>): void {
+  if (r.$ === "Err") panic(`called \`Result::unwrap()\` on an \`Err\` value: Error(${debug_str(r._0._0)})`);
 }
 
 // crate: object-0.39.1/src/write/macho.rs:291 macho_translate_relocation
-export function macho_translate_relocation(_self: Object): never {
-  // PORT: only `add_relocation_internal` calls this, and relocations are not ported (mod.ts).
-  return unported("object::write::Object::macho_translate_relocation (Mach-O relocations)");
+export function macho_translate_relocation(self: Object, section: SectionId, reloc: RelocationInternal): Result<null> {
+  let kind: RelocationKind;
+  let encoding: RelocationEncoding;
+  let size: number;
+  if (reloc.flags.$ === "Generic") {
+    [kind, encoding, size] = [reloc.flags.kind, reloc.flags.encoding, reloc.flags.size];
+  } else {
+    return Ok(null);
+  }
+  // Aarch64 relocs of these sizes act as if they are double-word length
+  if (self.architecture() === "Aarch64" && (size === 12 || size === 21 || size === 26)) {
+    size = 32;
+  }
+  let r_length: number;
+  switch (size) {
+    case 8:
+      r_length = 0;
+      break;
+    case 16:
+      r_length = 1;
+      break;
+    case 32:
+      r_length = 2;
+      break;
+    case 64:
+      r_length = 3;
+      break;
+    default:
+      return Err(new Error(`unimplemented reloc size ${debug_RelocationInternal(reloc)}`));
+  }
+  const unsupported_reloc = (): Result<null> => Err(new Error(`unimplemented relocation ${debug_RelocationInternal(reloc)}`));
+  let r_pcrel: boolean;
+  let r_type: number;
+  switch (self.architecture()) {
+    case "I386":
+      if (kind === "Absolute") [r_pcrel, r_type] = [false, macho.GENERIC_RELOC_VANILLA];
+      else return unsupported_reloc();
+      break;
+    case "Arm":
+      if (kind === "Absolute") [r_pcrel, r_type] = [false, macho.ARM_RELOC_VANILLA];
+      else return unsupported_reloc();
+      break;
+    case "X86_64":
+      if (kind === "Absolute" && encoding === "Generic") [r_pcrel, r_type] = [false, macho.X86_64_RELOC_UNSIGNED];
+      // TODO: E::Generic might need to use unsigned with a subtractor instead
+      else if (kind === "Relative" && (encoding === "Generic" || encoding === "X86RipRelative")) [r_pcrel, r_type] = [true, macho.X86_64_RELOC_SIGNED];
+      else if (kind === "Relative" && encoding === "X86Branch") [r_pcrel, r_type] = [true, macho.X86_64_RELOC_BRANCH];
+      else if (kind === "PltRelative" && (encoding === "Generic" || encoding === "X86Branch")) [r_pcrel, r_type] = [true, macho.X86_64_RELOC_BRANCH];
+      else if (kind === "GotRelative" && encoding === "Generic") [r_pcrel, r_type] = [true, macho.X86_64_RELOC_GOT];
+      else if (kind === "GotRelative" && encoding === "X86RipRelativeMovq") [r_pcrel, r_type] = [true, macho.X86_64_RELOC_GOT_LOAD];
+      else return unsupported_reloc();
+      break;
+    case "Aarch64":
+    case "Aarch64_Ilp32":
+      if (kind === "Absolute" && encoding === "Generic") [r_pcrel, r_type] = [false, macho.ARM64_RELOC_UNSIGNED];
+      else if (kind === "Relative" && encoding === "Generic") {
+        // arm64 doesn't have PC relative relocations for data,
+        // use ARM64_RELOC_SUBTRACTOR instead.
+        reloc.subtractor = self.section_symbol(section);
+        // S - (section + offset) + A = S - section + (A - offset)
+        reloc.addend = BigInt.asIntN(64, reloc.addend - BigInt(reloc.offset));
+        [r_pcrel, r_type] = [false, macho.ARM64_RELOC_UNSIGNED];
+      } else if (kind === "Relative" && encoding === "AArch64Call") [r_pcrel, r_type] = [true, macho.ARM64_RELOC_BRANCH26];
+      else if (kind === "PltRelative" && (encoding === "Generic" || encoding === "AArch64Call")) [r_pcrel, r_type] = [true, macho.ARM64_RELOC_BRANCH26];
+      else return unsupported_reloc();
+      break;
+    case "PowerPc":
+    case "PowerPc64":
+      if (kind === "Absolute") [r_pcrel, r_type] = [false, macho.PPC_RELOC_VANILLA];
+      else return unsupported_reloc();
+      break;
+    default:
+      return Err(new Error(`unimplemented architecture ${self.architecture()}`));
+  }
+  reloc.flags = { $: "MachO", r_type, r_pcrel, r_length };
+  return Ok(null);
 }
 
 // crate: object-0.39.1/src/write/macho.rs:375 macho_adjust_addend
-export function macho_adjust_addend(_self: Object): never {
-  // PORT: only `add_relocation_internal` calls this, and relocations are not ported (mod.ts).
-  return unported("object::write::Object::macho_adjust_addend (Mach-O relocations)");
+export function macho_adjust_addend(self: Object, relocation: RelocationInternal): Result<boolean> {
+  let r_type: number;
+  let r_pcrel: boolean;
+  if (relocation.flags.$ === "MachO") {
+    [r_type, r_pcrel] = [relocation.flags.r_type, relocation.flags.r_pcrel];
+  } else {
+    return Err(new Error(`invalid relocation flags ${debug_RelocationInternal(relocation)}`));
+  }
+  if (r_pcrel) {
+    // For PC relative relocations on some architectures, the
+    // addend does not include the offset required due to the
+    // PC being different from the place of the relocation.
+    // This differs from other file formats, so adjust the
+    // addend here to account for this.
+    let pcrel_offset: bigint;
+    switch (self.architecture()) {
+      case "I386":
+        pcrel_offset = 4n;
+        break;
+      case "X86_64":
+        switch (r_type) {
+          case macho.X86_64_RELOC_SIGNED_1:
+            pcrel_offset = 5n;
+            break;
+          case macho.X86_64_RELOC_SIGNED_2:
+            pcrel_offset = 6n;
+            break;
+          case macho.X86_64_RELOC_SIGNED_4:
+            pcrel_offset = 8n;
+            break;
+          default:
+            pcrel_offset = 4n;
+        }
+        break;
+      // TODO: maybe missing support for some architectures and relocations
+      default:
+        pcrel_offset = 0n;
+    }
+    relocation.addend = BigInt.asIntN(64, relocation.addend + pcrel_offset);
+  }
+  // Determine if addend is implicit.
+  let implicit: boolean;
+  if (self.architecture() === "Aarch64") {
+    switch (r_type) {
+      case macho.ARM64_RELOC_BRANCH26:
+      case macho.ARM64_RELOC_PAGE21:
+      case macho.ARM64_RELOC_PAGEOFF12:
+        implicit = false;
+        break;
+      default:
+        implicit = true;
+    }
+  } else {
+    implicit = true;
+  }
+  return Ok(implicit);
 }
 
 // crate: object-0.39.1/src/write/macho.rs:420 macho_relocation_size
-export function macho_relocation_size(_self: Object): never {
-  // PORT: only `write_relocation_addend` calls this, and relocations are not ported (mod.ts).
-  return unported("object::write::Object::macho_relocation_size (Mach-O relocations)");
+export function macho_relocation_size(reloc: RelocationInternal): Result<number> {
+  if (reloc.flags.$ === "MachO") {
+    return Ok((8 << reloc.flags.r_length) & 0xff);
+  } else {
+    return Err(new Error("invalid relocation flags"));
+  }
 }
 
 /** `{:?}` of `Option<SubArchitecture>`. */
@@ -592,10 +788,99 @@ export function macho_write(self: Object, buffer: WritableBuffer): Result<null> 
   // debug_assert_eq!(segment_file_offset + segment_file_size, buffer.len());
 
   // Write relocations.
-  for (const section of self.sections) {
+  for (const [index, section] of self.sections.entries()) {
     if (section.relocations.length !== 0) {
-      // PORT: `write_reloc` and the descending-order rule; `add_relocation` is not ported, so no section gets here.
-      return unported("object::write::Object::macho_write (Mach-O relocations)");
+      write_align(buffer, pointer_align);
+      // debug_assert_eq!(section_offsets[index].reloc_offset, buffer.len());
+      void index;
+
+      const write_reloc = (reloc: RelocationInternal): Result<null> => {
+        let r_type: number;
+        let r_pcrel: boolean;
+        let r_length: number;
+        if (reloc.flags.$ === "MachO") {
+          [r_type, r_pcrel, r_length] = [reloc.flags.r_type, reloc.flags.r_pcrel, reloc.flags.r_length];
+        } else {
+          return Err(new Error("invalid relocation flags"));
+        }
+
+        if (reloc.subtractor !== undefined) {
+          const subtractor = reloc.subtractor;
+          let r_type: number;
+          switch (self.architecture()) {
+            case "Aarch64":
+            case "Aarch64_Ilp32":
+              r_type = macho.ARM64_RELOC_SUBTRACTOR;
+              break;
+            case "X86_64":
+              r_type = macho.X86_64_RELOC_SUBTRACTOR;
+              break;
+            default:
+              return Err(new Error(`unimplemented relocation ${debug_RelocationInternal(reloc)}`));
+          }
+          const reloc_info = new macho.RelocationInfo(reloc.offset >>> 0, symbol_offsets[subtractor]!.index >>> 0, false, r_length, true, r_type);
+          write_relocation(buffer, endian, reloc_info.relocation(endian));
+        }
+
+        // Write explicit addend.
+        if (reloc.addend !== 0n) {
+          let r_type: number;
+          switch (self.architecture()) {
+            case "Aarch64":
+            case "Aarch64_Ilp32":
+              r_type = macho.ARM64_RELOC_ADDEND;
+              break;
+            default:
+              return Err(new Error(`unimplemented relocation ${debug_RelocationInternal(reloc)}`));
+          }
+
+          const reloc_info = new macho.RelocationInfo(reloc.offset >>> 0, Number(BigInt.asUintN(32, reloc.addend)), false, r_length, false, r_type);
+          write_relocation(buffer, endian, reloc_info.relocation(endian));
+        }
+
+        let r_extern: boolean;
+        let r_symbolnum: number;
+        const symbol = self.symbols[reloc.symbol]!;
+        if (symbol.kind === "Section") {
+          const id = SymbolSection.id(symbol.section);
+          if (id === undefined) return panic("called `Option::unwrap()` on a `None` value");
+          r_symbolnum = section_offsets[id]!.index >>> 0;
+          r_extern = false;
+        } else {
+          r_symbolnum = symbol_offsets[reloc.symbol]!.index >>> 0;
+          r_extern = true;
+        }
+
+        const reloc_info = new macho.RelocationInfo(reloc.offset >>> 0, r_symbolnum, r_pcrel, r_length, r_extern, r_type);
+        write_relocation(buffer, endian, reloc_info.relocation(endian));
+        return Ok(null);
+      };
+
+      // Relocations are emitted in descending order as otherwise Apple's
+      // new linker crashes. This matches LLVM's behavior too:
+      // https://github.com/llvm/llvm-project/blob/e9b8cd0c8/llvm/lib/MC/MachObjectWriter.cpp#L1001-L1002
+      const need_reverse = (relocs: readonly RelocationInternal[]): boolean => {
+        const first = relocs[0];
+        if (first === undefined) {
+          return false;
+        }
+        const last = relocs[relocs.length - 1];
+        if (last === undefined) {
+          return false;
+        }
+        return first.offset < last.offset;
+      };
+      if (need_reverse(section.relocations)) {
+        for (let i = section.relocations.length - 1; i >= 0; i--) {
+          const r = write_reloc(section.relocations[i]!);
+          if (r.$ === "Err") return r;
+        }
+      } else {
+        for (const reloc of section.relocations) {
+          const r = write_reloc(reloc);
+          if (r.$ === "Err") return r;
+        }
+      }
     }
   }
 
@@ -665,6 +950,11 @@ export function macho_write(self: Object, buffer: WritableBuffer): Result<null> 
 
 /** `mem::size_of::<macho::Relocation<Endianness>>()`: two `U32`s. */
 const RELOCATION_SIZE = 8;
+
+/** `buffer.write(&relocation)`: `r_word0`, `r_word1` as `U32<E>`. */
+function write_relocation(buffer: WritableBuffer, endian: Endianness, r: macho.Relocation): void {
+  buffer.write_bytes(new FieldWriter(endian).u32(r.r_word0).u32(r.r_word1).done());
+}
 
 /** `{:?}` of `SectionKind`. */
 function debug_section_kind(k: SectionKind): string {

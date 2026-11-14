@@ -2,7 +2,8 @@
 //
 // Copyright (c) 2015 The Gimli Developers; licensed under MIT OR Apache-2.0 (object).
 //
-// PORT: `RelocationKind`, ... are not ported (unused on rustc's metadata read path).
+// PORT: `ComdatKind`, `RelocationKind`, `RelocationEncoding` and `RelocationFlags` came with the writer's relocations (lane
+// vendor-object-write). `SegmentFlags` and `Permissions` are not ported: nothing reaches them.
 
 /// A binary file format.
 export type BinaryFormat = "Coff" | "Elf" | "MachO" | "Pe" | "Wasm" | "Xcoff";
@@ -304,5 +305,200 @@ export type SectionFlags =
 export const SectionFlags = { None: { $: "None" } } as const satisfies Record<string, SectionFlags>;
 
 /// Symbol flags that are specific to each file format.
-/// PORT: the writer has no symbols yet (write/mod.ts); `CoffSection` and `Xcoff` are not modelled.
+/// PORT: `CoffSection` and `Xcoff` are not modelled: only the COFF and XCOFF writers, which stop `unported`, make them.
 export type SymbolFlags = { $: "None" } | { $: "Elf"; st_info: number; st_other: number } | { $: "MachO"; n_desc: number };
+
+/** `{:?}` of `SymbolFlags` (derived). */
+export function debug_SymbolFlags(v: SymbolFlags): string {
+  switch (v.$) {
+    case "None":
+      return "None";
+    case "Elf":
+      return `Elf { st_info: ${v.st_info}, st_other: ${v.st_other} }`;
+    case "MachO":
+      return `MachO { n_desc: ${v.n_desc} }`;
+  }
+}
+
+/// The selection kind for a COMDAT section group.
+///
+/// This determines the way in which the linker resolves multiple definitions of the COMDAT
+/// sections.
+export type ComdatKind =
+  /// The selection kind is unknown.
+  | "Unknown"
+  /// Multiple definitions are allowed.
+  ///
+  /// An arbitrary definition is selected, and the rest are removed.
+  ///
+  /// This is the only supported selection kind for ELF.
+  | "Any"
+  /// Multiple definitions are not allowed.
+  ///
+  /// This is used to group sections without allowing duplicates.
+  | "NoDuplicates"
+  /// Multiple definitions must have the same size.
+  ///
+  /// An arbitrary definition is selected, and the rest are removed.
+  | "SameSize"
+  /// Multiple definitions must match exactly.
+  ///
+  /// An arbitrary definition is selected, and the rest are removed.
+  | "ExactMatch"
+  /// Multiple definitions are allowed, and the largest is selected.
+  ///
+  /// An arbitrary definition with the largest size is selected, and the rest are removed.
+  | "Largest"
+  /// Multiple definitions are allowed, and the newest is selected.
+  | "Newest";
+
+/// The operation used to calculate the result of the relocation.
+///
+/// The relocation descriptions use the following definitions. Note that
+/// these definitions probably don't match any ELF ABI.
+///
+/// * A - The value of the addend.
+/// * G - The address of the symbol's entry within the global offset table.
+/// * L - The address of the symbol's entry within the procedure linkage table.
+/// * P - The address of the place of the relocation.
+/// * S - The address of the symbol.
+/// * GotBase - The address of the global offset table.
+/// * Image - The base address of the image.
+/// * Section - The address of the section containing the symbol.
+///
+/// 'XxxRelative' means 'Xxx + A - P'.  'XxxOffset' means 'S + A - Xxx'.
+export type RelocationKind =
+  /// The operation is unknown.
+  | "Unknown"
+  /// No relocation.
+  ///
+  /// Example: `elf::R_X86_64_NONE`
+  | "None"
+  /// S + A
+  ///
+  /// Example: `elf::R_X86_64_64`
+  | "Absolute"
+  /// S + A - P
+  ///
+  /// Example: `elf::R_X86_64_PC32`
+  | "Relative"
+  /// G + A - GotBase
+  ///
+  /// Example: `elf::R_X86_64_GOT32`
+  | "Got"
+  /// G + A - P
+  ///
+  /// Example: `elf::R_X86_64_GOTPCREL`
+  | "GotRelative"
+  /// GotBase + A - P
+  ///
+  /// Example: `elf::R_386_GOTPC`
+  | "GotBaseRelative"
+  /// S + A - GotBase
+  ///
+  /// Example: `elf::R_386_GOTOFF`
+  | "GotBaseOffset"
+  /// L + A - P
+  ///
+  /// Example: `elf::R_X86_64_PLT32`
+  | "PltRelative"
+  /// S + A - Image
+  ///
+  /// Example: `pe::IMAGE_REL_AMD64_ADDR32NB`
+  | "ImageOffset"
+  /// S + A - Section
+  ///
+  /// Example: `pe::IMAGE_REL_AMD64_SECREL`
+  | "SectionOffset"
+  /// The index of the section containing the symbol.
+  ///
+  /// Example: `pe::IMAGE_REL_AMD64_SECTION`
+  | "SectionIndex";
+
+/// Information about how the result of the relocation operation is encoded in the place.
+///
+/// This is usually architecture specific, such as specifying an addressing mode or
+/// a specific instruction.
+export type RelocationEncoding =
+  /// The relocation encoding is unknown.
+  | "Unknown"
+  /// Generic encoding.
+  | "Generic"
+  /// x86 sign extension at runtime.
+  ///
+  /// Used with `RelocationKind::Absolute`.
+  | "X86Signed"
+  /// x86 rip-relative addressing.
+  ///
+  /// The `RelocationKind` must be PC relative.
+  | "X86RipRelative"
+  /// x86 rip-relative addressing in movq instruction.
+  ///
+  /// The `RelocationKind` must be PC relative.
+  | "X86RipRelativeMovq"
+  /// x86 call target.
+  ///
+  /// The `RelocationKind` must be PC relative.
+  // This name matches Mach-O, but might have been better named `X86Call`.
+  | "X86Branch"
+  /// s390x PC-relative offset shifted right by one bit.
+  ///
+  /// The `RelocationKind` must be PC relative.
+  | "S390xDbl"
+  /// AArch64 call target.
+  ///
+  /// The `RelocationKind` must be PC relative.
+  | "AArch64Call"
+  /// LoongArch branch offset with two trailing zeros.
+  ///
+  /// The `RelocationKind` must be PC relative.
+  | "LoongArchBranch"
+  /// SHARC+ 48-bit Type A instruction
+  ///
+  /// (upstream lists the `R_SHARC_*` variants it represents)
+  | "SharcTypeA"
+  /// SHARC+ 32-bit Type B instruction
+  ///
+  /// (upstream lists the `R_SHARC_*` variants it represents)
+  | "SharcTypeB"
+  /// E2K 64-bit value stored in two LTS
+  | "E2KLit"
+  /// E2K 28-bit value stored in CS0
+  | "E2KDisp";
+
+/// Relocation fields that are specific to each file format and architecture.
+export type RelocationFlags =
+  /// Format independent representation.
+  | {
+      $: "Generic";
+      /// The operation used to calculate the result of the relocation.
+      kind: RelocationKind;
+      /// Information about how the result of the relocation operation is encoded in the place.
+      encoding: RelocationEncoding;
+      /// The size in bits of the place of relocation.
+      size: number;
+    }
+  /// ELF relocation fields.
+  | { $: "Elf"; r_type: number }
+  /// Mach-O relocation fields.
+  | { $: "MachO"; r_type: number; r_pcrel: boolean; r_length: number }
+  /// COFF relocation fields.
+  | { $: "Coff"; typ: number }
+  /// XCOFF relocation fields.
+  | { $: "Xcoff"; r_rtype: number; r_rsize: number };
+
+/** `{:?}` of `RelocationFlags` (derived). */
+export function debug_RelocationFlags(v: RelocationFlags): string {
+  switch (v.$) {
+    case "Generic":
+      return `Generic { kind: ${v.kind}, encoding: ${v.encoding}, size: ${v.size} }`;
+    case "Elf":
+      return `Elf { r_type: ${v.r_type} }`;
+    case "MachO":
+      return `MachO { r_type: ${v.r_type}, r_pcrel: ${v.r_pcrel}, r_length: ${v.r_length} }`;
+    case "Coff":
+      return `Coff { typ: ${v.typ} }`;
+    case "Xcoff":
+      return `Xcoff { r_rtype: ${v.r_rtype}, r_rsize: ${v.r_rsize} }`;
+  }
+}

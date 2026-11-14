@@ -1,6 +1,6 @@
 // Port of object 0.39.1 `src/write/elf/writer.rs`: the `Writer` parts `Object::elf_write` reaches (file header, section
-// headers and names, the string tables, the symbol table). The segment, dynamic-section, GNU version, hash, relocation,
-// comdat and attributes helpers are not ported: nothing reaches them.
+// headers and names, the string tables, the symbol table, relocations and comdats). The segment, dynamic-section, GNU
+// version, hash and attributes helpers are not ported: nothing reaches them.
 //
 // Copyright (c) 2015 The Gimli Developers; licensed under MIT OR Apache-2.0 (object).
 //
@@ -42,6 +42,13 @@ class BytesWriter {
     const lo = v % 0x1_0000_0000;
     return this.little ? this.u32(lo).u32(hi) : this.u32(hi).u32(lo);
   }
+  /** A `u64`/`i64` field from a `bigint` (two's complement for a negative `i64`). */
+  u64n(v: bigint): this {
+    const u = BigInt.asUintN(64, v);
+    const hi = Number(u >> 32n);
+    const lo = Number(u & 0xffff_ffffn);
+    return this.little ? this.u32(lo).u32(hi) : this.u32(hi).u32(lo);
+  }
   raw(v: Iterable<number>): this {
     for (const x of v) this.u8(x);
     return this;
@@ -59,6 +66,26 @@ export interface FileHeader {
   e_machine: number;
   e_entry: number;
   e_flags: number;
+}
+
+/// Unified native endian version of [`elf::Sym64`].
+export interface Sym {
+  name: StringId | undefined;
+  section: SectionIndex | undefined;
+  st_info: number;
+  st_other: number;
+  st_shndx: number;
+  st_value: number;
+  st_size: number;
+}
+
+/// Unified native endian version of [`elf::Rel64`] and [`elf::Rela64`].
+export interface Rel {
+  r_offset: number;
+  r_sym: number;
+  r_type: number;
+  /** PORT: `i64`, as a `bigint`. */
+  r_addend: bigint;
 }
 
 /// Native endian version of [`elf::SectionHeader64`].
@@ -629,6 +656,45 @@ export class Writer {
     }
   }
 
+  /// Write a symbol.
+  // crate: object-0.39.1/src/write/elf/writer.rs:822 write_symbol
+  write_symbol(sym: Sym): void {
+    const st_name = sym.name !== undefined ? this.strtab.get_offset(sym.name) >>> 0 : 0;
+    let st_shndx: number;
+    if (sym.section !== undefined) {
+      const section = sym.section;
+      if (section >= elf.SHN_LORESERVE) {
+        st_shndx = elf.SHN_XINDEX;
+      } else {
+        st_shndx = section & 0xffff;
+      }
+    } else {
+      st_shndx = sym.st_shndx;
+    }
+
+    if (this.is_64) {
+      // elf::Sym64 { st_name, st_info, st_other, st_shndx, st_value, st_size }
+      this.buffer.write_bytes(this.bytes().u32(st_name).u8(sym.st_info).u8(sym.st_other).u16(st_shndx).u64(sym.st_value).u64(sym.st_size).done());
+    } else {
+      // elf::Sym32 { st_name, st_value, st_size, st_info, st_other, st_shndx }
+      this.buffer.write_bytes(
+        this.bytes()
+          .u32(st_name)
+          .u32(sym.st_value >>> 0)
+          .u32(sym.st_size >>> 0)
+          .u8(sym.st_info)
+          .u8(sym.st_other)
+          .u16(st_shndx)
+          .done(),
+      );
+    }
+
+    if (this.need_symtab_shndx) {
+      const section_index = sym.section ?? SectionIndex(0);
+      for (const x of this.bytes().u32(section_index).done()) this.symtab_shndx_data.push(x);
+    }
+  }
+
   /// Reserve the section index for the symbol table.
   ///
   /// This must be called before [`Self::reserve_section_headers`].
@@ -680,6 +746,13 @@ export class Writer {
   // crate: object-0.39.1/src/write/elf/writer.rs:912 symtab_shndx_needed
   symtab_shndx_needed(): boolean {
     return this.need_symtab_shndx;
+  }
+
+  /// Require the extended section indices for the symbol table even
+  /// if no section indices are too large.
+  // crate: object-0.39.1/src/write/elf/writer.rs:918 require_symtab_shndx
+  require_symtab_shndx(): void {
+    this.need_symtab_shndx = true;
   }
 
   /// Reserve the range for the extended section indices for the symbol table.
@@ -758,6 +831,119 @@ export class Writer {
       sh_entsize: 4,
     });
   }
+
+  /// Reserve a file range for the given number of relocations.
+  ///
+  /// Returns the offset of the range.
+  // crate: object-0.39.1/src/write/elf/writer.rs:1912 reserve_relocations
+  reserve_relocations(count: number, is_rela: boolean): number {
+    return this.reserve(count * this.class_().rel_size(is_rela), this.elf_align);
+  }
+
+  /// Write alignment padding bytes prior to a relocation section.
+  // crate: object-0.39.1/src/write/elf/writer.rs:1917 write_align_relocation
+  write_align_relocation(): void {
+    util.write_align(this.buffer, this.elf_align);
+  }
+
+  /// Write a relocation.
+  // crate: object-0.39.1/src/write/elf/writer.rs:1922 write_relocation
+  write_relocation(is_rela: boolean, rel: Rel): void {
+    if (this.is_64) {
+      if (is_rela) {
+        // elf::Rela64 { r_offset, r_info, r_addend }
+        this.buffer.write_bytes(
+          this.bytes()
+            .u64(rel.r_offset)
+            .u64n(elf.Rela64_r_info(this.is_mips64el, rel.r_sym, rel.r_type))
+            .u64n(rel.r_addend)
+            .done(),
+        );
+      } else {
+        // elf::Rel64 { r_offset, r_info }
+        this.buffer.write_bytes(this.bytes().u64(rel.r_offset).u64n(elf.Rel64_r_info(rel.r_sym, rel.r_type)).done());
+      }
+    } else {
+      if (is_rela) {
+        // elf::Rela32 { r_offset, r_info, r_addend }
+        this.buffer.write_bytes(
+          this.bytes()
+            .u32(rel.r_offset >>> 0)
+            .u32(elf.Rel32_r_info(rel.r_sym, rel.r_type & 0xff))
+            .u32(Number(BigInt.asUintN(32, rel.r_addend)))
+            .done(),
+        );
+      } else {
+        // elf::Rel32 { r_offset, r_info }
+        this.buffer.write_bytes(this.bytes().u32(rel.r_offset >>> 0).u32(elf.Rel32_r_info(rel.r_sym, rel.r_type & 0xff)).done());
+      }
+    }
+  }
+
+  /// Write the section header for a relocation section.
+  ///
+  /// `section` is the index of the section the relocations apply to,
+  /// or 0 if none.
+  ///
+  /// `symtab` is the index of the symbol table the relocations refer to,
+  /// or 0 if none.
+  ///
+  /// `offset` is the file offset of the relocations.
+  // crate: object-0.39.1/src/write/elf/writer.rs:1966 write_relocation_section_header
+  write_relocation_section_header(name: StringId, section: SectionIndex, symtab: SectionIndex, offset: number, count: number, is_rela: boolean): void {
+    this.write_section_header({
+      name,
+      sh_type: is_rela ? elf.SHT_RELA : elf.SHT_REL,
+      sh_flags: elf.SHF_INFO_LINK,
+      sh_addr: 0,
+      sh_offset: offset,
+      sh_size: count * this.class_().rel_size(is_rela),
+      sh_link: symtab,
+      sh_info: section,
+      sh_addralign: this.elf_align,
+      sh_entsize: this.class_().rel_size(is_rela),
+    });
+  }
+
+  /// Reserve a file range for a COMDAT section.
+  ///
+  /// `count` is the number of sections in the COMDAT group.
+  ///
+  /// Returns the offset of the range.
+  // crate: object-0.39.1/src/write/elf/writer.rs:2018 reserve_comdat
+  reserve_comdat(count: number): number {
+    return this.reserve((count + 1) * 4, 4);
+  }
+
+  /// Write `GRP_COMDAT` at the start of the COMDAT section.
+  // crate: object-0.39.1/src/write/elf/writer.rs:2023 write_comdat_header
+  write_comdat_header(): void {
+    util.write_align(this.buffer, 4);
+    this.buffer.write_bytes(this.bytes().u32(elf.GRP_COMDAT).done());
+  }
+
+  /// Write an entry in a COMDAT section.
+  // crate: object-0.39.1/src/write/elf/writer.rs:2029 write_comdat_entry
+  write_comdat_entry(entry: SectionIndex): void {
+    this.buffer.write_bytes(this.bytes().u32(entry).done());
+  }
+
+  /// Write the section header for a COMDAT section.
+  // crate: object-0.39.1/src/write/elf/writer.rs:2034 write_comdat_section_header
+  write_comdat_section_header(name: StringId, symtab: SectionIndex, symbol: SymbolIndex, offset: number, count: number): void {
+    this.write_section_header({
+      name,
+      sh_type: elf.SHT_GROUP,
+      sh_flags: 0,
+      sh_addr: 0,
+      sh_offset: offset,
+      sh_size: (count + 1) * 4,
+      sh_link: symtab,
+      sh_info: symbol,
+      sh_addralign: 4,
+      sh_entsize: 4,
+    });
+  }
 }
 
 /// Native endian version of [`elf::Sym64`] etc.: sizes per ELF class.
@@ -790,5 +976,16 @@ export class Class {
   sym_size(): number {
     // `mem::size_of::<elf::Sym64<Endianness>>()` / `Sym32`.
     return this.is_64 ? 24 : 16;
+  }
+
+  /// Return the size of a relocation entry.
+  // crate: object-0.39.1/src/write/elf/writer.rs:2241 rel_size
+  rel_size(is_rela: boolean): number {
+    // `mem::size_of::<elf::Rela64/Rel64/Rela32/Rel32<Endianness>>()`.
+    if (this.is_64) {
+      return is_rela ? 24 : 16;
+    } else {
+      return is_rela ? 12 : 8;
+    }
   }
 }
