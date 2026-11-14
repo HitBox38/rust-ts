@@ -710,7 +710,8 @@ M7a is met (milestone recorded; gate-20261114-065555-root-0e2v). M7b needs `nati
 
 | lane | scope | status |
 |---|---|---|
-| ssa-link-b | `rustc_codegen_ssa/src/back/link.rs` :2105-end, `link/raw_dylib.rs`; ssa-link-a review N1-N3 | started |
+| ssa-link-b | `rustc_codegen_ssa/src/back/link.rs` :2105-end, `link/raw_dylib.rs`; ssa-link-a review N1-N3 | done (t3/port-ssa-link-b, 330371b2): link.rs 87/87, raw_dylib.rs 5/5; the port's own `linker_with_args` byte-identical to the oracle on all 10 linkable cases, `link_natively` end to end with a fake `cc`; a host hello link (oracle sysroot injected) stops at `object::write::Object::add_symbol`; with that stubbed in scratch, hello and a second program link and run with the oracle's output; in review |
+| vendor-object-write | vendored `object` writer: symbols, relocations (write/mod.rs, util.rs, Mach-O then ELF); apple.rs `add_data_and_relocation`, `get_sdk_root` | started (added mid-wave: the first stop of every native link) |
 | default-sysroot | `rustc_session` `filesearch` default sysroot = the oracle's (decision recorded); `Session::get_tools_search_paths` into session.ts; ssa-linker review N1-N4 | done (t3/port-default-sysroot, e3e5797d): `rustc +<pin> --print sysroot` once per process, read lazily (PORT(perf), decision recorded, adversarial review asked); placeholder and its three stops gone; `--print sysroot`/`target-libdir` without `--sysroot` equal the oracle; link-args test byte-identical with no injection; seven samples unchanged; in review |
 | harness-m7b | harness batch: `ir-run-pass`, `ir-run-pass-o0`, `ir-host`, `native-hello`, `run-pass-native`, `run-fail-native` (plan-m7 §6), report only; mono-run-head N1, N2, N4 | started |
 | ir-fix-a | first IR differences on the run-pass corpus through `scripts/ir-diff.ts` (x86 intrinsic table first) | started |
