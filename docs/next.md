@@ -690,3 +690,16 @@ The stops left between the ported backend and its first output (cg-write's hando
 
 **Queued (wave 40p):** implement `LLVMRustDisableSystemDialogsOnCrash` (empty on Unix; pin `Unix/Signals.inc`) so `init` has one outcome and the skeleton test one branch (root-w56-check 1); the fatal-error handler to call `stderr_write_all` directly (capture and write errors, root-w56-recheck 1-2) and a child-process test of it; root-w56-check 2-4; the lane reviews' N items; the ThinLTO embedded-bitcode buffer for optimised rlibs; fat-LTO model calls (`LLVMRustLinker*`, `LLVMRustRunRestrictionPass`, `LLVMRustModuleCost`) and pinning `llvm-link` (a `scripts/` batch); `uselistorder` directives in the model's printer (llir-tools' N1 misses); `-g` (llir-di, cg-di-b, wave 44).
 **Next:** register the LLVM backend and fix from the first differences of `ir-hello` / `mir-o2`.
+
+## Wave 40q (started 2026-11-14) — M7: register the LLVM backend; linker, link (first half), archive
+Register the ported backend so `--emit=llvm-ir` reaches the IR model's printer, then fix from the first differences of `ir-hello`. In parallel the M7b link side starts: `linker.rs` + `command.rs`, `link.rs` up to `exec_linker` (split decision recorded), and archive, `symbol_edit.rs` and `rpath.rs`. Root pinned `llvm/lib/Support/Unix/Signals.inc` (manifest 94, 631110e5) for fixers-57. Five lanes.
+
+| lane | scope | status |
+|---|---|---|
+| cg-register | register the backend by forwarding (decision recorded): `rust_ts/codegen_backend.ts`, `rustc_interface/util.ts`; `scripts/mono-run.ts` as its own reviewed commit; then `ir-hello` first differences | started |
+| ssa-linker | `rustc_codegen_ssa/src/back/linker.rs` (211 of 218 left), `back/command.rs` | started |
+| ssa-link-a | `rustc_codegen_ssa/src/back/link.rs` :1-2104 (to `exec_linker`) | started |
+| ssa-archive | `back/archive.rs` (10 left), `back/symbol_edit.rs`, `back/rpath.rs` | started |
+| fixers-57 | wave 40p's queued items: `LLVMRustDisableSystemDialogsOnCrash`, the fatal handler's stderr and its child-process test, root-w56-check 2-4, root-w56-recheck nits, lane-review N items | started |
+
+**Queued (wave 40q):** `ssa-link-b` (link.rs :2105-end, `link/raw_dylib.rs`); the ThinLTO embedded-bitcode buffer for optimised rlibs; fat-LTO model calls and pinning `llvm-link` (a `scripts/` batch); `uselistorder` directives (waits, decision recorded); `-g` (llir-di, cg-di-b, wave 44); moving `init`/`target_config` to the model once it reproduces the oracle table for every target there.
