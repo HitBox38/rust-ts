@@ -26,6 +26,7 @@ test.skipIf(process.platform === "win32")("diff_paths: a `..` in the base gives 
 // Windows variant of `abs` (`C:\`) is not run.
 describe.skipIf(process.platform === "win32")("pathdiff mod tests", () => {
   /** `assert_eq!(diff_paths(path, base), expected.map(|s| s.into()))`: `PathBuf ==` compares components. */
+  // crate: pathdiff-0.2.3/src/lib.rs:247 assert_diff_paths
   function assert_diff_paths(path: string, base: string, expected: string | undefined): void {
     const got = diff_paths(path, base);
     if (expected === undefined || got === undefined) {
@@ -38,6 +39,7 @@ describe.skipIf(process.platform === "win32")("pathdiff mod tests", () => {
   // crate: pathdiff-0.2.3/src/lib.rs:176 test_absolute
   test("test_absolute", () => {
     // Absolute paths look different on Windows vs Unix.
+    // crate: pathdiff-0.2.3/src/lib.rs:177 abs
     const abs = (path: string): string => `/${path}`;
 
     assert_diff_paths(abs("foo"), abs("bar"), "../foo");

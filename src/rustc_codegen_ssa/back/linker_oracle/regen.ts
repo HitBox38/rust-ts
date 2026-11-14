@@ -1,14 +1,15 @@
-// Rewrites the committed oracle output of ../linker_args.oracle.test.ts (lane ssa-linker; not a port). Run by hand only:
+// Rewrites the committed oracle output of ../linker_args.oracle.test.ts and ../link_with_args.oracle.test.ts (lanes
+// ssa-linker, ssa-link-b; not a port). Run by hand only:
 //   bun src/rustc_codegen_ssa/back/linker_oracle/regen.ts
 //
-// For each of CASES (common.ts) it runs the pinned rustc with `--print link-args` and the fake linker, and writes
+// For each of CASES and EXTRA_CASES (common.ts) it runs the pinned rustc with `--print link-args` and the fake linker, and writes
 //   oracle/<case>.args  the printed line (std's `Command` Debug), normalised (common.ts `normalise`); empty when nothing links
 //   oracle/<case>.list  the exported-symbols file the linker was given, unchanged, when there is one
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN } from "../../../../scripts/lib/common.ts";
 import { oracleSysroot } from "../../../../scripts/lib/oracle.ts";
-import { CASES, HERE, case_args, fake_cc, normalise } from "./common.ts";
+import { CASES, EXTRA_CASES, HERE, case_args, fake_cc, normalise } from "./common.ts";
 
 const work = join(DATA, "tmp", "linker-args-oracle", process.env.RUST_TS_AGENT ?? "default");
 const sysroot = oracleSysroot();
@@ -19,7 +20,7 @@ const capture = join(work, "list");
 writeFileSync(join(work, "fake", "cc"), fake_cc(capture));
 chmodSync(join(work, "fake", "cc"), 0o755);
 
-for (const c of CASES) {
+for (const c of [...CASES, ...EXTRA_CASES]) {
   rmSync(capture, { force: true });
   mkdirSync(join(work, "out", c.name), { recursive: true });
   const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "link-args", ...case_args(c, work, sysroot)], {
@@ -29,9 +30,10 @@ for (const c of CASES) {
     stderr: "pipe",
   });
   const stdout = r.stdout.toString();
-  // `-Cstrip` on an Apple target runs `strip` on the output after the link; the fake linker wrote none, so that step fails.
-  // The line is printed before the linker runs.
-  if (r.exitCode !== 0 && !(c.flags.includes("-Cstrip=symbols") && c.target === "aarch64-apple-darwin")) {
+  // `-Cstrip` on an Apple target runs `rust-objcopy` on the output after the link; the fake linker wrote none, so that step
+  // fails, but at the pin rustc only warns about it ("stripping debug info with `rust-objcopy` failed") and exits 0. Every
+  // case must exit 0. The line is printed before the linker runs.
+  if (r.exitCode !== 0) {
     throw new Error(`ERROR: oracle failed for ${c.name}: ${r.stderr.toString().slice(0, 2000)}`);
   }
   const lines = stdout.split("\n").filter((l) => l.length > 0);

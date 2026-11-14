@@ -200,7 +200,7 @@ export function llvm_cl_args(): readonly string[] {
 /** Tests only, not upstream: runs `f` as if `LLVMRustSetLLVMOptions` had never been called, then puts the options back as they
  *  were. LLVM's options are process-wide, and one `bun test` process runs every test file, so a test that sets them would
  *  otherwise fix them for every later file, and `opt`/`llc` runs there would get them (root at integ-w56; review
- *  root-w56-check 3, fixers-57). */
+ *  root-w56-check 3, fixers-57). llvm_util.ts `with_fresh_llvm_init_for_tests` wraps it and also resets `INIT` (fixers-57 N2). */
 export function with_fresh_llvm_options_for_tests<T>(f: () => T): T {
   const saved: [boolean, readonly string[]] = [Initialized, CL_ARGS];
   Initialized = false;

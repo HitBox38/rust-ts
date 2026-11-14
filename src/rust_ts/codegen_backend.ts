@@ -332,6 +332,10 @@ function ported_backend(sess: EarlySession | undefined): PortedLlvmCodegenBacken
  * scripts/mono-run.ts (`mono-ui`'s subject), which stops after mono collection. That is back/llvm_backend.rs:336's offload check,
  * which stops (plan-m7 D18), then rustc_codegen_ssa base.rs:723-739: the CPU checks, then the collector and partitioner, which
  * print `-Zprint-mono-items` and write `-Zdump-mono-stats`. The ported `codegen_crate` (back/llvm_backend.ts) runs the same lines itself.
+ * PORT (drift, review mono-run-head N3): this is an unmarked copy of upstream back/llvm_backend.rs:336-357 (`codegen_crate`: the offload check, whose
+ * stop text differs) and base.rs:723-739 (ported at rustc_codegen_ssa/base.ts `codegen_crate`, marker base.rs:716), so a fix to the
+ * ported head must be made here too, or `mono-ui` measures this copy and not what `main.ts` runs. codegen_backend.test.ts runs
+ * both on one stub `tcx` per path (the collector, `CpuRequired`, `CpuUnsupported`, `-Zoffload`) and fails if they part.
  */
 export function mono_collection_head(tcx: TyCtxt): void {
   const offload = tcx.sess.opts.unstable_opts.offload;

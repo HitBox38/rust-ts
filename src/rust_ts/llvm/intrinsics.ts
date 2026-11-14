@@ -8,18 +8,21 @@
 //   where the first target table starts). The table is data from the oracle, as the Unicode tables are; intrinsics.oracle.test.ts
 //   re-reads it from libLLVM.dylib and fails on any difference. An intrinsic's ID is its index in the table plus one, LLVM's own
 //   enum value (`IntrinsicNameOffsetTable[1 + Offset]`, generic `Offset` 0).
-// - **Target tables are not in the model.** A name whose first component is one of `TARGET_PREFIXES` (the targets of the pinned
+// - **Target tables: only x86's is in the model** (`X86_INTRINSICS`, intrinsics_x86.ts, lane ir-fix-a: std's `spin_loop` reaches
+//   `llvm.x86.sse2.pause` on x86_64). A name whose first component is another of `TARGET_PREFIXES` (the targets of the pinned
 //   LLVM's `TargetInfos`, from the same read) is looked up in its target's table, which the model does not have: it stops
 //   (`unported`). Looking it up in the generic table instead would answer "not an intrinsic" where LLVM finds one.
 // - **Signatures** (`SIGNATURES`) are written from Intrinsics.td at the pin (`llvm/include/llvm/IR/Intrinsics.td`, cited per
 //   entry) for the intrinsics rustc_codegen_llvm's scalar half names: intrinsic.rs:1-2046 and builder.rs's `call_intrinsic`
-//   uses that are not vector-only. `LLVMGetIntrinsicDeclaration` of any other intrinsic stops. intrinsics.oracle.test.ts checks
+//   uses that are not vector-only, and from IntrinsicsX86.td for the x86 intrinsics run-pass programs reach (lane ir-fix-a).
+//   `LLVMGetIntrinsicDeclaration` of any other intrinsic stops. intrinsics.oracle.test.ts checks
 //   every signature against libLLVM.dylib's declaration (name and function type) for concrete overload types.
 // - PORT: `Intrinsic::getAttributes` is not applied to a new declaration (llir-core-a PORT decision 5, ir.ts `Function`): the
 //   parser replaces an intrinsic declaration's attributes, so the normal form cannot see them (plan-m7 §1b).
 // - `LLVMRustUpgradeIntrinsicFunction` (AutoUpgrade.cpp) stays a stub in ffi.ts.
 import { unported } from "../../std/panic.ts";
 import { Function, FunctionType, IntegerType, type Module, PointerType, StructType, type Type, type Value, VectorType, ArrayType, bstrOfBytes, bstrOfString } from "./ir.ts";
+import { X86_INTRINSICS, X86_INTRINSICS_OFFSET } from "./intrinsics_x86.ts";
 import { Bool, type PtrLenStr } from "./support.ts";
 
 /** `IntrinsicNameTable` (generic part) at the pin: `[name, isOverloaded]`, sorted; an intrinsic's ID is its index + 1 (header). */
@@ -195,11 +198,11 @@ function strncmp(a: string, b: string, start: number, n: number): number {
 }
 
 // llvm: llvm/lib/IR/Intrinsics.cpp:677 lookupLLVMIntrinsicByName
-/** Looks up `name` in the generic table (`table[low..high)`, all of it) by successive binary searches of its dotted components;
+/** Looks up `name` in a subtable (`table[low..high)`, all of it) by successive binary searches of its dotted components;
  *  the index of an exact match or of a prefix followed by a dot, or -1. */
-function lookupLLVMIntrinsicByName(table: readonly (readonly [string, 0 | 1])[], name: string): number {
-  // The generic table: `Target` is empty, so only the "llvm" component is skipped.
+function lookupLLVMIntrinsicByName(table: readonly (readonly [string, 0 | 1])[], name: string, target: string): number {
   let cmpEnd = 4; // Skip the "llvm" component.
+  if (target !== "") cmpEnd += 1 + target.length; // skip the .target component.
   let low = 0;
   let high = table.length;
   let lastLow = low;
@@ -236,14 +239,17 @@ function lookupLLVMIntrinsicByName(table: readonly (readonly [string, 0 | 1])[],
 }
 
 // llvm: llvm/lib/IR/Intrinsics.cpp:740 findTargetSubtable
-/** The generic table, or a stop for a target's own table (header). */
-function findTargetSubtable(name: string): readonly (readonly [string, 0 | 1])[] {
+/** The subtable of `name`'s target, or the generic one, with the target's name and the subtable's `Adjust` (its offset in
+ *  `IntrinsicNameOffsetTable`, plus one); a stop for a target table the model does not have (header). */
+function findTargetSubtable(name: string): { table: readonly (readonly [string, 0 | 1])[]; target: string; adjust: number } {
   // Drop "llvm." and take the first dotted component. That will be the target if this is target specific.
   const rest = name.slice(5);
   const dot = rest.indexOf(".");
   const target = dot === -1 ? rest : rest.slice(0, dot);
+  // We've either found the target or just fall back to the generic set, which is always first.
+  if (target === "x86") return { table: X86_INTRINSICS, target, adjust: X86_INTRINSICS_OFFSET + 1 };
   if (TARGET_PREFIXES.includes(target)) return unported(`llir: the ${target} intrinsic table (${bstrToDisplay(name)}; target intrinsics are not in the IR model)`);
-  return GENERIC_INTRINSICS;
+  return { table: GENERIC_INTRINSICS, target: "", adjust: 1 };
 }
 
 // llvm: llvm/lib/IR/Intrinsics.cpp:758 Intrinsic::lookupIntrinsicID
@@ -251,12 +257,12 @@ function lookupIntrinsicID(name: string): number {
   // `assert(Name.starts_with("llvm."))` (findTargetSubtable): an assertion, off in the oracle's build; what a release build
   // does with another name is not modelled.
   if (!name.startsWith("llvm.")) return unported(`llir: Intrinsic::lookupIntrinsicID of a name without the llvm. prefix (${bstrToDisplay(name)})`);
-  const table = findTargetSubtable(name);
-  const idx = lookupLLVMIntrinsicByName(table, name);
+  const { table, target, adjust } = findTargetSubtable(name);
+  const idx = lookupLLVMIntrinsicByName(table, name, target);
   if (idx === -1) return NOT_INTRINSIC;
 
-  // Intrinsic IDs correspond to the location in IntrinsicNameTable (generic `Adjust` is 1).
-  const id = idx + 1;
+  // Intrinsic IDs correspond to the location in IntrinsicNameTable, but we have an index into a sub-table.
+  const id = idx + adjust;
 
   // If the intrinsic is not overloaded, require an exact match. If it is overloaded, require either exact or prefix match.
   const matchSize = table[idx]![0].length;
@@ -275,10 +281,10 @@ function isTargetIntrinsic(id: number): boolean {
   return id > GENERIC_INTRINSICS.length;
 }
 
-/** The generic table's entry of an ID the model handed out. */
+/** The generic or x86 table's entry of an ID the model handed out. */
 function entry(id: number): readonly [string, 0 | 1] {
-  const e = GENERIC_INTRINSICS[id - 1];
-  if (id < 1 || e === undefined) return unported(`llir: intrinsic ID ${id} (not in the model's generic table)`);
+  const e = id > X86_INTRINSICS_OFFSET ? X86_INTRINSICS[id - X86_INTRINSICS_OFFSET - 1] : GENERIC_INTRINSICS[id - 1];
+  if (id < 1 || e === undefined) return unported(`llir: intrinsic ID ${id} (not in the model's generic or x86 table)`);
   return e;
 }
 
@@ -287,18 +293,20 @@ const bstrToDisplay = (s: string): string => JSON.stringify(s);
 // ---- signatures (Intrinsics.td) ----------------------------------------------------------------------------------------
 
 /** An Intrinsics.td type: `llvm_any*_ty` (an overload slot, numbered in order of appearance, return types first), `LLVMMatchType<n>`,
- *  a fixed type, or `LLVMScalarOrSameVectorWidth<n, elt>`. */
+ *  a fixed type, `LLVMScalarOrSameVectorWidth<n, elt>`, or `LLVMVectorElementType<n>` (`IIT_VEC_ELEMENT`). */
 type TdType =
-  | { readonly k: "any"; readonly cls: "any" | "int" | "float" | "ptr" }
+  | { readonly k: "any"; readonly cls: "any" | "int" | "float" | "ptr" | "vecint" }
   | { readonly k: "match"; readonly n: number }
+  | { readonly k: "vecElement"; readonly n: number }
   | { readonly k: "int"; readonly bits: number }
   | { readonly k: "ptr" }
   | { readonly k: "metadata" }
   | { readonly k: "sameVecWidth"; readonly n: number; readonly elt: TdType };
 
 interface Signature {
-  /** Intrinsics.td line of the `def`. */
+  /** Intrinsics.td line of the `def` (IntrinsicsX86.td's when `file` says so). */
   readonly td: number;
+  readonly file?: "IntrinsicsX86.td";
   readonly ret: readonly TdType[];
   readonly params: readonly TdType[];
 }
@@ -307,6 +315,8 @@ const anyfloat: TdType = { k: "any", cls: "float" };
 const anyint: TdType = { k: "any", cls: "int" };
 const anyptr: TdType = { k: "any", cls: "ptr" };
 const any_: TdType = { k: "any", cls: "any" };
+/** `llvm_any_vector_int_ty` (Intrinsics.td:577). */
+const any_vector_int: TdType = { k: "any", cls: "vecint" };
 const m = (n: number): TdType => ({ k: "match", n });
 const i1: TdType = { k: "int", bits: 1 };
 const i32: TdType = { k: "int", bits: 32 };
@@ -317,6 +327,8 @@ const unaryFloat = (td: number): Signature => ({ td, ret: [anyfloat], params: [m
 const binaryFloat = (td: number): Signature => ({ td, ret: [anyfloat], params: [m(0), m(0)] });
 const binaryInt = (td: number): Signature => ({ td, ret: [anyint], params: [m(0), m(0)] });
 const withOverflow = (td: number): Signature => ({ td, ret: [anyint, { k: "sameVecWidth", n: 0, elt: i1 }], params: [m(0), m(0)] });
+/** `DefaultAttrsIntrinsic<[LLVMVectorElementType<0>], [llvm_any_vector_int_ty]>`: the integer reductions (Intrinsics.td:2917-2934). */
+const intReduction = (td: number): Signature => ({ td, ret: [{ k: "vecElement", n: 0 }], params: [any_vector_int] });
 
 /** The signatures the model declares, by intrinsic name (header); each cites its `def` in Intrinsics.td. */
 const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
@@ -381,15 +393,26 @@ const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
   ["llvm.is.constant", { td: 2129, ret: [i1], params: [any_] }],
   ["llvm.ptrmask", { td: 2139, ret: [any_], params: [m(0), anyint] }],
   ["llvm.threadlocal.address", { td: 2142, ret: [anyptr], params: [m(0)] }],
+  ["llvm.vector.reduce.add", intReduction(2917)],
+  ["llvm.vector.reduce.mul", intReduction(2919)],
+  ["llvm.vector.reduce.and", intReduction(2921)],
+  ["llvm.vector.reduce.or", intReduction(2923)],
+  ["llvm.vector.reduce.xor", intReduction(2925)],
+  ["llvm.vector.reduce.smax", intReduction(2927)],
+  ["llvm.vector.reduce.smin", intReduction(2929)],
+  ["llvm.vector.reduce.umax", intReduction(2931)],
+  ["llvm.vector.reduce.umin", intReduction(2933)],
   ["llvm.type.checked.load", { td: 2801, ret: [ptr, i1], params: [ptr, i32, metadata] }],
   // lane llir-folder (review cg-intrinsic-a N1): builder.rs:2047 `type_test` and builder.rs:2225 `instrprof_increment`.
   ["llvm.type.test", { td: 2795, ret: [i1], params: [ptr, metadata] }],
   ["llvm.instrprof.increment", { td: 1084, ret: [], params: [ptr, i64, i32, i32] }],
+  // lane ir-fix-a: core::arch's `_mm_pause` (std's `spin_loop` on x86_64), `Intrinsic<[], [], []>`.
+  ["llvm.x86.sse2.pause", { td: 461, file: "IntrinsicsX86.td", ret: [], params: [] }],
 ]);
 
 /** The names `SIGNATURES` covers, and each one's overload slots by class, in order (for tests). */
 export const MODELLED_SIGNATURES: readonly string[] = [...SIGNATURES.keys()];
-export function overloadClasses(name: string): ("any" | "int" | "float" | "ptr")[] {
+export function overloadClasses(name: string): ("any" | "int" | "float" | "ptr" | "vecint")[] {
   const sig = SIGNATURES.get(name);
   if (sig === undefined) throw new Error(`no modelled signature for ${name}`);
   return [...sig.ret, ...sig.params].flatMap((t) => (t.k === "any" ? [t.cls] : []));
@@ -397,7 +420,7 @@ export function overloadClasses(name: string): ("any" | "int" | "float" | "ptr")
 
 /** The IIT descriptors of a signature, as `getIntrinsicInfoTableEntries` decodes them: an `any` type becomes an `Overloaded`
  *  descriptor numbered by its position among the `any` types. */
-type Desc = { readonly k: "overloaded" | "match"; readonly idx: number } | { readonly k: "fixed"; readonly ty: TdType } | { readonly k: "sameVecWidth"; readonly idx: number; readonly elt: TdType };
+type Desc = { readonly k: "overloaded" | "match" | "vecElement"; readonly idx: number } | { readonly k: "fixed"; readonly ty: TdType } | { readonly k: "sameVecWidth"; readonly idx: number; readonly elt: TdType };
 
 function descriptors(sig: Signature): Desc[] {
   let next = 0;
@@ -407,6 +430,8 @@ function descriptors(sig: Signature): Desc[] {
         return { k: "overloaded", idx: next++ };
       case "match":
         return { k: "match", idx: t.n };
+      case "vecElement":
+        return { k: "vecElement", idx: t.n };
       case "sameVecWidth":
         return { k: "sameVecWidth", idx: t.n, elt: t.elt };
       default:
@@ -448,6 +473,11 @@ function decodeFixedType(d: Desc, overloadTys: readonly Type[], m: Module): Type
       if (ty instanceof VectorType) return ctx.getVectorType(eltTy, ty.numElements, ty.scalable);
       return eltTy;
     }
+    case "vecElement": {
+      const ty = overload(d.idx);
+      if (ty instanceof VectorType) return ty.elementType;
+      throw new Error("llvm: llvm_unreachable: Expected overload type to be a Vector Type");
+    }
     case "fixed":
       return fixed(d.ty);
   }
@@ -457,7 +487,7 @@ function decodeFixedType(d: Desc, overloadTys: readonly Type[], m: Module): Type
 function getType(m: Module, id: number, overloadTys: readonly Type[]): FunctionType {
   const name = entry(id)[0];
   const sig = SIGNATURES.get(name);
-  if (sig === undefined) return unported(`llir: the signature of ${name} (Intrinsics.td) is not in the IR model`);
+  if (sig === undefined) return unported(`llir: the signature of ${name} (${name.startsWith("llvm.x86.") ? "IntrinsicsX86.td" : "Intrinsics.td"}) is not in the IR model`);
   const table = descriptors(sig);
   const nRet = sig.ret.length;
   // The return type: void (no results), the type, or `StructType::get(Context, Elts)` of several (IIT_STRUCT).

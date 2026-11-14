@@ -15,6 +15,7 @@ import {
   Linkage,
   Linkage_discriminant,
   LLVMRustResult,
+  type MemoryEffects,
   type ModuleFlagMergeBehavior,
   ModuleFlagMergeBehavior_discriminant,
   Opcode_discriminant,
@@ -1070,6 +1071,118 @@ export function LLVMRustCreateAllocKindAttr(C: Context, size_arg: bigint): Attri
   const k = Number(BigInt.asUintN(32, size_arg));
   const parts = (["alloc", "realloc", "free", "uninitialized", "zeroed", "aligned"] as const).filter((_, i) => k & (1 << i));
   return C.getAttribute(`allockind:${parts.join(",")}`, () => new Attribute("AllocKind", () => `allockind("${parts.join(",")}")`, false));
+}
+
+// ---- `MemoryEffects` (llvm/include/llvm/Support/ModRef.h at the pin; lane ir-fix-a) ----------------------------------------
+// `MemoryEffectsBase<IRMemLocation>` is a `uint32_t` holding a 2-bit `ModRefInfo` per location (`BitsPerLoc`), at
+// `(uint32_t)Loc * 2`; `IRMemLocation` is ArgMem 0, InaccessibleMem 1, ErrnoMem 2, Other 3, TargetMem0 4, TargetMem1 5
+// (`First` ArgMem, `Last` TargetMem1). `ModRefInfo`: NoModRef 0, Ref 1, Mod 2, ModRef 3.
+const MEM_LOC = { ArgMem: 0, InaccessibleMem: 1, ErrnoMem: 2, Other: 3, TargetMem0: 4, TargetMem1: 5 } as const;
+const MEM_LOCATIONS: readonly number[] = [0, 1, 2, 3, 4, 5];
+const MEM_TARGET_LOCATIONS: readonly number[] = [MEM_LOC.TargetMem0, MEM_LOC.TargetMem1];
+/** `MemoryEffectsBase(ModRefInfo MR)`: every location with `MR` (`none()` is 0, `readOnly()` Ref). */
+const memAll = (MR: number): number => MEM_LOCATIONS.reduce((d, loc) => d | (MR << (loc * 2)), 0);
+/** `getModRef(Loc)`. */
+const memModRef = (Data: number, Loc: number): number => (Data >>> (Loc * 2)) & 3;
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:578 LLVMRustCreateMemoryEffectsAttr
+export function LLVMRustCreateMemoryEffectsAttr(C: Context, Effects: MemoryEffects): Attribute {
+  switch (Effects) {
+    case "None":
+      return getWithMemoryEffects(C, memAll(0));
+    case "ReadOnly":
+      return getWithMemoryEffects(C, memAll(1));
+    case "InaccessibleMemOnly":
+      // `MemoryEffects::inaccessibleMemOnly()`: `MemoryEffectsBase(Location::InaccessibleMem, ModRefInfo::ModRef)`.
+      return getWithMemoryEffects(C, 3 << (MEM_LOC.InaccessibleMem * 2));
+    case "ReadOnlyNotPure":
+      return getWithMemoryEffects(C, memAll(1) | (3 << (MEM_LOC.InaccessibleMem * 2)));
+    default:
+      throw new Error("llvm: report_fatal_error: bad MemoryEffects.");
+  }
+}
+
+// llvm: llvm/lib/IR/Attributes.cpp:281 Attribute::getWithMemoryEffects
+function getWithMemoryEffects(C: Context, ME: number): Attribute {
+  // `get(Context, Memory, ME.toIntValue())`: an int attribute, printed by `getAsString`'s Memory arm (`memoryAsString`).
+  return C.getAttribute(`int:Memory:${ME}`, () => new Attribute("Memory", () => memoryAsString(ME), false));
+}
+
+// llvm: llvm/lib/IR/Attributes.cpp:538 getModRefStr
+function getModRefStr(MR: number): string {
+  switch (MR) {
+    case 0:
+      return "none";
+    case 1:
+      return "read";
+    case 2:
+      return "write";
+    case 3:
+      return "readwrite";
+  }
+  throw new Error("llvm: llvm_unreachable: Invalid ModRefInfo");
+}
+
+/** `Attribute::getAsString(InAttrGrp)`'s `hasAttribute(Attribute::Memory)` arm (Attributes.cpp:644-703), the same in a group. */
+function memoryAsString(ME: number): string {
+  let OS = "";
+  let First = true;
+  OS += "memory(";
+
+  // Print access kind for "other" as the default access kind. This way it will apply to any new location kinds that get split
+  // out of "other".
+  const OtherMR = memModRef(ME, MEM_LOC.Other);
+  // `ME.getModRef()`: the union over all locations.
+  const AllMR = MEM_LOCATIONS.reduce((mr, loc) => mr | memModRef(ME, loc), 0);
+  if (OtherMR !== 0 || AllMR === OtherMR) {
+    First = false;
+    OS += getModRefStr(OtherMR);
+  }
+
+  let TargetPrintedForAll = false;
+  for (const Loc of MEM_LOCATIONS) {
+    const MR = memModRef(ME, Loc);
+    if (MR === OtherMR) continue;
+
+    if (!First && !TargetPrintedForAll) OS += ", ";
+    First = false;
+
+    // isTargetMemLocSameForAll is fine for target location < 3. If more targets are added it should do something like:
+    // memory(target_mem:read, target_mem3:none, target_mem5:write).
+    const isTargetMemLocSameForAll = MEM_TARGET_LOCATIONS.every((l) => memModRef(ME, l) === memModRef(ME, MEM_LOC.TargetMem0));
+    if (MEM_TARGET_LOCATIONS.includes(Loc) && isTargetMemLocSameForAll) {
+      if (!TargetPrintedForAll) {
+        OS += "target_mem: ";
+        OS += getModRefStr(MR);
+        TargetPrintedForAll = true;
+      }
+      // Only works when target memories are last to be listed in Location.
+      continue;
+    }
+
+    switch (Loc) {
+      case MEM_LOC.ArgMem:
+        OS += "argmem: ";
+        break;
+      case MEM_LOC.InaccessibleMem:
+        OS += "inaccessiblemem: ";
+        break;
+      case MEM_LOC.ErrnoMem:
+        OS += "errnomem: ";
+        break;
+      case MEM_LOC.Other:
+        throw new Error("llvm: llvm_unreachable: This is represented as the default access kind");
+      case MEM_LOC.TargetMem0:
+        OS += "target_mem0: ";
+        break;
+      case MEM_LOC.TargetMem1:
+        OS += "target_mem1: ";
+        break;
+    }
+    OS += getModRefStr(MR);
+  }
+  OS += ")";
+  return OS;
 }
 
 // llvm: llvm/lib/IR/Core.cpp:228 LLVMCreateStringAttribute

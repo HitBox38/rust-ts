@@ -314,6 +314,39 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
     expect(L.LLVMRustCreateRangeAttribute(mc, 8, [0x180n], [0x7fn])).toBe(L.LLVMRustCreateRangeAttribute(mc, 8, [0x80n], [0x17fn]));
   });
 
+  test("memory attributes (LLVMRustCreateMemoryEffectsAttr) print as libLLVM's, alone and in sorted sets (lane ir-fix-a)", () => {
+    const rc = lib.LLVMContextCreate();
+    const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    // `MemoryEffects::toIntValue()`: two bits per location (ArgMem, InaccessibleMem, ErrnoMem, Other, TargetMem0, TargetMem1).
+    const all = (mr: bigint): bigint => [0n, 1n, 2n, 3n, 4n, 5n].reduce((d, l) => d | (mr << (2n * l)), 0n);
+    const effects: [L.MemoryEffects, bigint][] = [
+      ["None", all(0n)],
+      ["ReadOnly", all(1n)],
+      ["InaccessibleMemOnly", 3n << 2n],
+      ["ReadOnlyNotPure", all(1n) | (3n << 2n)],
+    ];
+    const rVoid = lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([]), 0, 0);
+    const mVoid = L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [], 0, L.FALSE);
+    effects.forEach(([e, v], i) => {
+      // Alone, and with attributes of the kinds rustc puts beside it (nounwind before, a string attribute after).
+      for (const [j, extra] of [[], [enumSpec("nounwind", "NoUnwind"), strSpec("target-cpu", "x86-64")]].entries()) {
+        const name = `m${i}_${j}`;
+        const rf = lib.LLVMAddFunction(rm, cstr(name), rVoid);
+        const mf = L.LLVMAddFunction(mm, name, mVoid);
+        for (const s of extra) lib.LLVMAddAttributeAtIndex(rf, 0xffffffff, s.real(rc));
+        lib.LLVMAddAttributeAtIndex(rf, 0xffffffff, lib.LLVMCreateEnumAttribute(rc, kindOf("memory"), v));
+        const attrs = [...extra.map((s) => s.model(mc)), L.LLVMRustCreateMemoryEffectsAttr(mc, e)];
+        L.LLVMRustAddFunctionAttributes(mf, 0xffffffff, attrs, attrs.length);
+      }
+    });
+    const want = noComments(message(lib.LLVMPrintModuleToString(rm)));
+    const got = noComments(printModule(mm as never));
+    expect(got.split("\n")).toEqual(want.split("\n"));
+    expect(L.LLVMRustCreateMemoryEffectsAttr(mc, "ReadOnly")).toBe(L.LLVMRustCreateMemoryEffectsAttr(mc, "ReadOnly"));
+  });
+
   test("printCallingConv: every convention 0..1023 on a declaration, 0..130 on calls", () => {
     const rc = lib.LLVMContextCreate();
     const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
@@ -441,7 +474,7 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
   });
 
   test("constant extractelement / insertelement and and(ptrtoint @g, C) fold as libLLVM's", () => {
-    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64"];
+    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64", "e-p:32:16-p1:16:32"];
     for (const dl of layouts) {
       const rc = lib.LLVMContextCreate();
       const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
@@ -509,6 +542,12 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
         globals.push([rg, mg]);
       }
       for (const [name, rt, mt] of [["d8", rI(8), mI(8)], ["d32", rI(32), mI(32)], ["d64", rI(64), mI(64)], ["d128", rI(128), mI(128)]] as const) globals.push([lib.LLVMAddGlobal(rm, rt, cstr(name)), L.LLVMAddGlobal(mm, mt, name)]);
+      // Declarations of pointers (lane ir-fix-a): `DataLayout::getPointerABIAlignment` of address spaces 0, 1 and 270.
+      for (const [name, as, n] of [["dp", 0, 0], ["dp1", 1, 0], ["dp270", 270, 0], ["dpa", 0, 3]] as const) {
+        const rp = lib.LLVMPointerTypeInContext(rc, as);
+        const mp = L.LLVMPointerTypeInContext(mc, as);
+        globals.push([lib.LLVMAddGlobal(rm, n === 0 ? rp : lib.LLVMArrayType2(rp, BigInt(n)), cstr(name)), L.LLVMAddGlobal(mm, n === 0 ? mp : L.LLVMArrayType2(mp, BigInt(n)), name)]);
+      }
       // A declaration of an opaque struct: unsized, so `getPointerAlignment` is `valueOrOne()` = 1 and nothing folds (review llir-folder N4).
       globals.push([lib.LLVMAddGlobal(rm, lib.LLVMStructCreateNamed(rc, cstr("O")), cstr("dO")), L.LLVMAddGlobal(mm, L.LLVMStructCreateNamed(mc, "O"), "dO")]);
       for (const [rg, mg] of globals) {

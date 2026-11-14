@@ -27,6 +27,7 @@ import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { SwitchWithOptPath } from "../../rustc_session/config.ts";
+import { default_sysroot } from "../../rustc_session/filesearch.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { SymbolExport } from "../lib.ts";
 import { type Command, debug_Command } from "./command.ts";
@@ -69,21 +70,14 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-/**
- * The oracle's default sysroot is its own toolchain's, the one `--sysroot` names here too; the port has none of its own
- * (`DEFAULT_SYSROOT_STANDIN`, and `get_linker` stops on it), so the session is given the oracle's: it is an input of `PATH`.
- */
-function with_oracle_default_sysroot(config: Config, sys: string): Config {
-  config.opts.sysroot.default_ = sys;
-  return config;
+// The session's default sysroot is the port's own (rustc_session/filesearch.ts `default_sysroot`: the oracle's, decision
+// 2026-11-14), so nothing is injected: the doubled sysroot entry at the head of `PATH` is the port's `Sysroot::all_paths`.
+function with_sess(args: string[], f: (sess: Session) => void): void {
+  run_compiler(config_from_args(args), (compiler) => f(compiler.sess));
 }
 
-function with_sess(args: string[], sys: string, f: (sess: Session) => void): void {
-  run_compiler(with_oracle_default_sysroot(config_from_args(args), sys), (compiler) => f(compiler.sess));
-}
-
-function with_tcx(args: string[], sys: string, f: (tcx: TyCtxt) => void): void {
-  run_compiler(with_oracle_default_sysroot(config_from_args(args), sys), (compiler) => {
+function with_tcx(args: string[], f: (tcx: TyCtxt) => void): void {
+  run_compiler(config_from_args(args), (compiler) => {
     const krate: Crate = parse(compiler.sess);
     create_and_enter_global_ctxt(compiler, krate, (tcx) => {
       void tcx.resolver_for_lowering();
@@ -174,6 +168,8 @@ function drive(sess: Session, c: LinkCase, oracle: ParsedCommand, symbols: reado
 
 test.skipIf(SKIP)("linker command lines and export lists match the oracle's --print link-args", () => {
   const sys = sysroot();
+  // The port's default sysroot is the exact string the oracle prints (`normalise` below then maps both sides' copies to `$SYSROOT`).
+  expect(default_sysroot()).toBe(sys);
   rmSync(WORK, { recursive: true, force: true });
   const results: string[] = [];
   for (const c of CASES) {
@@ -192,8 +188,8 @@ test.skipIf(SKIP)("linker command lines and export lists match the oracle's --pr
     const build = (sess: Session, symbols: readonly SymbolExport[]): void => {
       got = normalise(debug_Command(drive(sess, c, oracle, symbols, tmpdir)), WORK, sys);
     };
-    if (c.crate_type === "Executable") with_sess(args, sys, (sess) => build(sess, []));
-    else with_tcx(args, sys, (tcx) => build(tcx.sess, exported_symbols(tcx, c.crate_type)));
+    if (c.crate_type === "Executable") with_sess(args, (sess) => build(sess, []));
+    else with_tcx(args, (tcx) => build(tcx.sess, exported_symbols(tcx, c.crate_type)));
     expect(`${c.name}: ${got}`).toBe(`${c.name}: ${want}`);
 
     const list_want = join(HERE, "oracle", `${c.name}.list`);

@@ -4,6 +4,7 @@ import { StringTable } from "./string.ts";
 
 const b = (s: string): Uint8Array => new TextEncoder().encode(s);
 
+// crate: object-0.39.1/src/write/string.rs:169 string_table
 test("string_table", () => {
   const table = new StringTable();
   const id0 = table.add(b(""));

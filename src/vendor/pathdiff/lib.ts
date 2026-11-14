@@ -7,9 +7,10 @@
 // Adapted from rustc's path_relative_from
 // https://github.com/rust-lang/rust/blob/e1d0de82cc40b666b88d4a6d2c9dcbc81d7ed27f/src/librustc_back/rpath.rs#L116-L158
 //
-// PORT: the `camino` feature (`diff_utf8_paths`) is off in rustc's build and is not ported. `PathBuf` is a `string`
-// (PORTING section 5). `Component`'s `PartialEq` and `as_os_str` are not exported by src/std/path.ts, so `component_eq`
-// and `component_as_os_str` below repeat them (std's derived `PartialEq` and `Component::as_os_str`).
+// `diff_utf8_paths` is behind the `camino` feature, which is off in rustc's build (its `crate-skip:` line follows
+// `diff_paths`). PORT: `PathBuf` is a `string` (PORTING section 5). `Component`'s `PartialEq` and `as_os_str` are not
+// exported by src/std/path.ts, so `component_eq` and `component_as_os_str` below repeat them (std's derived `PartialEq` and
+// `Component::as_os_str`).
 import { type Component, path_components, path_is_absolute, path_join } from "../../std/path.ts";
 
 /// Construct a relative path from a provided base directory path to the provided path.
@@ -73,6 +74,8 @@ export function diff_paths(path: string, base: string): string | undefined {
     return buf;
   }
 }
+
+// crate-skip: pathdiff-0.2.3/src/lib.rs:121 diff_utf8_paths cfg(feature = "camino") is off
 
 /** std's derived `PartialEq for Component` (src/std/path.ts keeps its copy private).
  *  PORT: `Prefix` components occur only on Windows (unchecked); they compare by their text here, where std compares the

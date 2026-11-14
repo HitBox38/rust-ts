@@ -7,7 +7,7 @@
 // - the shared runner's failure (D16), modules held as text, buffers, clone and bitcode.
 // The tool runs need the pinned toolchain on aarch64 macOS: without it they skip, unless RUST_TS_REQUIRE_PROBES=1.
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { UPSTREAM } from "../../../scripts/lib/common.ts";
 import { normalForm } from "../../../scripts/lib/ir-normal.ts";
@@ -403,6 +403,29 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     // The module was not touched (no assign-guid run).
     expect(module_text(M)).not.toContain("!guid");
   });
+
+  test("R1 end to end: rustc-ts with -Zsplit-lto-unit -Clinker-plugin-lto --emit=llvm-bc exits 70 with the stop's text", () => {
+    // The reviewer's case through the driver (review llir-tools-recheck-2 note 2). Before wave 40q the driver stopped at
+    // `codegen_crate`; codegen now forwards to the ported backend, which reaches write.rs's `ModuleBuffer::new`. The pinned
+    // rustc takes the same command (exit 0); the port stops by name instead of handing opt a module it would abort on.
+    const run = (sub: string, extra: string[]): { status: number | null; stderr: string; dir: string } => {
+      const dir = join(llvm_tmp_dir(), sub);
+      mkdirSync(dir, { recursive: true });
+      const args = [join(HERE, "opt.rs"), "--sysroot", oracle_sysroot(), "--target", X86, "-Copt-level=2", "-Ccodegen-units=1", ...extra, "-Clinker-plugin-lto", "--emit=llvm-bc,llvm-ir", "--out-dir", "."];
+      const r = Bun.spawnSync([process.execPath, join(import.meta.dir, "..", "main.ts"), ...args], { cwd: dir, env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, stdout: "pipe", stderr: "pipe" });
+      return { status: r.exitCode, stderr: r.stderr.toString(), dir };
+    };
+    const split = run("driver-split-lto-unit", ["-Zsplit-lto-unit"]);
+    expect([split.status, split.stderr]).toEqual([
+      70,
+      "rust-ts: unported: llir: LLVMRustModuleSerialize of a module with an EnableSplitLTOUnit flag (-Zsplit-lto-unit or CFI): opt --thinlto-bc always adds another (optdriver.cpp:724); review llir-tools-recheck R1\n",
+    ]);
+    expect(existsSync(join(split.dir, "opt.bc"))).toBe(false);
+    // Control: without -Zsplit-lto-unit the module has no such flag, and the same command writes the bitcode.
+    const plain = run("driver-no-split-lto-unit", []);
+    expect([plain.status, plain.stderr]).toEqual([0, ""]);
+    expect(existsSync(join(plain.dir, "opt.bc"))).toBe(true);
+  }, 60_000);
 
   test("N5: a model read after a tool rewrote the module stops", () => {
     const M = smallModule();

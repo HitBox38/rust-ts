@@ -5,8 +5,12 @@
 //
 // `--milestone M6b` (or any prefix of a group's milestone) prints and decides only those groups; with none, every group.
 // M7a (plan-m7 §6 "Gates") is here only as far as a gate can compute it today: `ir-hello` MATCH, `mir-o2` and `mono-ui` >= 99%, and
-// `check-rg` >= 33 of its 34 crates. `ir-hello` is in no gate yet (it has no baseline): name it with `gate.ts run --suites`. M7b-d's
-// suites do not exist yet. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
+// `check-rg` >= 33 of its 34 crates. `ir-hello` is in no gate yet (it has no baseline): name it with `gate.ts run --suites`. M7b and M7c
+// (lane harness-m7b): `native-hello` MATCH, `run-pass-native` >= 80% and `ir-run-pass` >= 70%; then `run-pass-native` >= 98%,
+// `run-fail-native` >= 95% and `ir-run-pass` >= 95%. Those suites have no baseline either, so a gate must name them with `--suites`.
+// The M7 percent groups leave UNSTABLE cases out of the denominator as well as ORACLE_TIMEOUT (`excludeUnstable`, plan-m7 §6); M6's do not.
+// M7c's `run-pass-native` "+ heavy" is that suite alone until a heavy sibling exists (docs/handoff/harness-m7b.md). M7d's suites do
+// not exist yet. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
 // MATCH is exactly (the baseline at the gate's commit - lost) + gained, as scripts/gate.ts computes those two.
 //
 // Every number comes from that run's `gate.json`, one snapshot of one commit: a `<suite>.summary.json` can be overwritten
@@ -26,6 +30,12 @@ export interface CriteriaGroup {
   /** Every case: an oracle timeout counts against it rather than being left out. */
   allCases?: boolean;
   /**
+   * UNSTABLE cases (the oracle's output is not reproducible) are left out of the denominator too, as plan-m7 §6 says for every M7 figure
+   * ("Denominators exclude ORACLE_TIMEOUT and oracle-unstable cases"; root's decision for review harness-m7b F2). plan-m6 A9's groups
+   * leave out only ORACLE_TIMEOUT, and keep doing so. Needs gate.json's per-suite `unstable` list.
+   */
+  excludeUnstable?: boolean;
+  /**
    * A count instead of a percent: at least `atLeast` MATCH among the cases whose id matches `cases`, of the `of` the plan counts.
    * Read from the protected set and gate.json's `lost` and `gained` (see the header).
    */
@@ -38,10 +48,17 @@ export const GROUPS: CriteriaGroup[] = [
   { name: "plan-m6 M6b miri-pass", milestone: "M6b", suites: ["miri-pass", "miri-pass-heavy"], percent: 80 },
   // The plan says `ir-hello` MATCH: both cases, so an oracle timeout does not leave it met on the other (review harness-w43 F3).
   { name: "plan-m7 M7a ir-hello", milestone: "M7a", suites: ["ir-hello"], percent: 100, allCases: true },
-  { name: "plan-m7 M7a mir-o2", milestone: "M7a", suites: ["mir-o2"], percent: 99 },
-  { name: "plan-m7 M7a mono-ui", milestone: "M7a", suites: ["mono-ui"], percent: 99 },
+  { name: "plan-m7 M7a mir-o2", milestone: "M7a", suites: ["mir-o2"], percent: 99, excludeUnstable: true },
+  { name: "plan-m7 M7a mono-ui", milestone: "M7a", suites: ["mono-ui"], percent: 99, excludeUnstable: true },
   // A crate's case is `ripgrep-<version>|<crate>`; not the run's own case, nor a build script's probe (`|<crate> (a build script's probe)`).
   { name: "plan-m7 M7a check-rg", milestone: "M7a", suites: ["check-rg"], percent: 0, count: { cases: /^ripgrep-[^|]+\|\w+$/, atLeast: 33, of: 34, what: "crates" } },
+  // One case: an oracle timeout must not leave it met, as ir-hello.
+  { name: "plan-m7 M7b native-hello", milestone: "M7b", suites: ["native-hello"], percent: 100, allCases: true },
+  { name: "plan-m7 M7b run-pass-native", milestone: "M7b", suites: ["run-pass-native"], percent: 80, excludeUnstable: true },
+  { name: "plan-m7 M7b ir-run-pass", milestone: "M7b", suites: ["ir-run-pass"], percent: 70, excludeUnstable: true },
+  { name: "plan-m7 M7c run-pass-native", milestone: "M7c", suites: ["run-pass-native"], percent: 98, excludeUnstable: true },
+  { name: "plan-m7 M7c run-fail-native", milestone: "M7c", suites: ["run-fail-native"], percent: 95, excludeUnstable: true },
+  { name: "plan-m7 M7c ir-run-pass", milestone: "M7c", suites: ["ir-run-pass"], percent: 95, excludeUnstable: true },
 ];
 
 /** The fields of `gate.json` this reads. */
@@ -51,7 +68,7 @@ export interface GateRecord {
   skipStatic: boolean;
   head: string;
   dirty: string[];
-  suites: { suite: string; match: number; total: number; oracleTimeouts: string[]; lost?: string[]; gained?: string[] }[];
+  suites: { suite: string; match: number; total: number; oracleTimeouts: string[]; unstable?: string[]; lost?: string[]; gained?: string[] }[];
 }
 
 export interface GroupResult {
@@ -59,6 +76,8 @@ export interface GroupResult {
   match: number;
   of: number;
   oracleTimeouts: number;
+  /** UNSTABLE cases left out (`excludeUnstable` groups only; 0 otherwise). */
+  unstable: number;
   percent: number;
   target: number;
   met: boolean;
@@ -122,7 +141,7 @@ function countResult(group: CriteriaGroup & { count: NonNullable<CriteriaGroup["
   if (seen.size > c.of) problems.push(`${seen.size} ${c.what} seen, where the plan counts ${c.of}`);
   const match = matched.size;
   const percent = Math.round(((100 * match) / c.of) * 100) / 100;
-  return { name: group.name, match, of: c.of, oracleTimeouts, percent, target: Math.round(((100 * c.atLeast) / c.of) * 100) / 100, met: problems.length === 0 && match >= c.atLeast, count: { atLeast: c.atLeast, what: c.what }, problems };
+  return { name: group.name, match, of: c.of, oracleTimeouts, unstable: 0, percent, target: Math.round(((100 * c.atLeast) / c.of) * 100) / 100, met: problems.length === 0 && match >= c.atLeast, count: { atLeast: c.atLeast, what: c.what }, problems };
 }
 
 /** `baselines`: the protected set at the gate's commit, by suite; only a count group reads it. */
@@ -131,6 +150,7 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
   let match = 0;
   let of = 0;
   let oracleTimeouts = 0;
+  let unstable = 0;
   const problems = [...gateProblems(g), ...protectedNotRun(g, protectedSuites)];
   for (const name of group.suites) {
     const s = g.suites.find((x) => x.suite === name);
@@ -139,13 +159,19 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
       continue;
     }
     match += s.match;
-    of += group.allCases ? s.total : s.total - s.oracleTimeouts.length;
+    let left = group.allCases ? 0 : s.oracleTimeouts.length;
+    if (group.excludeUnstable && !group.allCases) {
+      if (!Array.isArray(s.unstable)) problems.push(`${name}: this gate.json has no unstable list to leave out`);
+      else left += s.unstable.length;
+      unstable += s.unstable?.length ?? 0;
+    }
+    of += s.total - left;
     oracleTimeouts += s.oracleTimeouts.length;
   }
   const percent = of ? Math.round(((100 * match) / of) * 100) / 100 : 0;
   // On the exact counts, not the rounded percentage.
   const met = problems.length === 0 && of > 0 && 100 * match >= group.percent * of;
-  return { name: group.name, match, of, oracleTimeouts, percent, target: group.percent, met, problems };
+  return { name: group.name, match, of, oracleTimeouts, unstable, percent, target: group.percent, met, problems };
 }
 
 if (import.meta.main) {
@@ -193,7 +219,7 @@ if (import.meta.main) {
     allMet &&= r.met;
     const why = r.problems.length ? ` (${r.problems.join("; ")})` : "";
     if (r.count) console.log(`${r.name}: MATCH ${r.match} of ${r.of} ${r.count.what} vs >= ${r.count.atLeast}, ${r.oracleTimeouts} oracle timeouts: ${r.met ? "met" : "not met"}${why}`);
-    else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}: ${r.met ? "met" : "not met"}${why}`);
+    else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}${group.excludeUnstable && !group.allCases ? `, ${r.unstable} unstable excluded` : ""}: ${r.met ? "met" : "not met"}${why}`);
   }
   process.exit(allMet ? 0 : 1);
 }

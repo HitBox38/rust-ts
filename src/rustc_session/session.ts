@@ -69,7 +69,7 @@ import {
   type TlsModel,
   defer_field,
 } from "./stand_ins.ts";
-import { FileSearch } from "./filesearch.ts";
+import { FileSearch, make_target_bin_path } from "./filesearch.ts";
 import { CodeStats } from "./code_stats.ts";
 import { existsSync } from "node:fs";
 import { asm as target_asm, spec as target_spec } from "../rustc_target/lib.ts";
@@ -784,6 +784,23 @@ export class Session {
   // rustc: compiler/rustc_session/src/session.rs:818 wasm_proc_macro_filesearch
   wasm_proc_macro_filesearch(): FileSearch {
     return unwrap(this.wasm_proc_macro_filesearch_, "wasm_filesearch not set");
+  }
+
+  /// Returns a list of directories where target-specific tool binaries are located. Some fallback
+  /// directories are also returned, for example if `--sysroot` is used but tools are missing
+  /// (#125246): we also add the bin directories to the sysroot where rustc is located.
+  // rustc: compiler/rustc_session/src/session.rs:825 get_tools_search_paths
+  get_tools_search_paths(self_contained: boolean): PathBuf[] {
+    const search_paths = this.opts.sysroot.all_paths().map((sysroot) => make_target_bin_path(sysroot, host_tuple()));
+
+    if (self_contained) {
+      // The self-contained tools are expected to be e.g. in `bin/self-contained` in the
+      // sysroot's `rustlib` path, so we add such a subfolder to the bin path, and the
+      // fallback paths.
+      return search_paths.flatMap((path) => [path, path_join(path, "self-contained")]);
+    } else {
+      return search_paths;
+    }
   }
 
   // rustc: compiler/rustc_session/src/session.rs:843 is_rust_2015

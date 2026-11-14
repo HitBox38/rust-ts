@@ -15,7 +15,7 @@ import { dlopen, FFIType } from "bun:ffi";
 // The crate root first: `rustc_target/spec/mod.ts` and `spec/json.ts` import each other (the order `rustc_target/lib.ts` sets up).
 import "../../rustc_target/lib.ts";
 import { type LldFlavor, LldFlavor as LldFlavorC } from "../../rustc_target/spec/mod.ts";
-import { escape_char } from "../../std/fmt.ts";
+import { debug_str, escape_char } from "../../std/fmt.ts";
 import { io_error_from_node, type IoResult } from "../../std/io.ts";
 import { unported } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
@@ -300,12 +300,9 @@ function escape_ascii(b: number): string {
   return "\\x" + b.toString(16).padStart(2, "0");
 }
 
-/** `<OsStr as Debug>` (unix): `str` Debug of the valid chunks. The port's values are strings, so always valid UTF-8. */
-function debug_os_str(s: string): string {
-  let out = '"';
-  for (const ch of s) out += escape_char(ch.codePointAt(0)!, false, true);
-  return out + '"';
-}
+/** `<OsStr as Debug>` (unix): `str` Debug of the valid chunks. The port's values are strings, so always valid UTF-8: it is
+ *  `<str as Debug>` (src/std/fmt.ts `debug_str`). */
+const debug_os_str: (s: string) => string = debug_str;
 
 /** `std::process::Output` */
 export interface Output {
@@ -324,12 +321,14 @@ export class ExitStatus {
     return (this._0 & 0x7f) === 0 ? (this._0 >> 8) & 0xff : undefined;
   }
 
-  /** `ExitStatus::success`: `self.code() == Some(0)` (via `exit_ok`). */
+  /** `ExitStatus::success`: `self.0.exit_ok().is_ok()`, and `exit_ok` is `Ok` exactly when the wait status is zero. */
+  // after std: library/std/src/process.rs:1986 success, library/std/src/sys/process/unix/unix.rs:1109 exit_ok
   success(): boolean {
-    return this.code() === 0;
+    return this._0 === 0;
   }
 
   /** `ExitStatusExt::signal` (`WIFSIGNALED` / `WTERMSIG`). */
+  // after std: library/std/src/os/unix/process.rs:420 signal, library/std/src/sys/process/unix/unix.rs:1125 signal
   signal(): number | undefined {
     const sig = this._0 & 0x7f;
     return sig !== 0 && sig !== 0x7f ? sig : undefined;

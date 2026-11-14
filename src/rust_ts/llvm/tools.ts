@@ -34,6 +34,7 @@ import { llvm_cl_args, type TargetMachineArgs } from "./target.ts";
 import { type Context, Module } from "./ir.ts";
 import { printModule } from "./printer.ts";
 import type { PtrLenStr, SanitizerOptions } from "./support.ts";
+import { oracle_sysroot_env } from "../oracle_sysroot_env.ts";
 
 // ---- the pinned tools ----------------------------------------------------------------------------------------------------
 
@@ -58,6 +59,7 @@ function rust_ts_data(): string | undefined {
 }
 
 let SYSROOT: string | undefined;
+
 /**
  * The oracle toolchain's sysroot: `rustc +<UPSTREAM.json rust.toolchain> --print sysroot`, never installing anything
  * (`RUSTUP_AUTO_INSTALL=0`), once per process.
@@ -67,7 +69,7 @@ let SYSROOT: string | undefined;
 export function oracle_sysroot(): string {
   if (SYSROOT !== undefined) return SYSROOT;
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { toolchain: string } };
-  const r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], { env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" }, stdout: "pipe", stderr: "pipe" });
+  const r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], { env: oracle_sysroot_env(), stdout: "pipe", stderr: "pipe" });
   if (r.exitCode !== 0) panic(`llir: cannot find the pinned LLVM tools: rustc +${pin.rust.toolchain} --print sysroot failed: ${firstLine(r.stderr.toString())}`);
   return (SYSROOT = r.stdout.toString().trim());
 }

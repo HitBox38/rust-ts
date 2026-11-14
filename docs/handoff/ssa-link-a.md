@@ -32,12 +32,17 @@ live (`tracing.info`/`tracing.warn` with upstream's message).
 - `link_rlib`: the Windows `raw_dylib::create_raw_dylib_dll_import_libs` loop is ported. The call itself is a stub (ssa-link-b).
 - `link_rlib`, `preserve_objects_for_their_debuginfo` and `RlibFlavor` are now exported, for the tests.
 
-What a compile now reaches:
-- A **staticlib** runs `link_staticlib`. With no upstream rlibs and no `-Zstaticlib-{hide,rename}-internal-symbols` it
-  completes. With upstream crates it stops at `ssa-archive: extract_bundled_libs`. With native libraries and
-  `--print native-static-libs` it stops at `ssa-link-b: relevant_lib`.
-- An **executable or dylib** runs `link_natively`. After `linker_and_flavor`, it stops at
-  `ssa-link-b: self_contained_components`.
+What a compile reaches (corrected by lane ssa-link-b after review ssa-link-a N1; the first version of this list overstated it):
+- **On this lane's commit alone, no crate type reaches `link_binary`:** the driver stops first at
+  `rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate` (review ssa-link-a §2).
+- **With cg-register merged** (as on main since wave 40q):
+  - A **staticlib** runs `link_staticlib` to `ArchiveBuilder::build` (link.rs:878), then stops at `llir: LLVMRustGetSymbols`
+    (rustc_codegen_llvm/back/archive.ts; upstream also asks LLVM for every member's symbols). No `.a` is written, so its
+    bytes were not compared with the oracle's. Before that, an upstream crate with native libraries stopped at
+    `ssa-link-b: relevant_lib` (link.rs:786), and one without at `ssa-archive: extract_bundled_libs`; both are ported now.
+  - An **executable or dylib** ran `link_natively` and stopped after `linker_and_flavor` at
+    `ssa-link-b: self_contained_components`, on both `aarch64-apple-darwin` and `x86_64-unknown-linux-gnu`. For what it
+    reaches since ssa-link-b, see `docs/handoff/ssa-link-b.md`.
 
 ## Stubs for root's wiring (`xlane` in link.ts)
 

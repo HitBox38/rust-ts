@@ -19,7 +19,7 @@ export const HERE = import.meta.dir;
 
 export interface LinkCase {
   name: string;
-  src: "hello.rs" | "lib.rs";
+  src: "hello.rs" | "lib.rs" | "nostd.rs" | "dedup.rs" | "rawdylib.rs";
   target: "aarch64-apple-darwin" | "x86_64-unknown-linux-gnu";
   crate_type: CrateType;
   flags: string[];
@@ -39,6 +39,24 @@ export const CASES: readonly LinkCase[] = [
   { name: "linux-bin-strip", src: "hello.rs", target: "x86_64-unknown-linux-gnu", crate_type: "Executable", flags: ["-Cstrip=symbols"], output_kind: "DynamicPicExe" },
   { name: "linux-cdylib", src: "lib.rs", target: "x86_64-unknown-linux-gnu", crate_type: "Cdylib", flags: [], output_kind: "DynamicDylib" },
   { name: "linux-dylib", src: "lib.rs", target: "x86_64-unknown-linux-gnu", crate_type: "Dylib", flags: ["-Cprefer-dynamic"], output_kind: "DynamicDylib" },
+];
+
+/**
+ * Cases added by lane ssa-link-b (review ssa-link-b N1, F1) for ../link_with_args.oracle.test.ts, which builds the line with the
+ * port's own `linker_with_args`. They are kept out of `CASES` so ../linker_args.oracle.test.ts (whose driver stands in for
+ * `linker_with_args`) is unchanged; regen.ts writes both.
+ * - host-dylib-static: a dylib without `-Cprefer-dynamic` links std statically, so the line has both `rmeta.o` and the
+ *   allocator module's object (their order: link.rs:2975, :2984).
+ * - linux-nostd-cdylib: no dynamic upstream native library, so the GNU hint state ends on `-Bstatic` and
+ *   `reset_per_library_state` (link.rs:3120) shows as a `-Bdynamic`.
+ * - linux-dedup: two consecutive `#[link(name = "m")]` blocks, of which the line keeps one (link.rs:3410).
+ * - linux-raw-dylib: a raw-dylib library on ELF, linked by the stub's hashed file name (raw_dylib.rs:179-184).
+ */
+export const EXTRA_CASES: readonly LinkCase[] = [
+  { name: "host-dylib-static", src: "lib.rs", target: "aarch64-apple-darwin", crate_type: "Dylib", flags: [], output_kind: "DynamicDylib" },
+  { name: "linux-nostd-cdylib", src: "nostd.rs", target: "x86_64-unknown-linux-gnu", crate_type: "Cdylib", flags: ["-Cpanic=abort"], output_kind: "DynamicDylib" },
+  { name: "linux-dedup", src: "dedup.rs", target: "x86_64-unknown-linux-gnu", crate_type: "Executable", flags: [], output_kind: "DynamicPicExe" },
+  { name: "linux-raw-dylib", src: "rawdylib.rs", target: "x86_64-unknown-linux-gnu", crate_type: "Executable", flags: [], output_kind: "DynamicPicExe" },
 ];
 
 export const CRATE_TYPE_FLAG: { readonly [K in CrateType]?: string } = { Executable: "bin", Dylib: "dylib", Cdylib: "cdylib", StaticLib: "staticlib" };

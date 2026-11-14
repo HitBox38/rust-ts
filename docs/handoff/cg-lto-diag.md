@@ -47,7 +47,8 @@ Upstream flow at `-O` with several CGUs (`sess.lto() == ThinLocal`):
 `ThinLocal` the index covers only this crate's CGUs, and `each_linked_rlib_for_lto` is empty.
 - **Rename** promotes locals that another CGU imports. Nothing is imported, so nothing is promoted. Its `dso_local` changes
   (cleared on declarations for ELF PIC at the default PIE level; set where the index proves a local definition) only choose
-  direct vs GOT access to a symbol that resolves the same. No-op on Mach-O.
+  direct vs GOT access to a symbol that resolves the same. Only the clearing is ELF-only; the setting happens on every object
+  format, Mach-O included (review cg-lto-diag N2, PassWrapper.cpp:1428-1445).
 - **Resolve-weak** makes one copy of each multiply-defined linkonce/weak symbol prevailing, and propagates attributes from the
   index. Without it every CGU keeps its `linkonce_odr` copy and the linker keeps one, as a multi-CGU `-O0` build does.
 - **Internalize** internalizes only symbols dead from the preserved roots. PassWrapper says: "everything that's already
