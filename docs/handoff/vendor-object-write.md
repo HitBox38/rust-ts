@@ -6,7 +6,7 @@ byte-identical to the oracle's, and so are a second program (exit 3) and a `-Cpr
 writes through `object` on these paths is byte-identical to the oracle's: `symbols.o` (Mach-O and ELF, bin and dylib) and a
 dylib's `rmeta.o` (Mach-O and ELF).
 
-Branch `t3/port-vendor-object-write`, on `main` at b4826411.
+Branch `t3/port-vendor-object-writer`, on `main` at b4826411.
 
 ## Files touched
 
