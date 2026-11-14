@@ -37,6 +37,9 @@ export class DIBuilderBox {
   }
 
   // ---- impl<'ll> Drop for DIBuilderBox<'ll> (di_builder.rs:30) ----
+  // PORT: upstream's only drop is implicit: the box goes with `cx`'s `dbg_cx` when `cx` leaves scope at the end of
+  // `module_codegen`'s block (base.rs:216, right after `debuginfo_finalize`). base.ts has no call yet. Nothing reaches it today
+  // (under `-g` the model stops first at `LLVMCreateDIBuilder`), so the call belongs with llir-di (review cg-di-a N3).
   // rustc: compiler/rustc_codegen_llvm/src/debuginfo/di_builder.rs:31 drop
   drop(): void {
     llvm.LLVMDisposeDIBuilder(this.raw);
