@@ -134,6 +134,14 @@ export interface RunProps {
   flags: string[];
   env: [string, string][];
   unsetEnv: string[];
+  /**
+   * What runtest/ui.rs `run_ui_test` checks in a run's output after its exit (lane harness-m7b, for `run-fail-native`): every
+   * `error-pattern` (`check_error_patterns`: the trimmed text is contained) and `regex-error-pattern` (`check_regex_error_patterns`)
+   * in the program's stderr, or with `check-stdout` in its stdout followed by its stderr (`get_output`). The Miri suites read none of it.
+   */
+  errorPatterns: string[];
+  regexErrorPatterns: string[];
+  checkStdout: boolean;
 }
 
 export interface Skip {
@@ -299,6 +307,34 @@ function host(): Host {
   const ch = process.env.CARGO_HOME;
   const cargoHome = ch ? (isAbsolute(ch) ? ch : resolve(UPSTREAM, ch)) : join(homedir(), ".cargo");
   return (hostMemo = { target: COMPILETEST_TARGET, sysroot: oracleSysroot(), cargoHome });
+}
+
+/** The memos that depend on the target compiletest is run as, one set per target other than COMPILETEST_TARGET (`withCompiletestTarget`). */
+const otherTargets = new Map<string, { conds: Map<string, Cond> | undefined; current: TargetCfg | undefined; needs: NeedsCfg | undefined }>();
+/**
+ * `f()` with compiletest run as on `target` instead of COMPILETEST_TARGET (lane harness-m7b, plan-m7 D3: the native suites and `ir-host`
+ * run on this machine, aarch64-apple-darwin): host = target = `target`, so `ignore-*`/`only-*`, `needs-*`, `--target=` and the output
+ * directory are `target`'s, from the oracle's spec and `--print=cfg` for it, as for COMPILETEST_TARGET. Nothing else changes, and the
+ * COMPILETEST_TARGET memos are put back afterwards, so every other caller's case set is as before (a test pins that). Not reentrant.
+ */
+export function withCompiletestTarget<T>(target: string, f: () => T): T {
+  if (target === COMPILETEST_TARGET) return f();
+  const base = host();
+  const saved = { conds: condsMemo, current: currentMemo, needs: needsMemo };
+  const mine = otherTargets.get(target) ?? { conds: undefined, current: undefined, needs: undefined };
+  hostMemo = { ...base, target };
+  condsMemo = mine.conds;
+  currentMemo = mine.current;
+  needsMemo = mine.needs;
+  try {
+    return f();
+  } finally {
+    otherTargets.set(target, { conds: condsMemo, current: currentMemo, needs: needsMemo });
+    hostMemo = base;
+    condsMemo = saved.conds;
+    currentMemo = saved.current;
+    needsMemo = saved.needs;
+  }
 }
 
 function rustcPrint(args: string[]): string {
@@ -895,7 +931,7 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
     normalizeStderr: [],
     stderrPerBitwidth: false,
     dontCheckCompilerStderr: false,
-    run: { flags: [], env: [], unsetEnv: [] },
+    run: { flags: [], env: [], unsetEnv: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false },
   };
   for (const ln of lines) {
     if (!appliesTo(ln, revision)) continue;
@@ -934,6 +970,12 @@ function testProps(lines: DirectiveLine[], revision: string | undefined, opts: {
       if (ee !== undefined) p.run.env.push(parseEnv(ee));
       const ue = nameValueDirective(ln, "unset-exec-env");
       if (ue !== undefined) p.run.unsetEnv.push(ue.trim());
+      // handlers.rs ERROR_PATTERN / REGEX_ERROR_PATTERN (`push_name_value_directive`, the value as written) and CHECK_STDOUT.
+      const ep = nameValueDirective(ln, "error-pattern");
+      if (ep !== undefined) p.run.errorPatterns.push(ep);
+      const rp = nameValueDirective(ln, "regex-error-pattern");
+      if (rp !== undefined) p.run.regexErrorPatterns.push(rp);
+      p.run.checkStdout ||= nameDirective(ln, "check-stdout");
     }
     if (ln.name === "add-minicore") throw new Reject("`add-minicore` (builds minicore) is not reproduced");
     if (ln.name === "incremental") throw new Reject("`incremental` (incremental directory) is not reproduced");

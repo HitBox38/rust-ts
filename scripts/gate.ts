@@ -55,7 +55,7 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, NATIVE_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
 import { DATA, ORACLE_CACHE, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
@@ -72,6 +72,7 @@ import { parseHostRlibRunArgs } from "./host-rlib-run.ts";
 import { parseMiriSysrootRunArgs } from "./miri-sysroot-run.ts";
 import { parseRmetaRunArgs } from "./rmeta-run.ts";
 import { parseRlibNativeRunArgs } from "./rlib-native-run.ts";
+import { parseNativeRunArgs } from "./native-run.ts";
 import { parseMirDumpRunArgs } from "./mir-dump-run.ts";
 import { record } from "./state.ts";
 
@@ -227,8 +228,10 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
  * The programs an oracle command runs: its first word, except for scripts/rmeta-run.ts under Bun (the rmeta suites),
  * or scripts/miri-sysroot-run.ts or scripts/host-rlib-run.ts or scripts/rlib-native-run.ts or scripts/mir-dump-run.ts
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
- * (the IR suites), its compiler, and for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo.
- * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`).
+ * (the IR suites), its compiler, for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo, and for
+ * scripts/native-run.ts (the native suites), its compiler: the program it builds and runs is that compiler's output, linked by `cc`
+ * as rustc links, and run under `sandbox-exec` through `perl`, which are the host's, not oracles (lane harness-m7b).
+ * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`, `parseNativeRunArgs`).
  */
 export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
@@ -236,6 +239,7 @@ export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === HOST_RLIB_RUN) return [parseHostRlibRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RLIB_NATIVE_RUN) return [parseRlibNativeRunArgs(cmd.slice(2)).compiler[0]!];
+  if (cmd[0] === process.execPath && cmd[1] === NATIVE_RUN) return [parseNativeRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === MIR_DUMP_RUN) return [parseMirDumpRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RMETA_RUN) {
     const a = parseRmetaRunArgs(cmd.slice(2));

@@ -11,6 +11,9 @@
  */
 export const UNSTABLE_ORACLE_PATTERNS: { re: RegExp; reason: string }[] = [
   { re: /rustc-ice-[0-9T_:-]+-\d+\.txt/, reason: "the ICE note names the report file `rustc-ice-<time>-<pid>.txt`" },
+  // scripts/native-run.ts `UNSTABLE_MARK` (lane harness-m7b, plan-m7 D12): the oracle's program ran twice and the runs differ, or one timed
+  // out. Printed by that wrapper alone, at the start of the last line of its stderr, so no other suite's oracle output has it.
+  { re: /^native-run: unstable: /m, reason: "the oracle-built program's two runs differ, or one timed out (scripts/native-run.ts)" },
 ];
 
 /** The reason of the first `UNSTABLE_ORACLE_PATTERNS` entry that `stderr` matches, if any. */

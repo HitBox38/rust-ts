@@ -5,8 +5,11 @@
 //
 // `--milestone M6b` (or any prefix of a group's milestone) prints and decides only those groups; with none, every group.
 // M7a (plan-m7 §6 "Gates") is here only as far as a gate can compute it today: `ir-hello` MATCH, `mir-o2` and `mono-ui` >= 99%, and
-// `check-rg` >= 33 of its 34 crates. `ir-hello` is in no gate yet (it has no baseline): name it with `gate.ts run --suites`. M7b-d's
-// suites do not exist yet. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
+// `check-rg` >= 33 of its 34 crates. `ir-hello` is in no gate yet (it has no baseline): name it with `gate.ts run --suites`. M7b and M7c
+// (lane harness-m7b): `native-hello` MATCH, `run-pass-native` >= 80% and `ir-run-pass` >= 70%; then `run-pass-native` >= 98%,
+// `run-fail-native` >= 95% and `ir-run-pass` >= 95%. Those suites have no baseline either, so a gate must name them with `--suites`.
+// M7c's `run-pass-native` "+ heavy" is that suite alone until a heavy sibling exists (docs/handoff/harness-m7b.md). M7d's suites do
+// not exist yet. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
 // MATCH is exactly (the baseline at the gate's commit - lost) + gained, as scripts/gate.ts computes those two.
 //
 // Every number comes from that run's `gate.json`, one snapshot of one commit: a `<suite>.summary.json` can be overwritten
@@ -42,6 +45,13 @@ export const GROUPS: CriteriaGroup[] = [
   { name: "plan-m7 M7a mono-ui", milestone: "M7a", suites: ["mono-ui"], percent: 99 },
   // A crate's case is `ripgrep-<version>|<crate>`; not the run's own case, nor a build script's probe (`|<crate> (a build script's probe)`).
   { name: "plan-m7 M7a check-rg", milestone: "M7a", suites: ["check-rg"], percent: 0, count: { cases: /^ripgrep-[^|]+\|\w+$/, atLeast: 33, of: 34, what: "crates" } },
+  // One case: an oracle timeout must not leave it met, as ir-hello.
+  { name: "plan-m7 M7b native-hello", milestone: "M7b", suites: ["native-hello"], percent: 100, allCases: true },
+  { name: "plan-m7 M7b run-pass-native", milestone: "M7b", suites: ["run-pass-native"], percent: 80 },
+  { name: "plan-m7 M7b ir-run-pass", milestone: "M7b", suites: ["ir-run-pass"], percent: 70 },
+  { name: "plan-m7 M7c run-pass-native", milestone: "M7c", suites: ["run-pass-native"], percent: 98 },
+  { name: "plan-m7 M7c run-fail-native", milestone: "M7c", suites: ["run-fail-native"], percent: 95 },
+  { name: "plan-m7 M7c ir-run-pass", milestone: "M7c", suites: ["ir-run-pass"], percent: 95 },
 ];
 
 /** The fields of `gate.json` this reads. */

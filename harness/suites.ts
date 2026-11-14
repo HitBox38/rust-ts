@@ -1,8 +1,8 @@
 // Differential test suites. Each case runs on the oracle and on rust-ts with the same
 // inputs; outputs (stdout, stderr, exit code) must be byte-identical.
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { DATA, REPO, UPSTREAM, die, hash } from "../scripts/lib/common.ts";
+import { DATA, REPO, UPSTREAM, die, ensureDir, hash } from "../scripts/lib/common.ts";
 import { caseDeps } from "../scripts/lib/deps.ts";
 import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
@@ -11,7 +11,7 @@ import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.t
 import type { IrTier } from "../scripts/lib/ir-normal.ts";
 import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
-import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, type Blessed, type ErrorFormat, type UiCase } from "./compiletest.ts";
+import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, withCompiletestTarget, type Blessed, type ErrorFormat, type RunProps, type UiCase } from "./compiletest.ts";
 import { MIRI_SYSROOT_CORPUS, MIRI_SYSROOT_SUITE_CRATES } from "./miri-sysroot.ts";
 import { subjectCmd } from "../scripts/lib/subject-bin.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libClosure, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
@@ -2115,7 +2115,7 @@ const irOut = (suite: string, c: Case): string => join(DATA, "ir", suite, hash(c
 /** One side's command of an IR suite. */
 const irRun = (suite: string, tier: IrTier, side: "oracle" | "subject", c: Case, compiler: string[]): string[] => [process.execPath, IR_RUN, "--out", irOut(suite, c), "--side", side, "--bin", llvmBinDir(oracleSysroot(), oracleHost()), "--tier", tier, "--", ...compiler];
 /** An IR suite: what differs from one to the next, and its tier, which is the only way a suite gets one (review harness-m7a H3). */
-const irSuite = (d: { name: string; tier: IrTier; description: (tier: IrTier) => string; timeoutMs: number; oracleTimeoutMs: number; cwd: string; cases: () => Case[]; criterion?: Suite["criterion"] }): Suite => {
+const irSuite = (d: { name: string; tier: IrTier; description: (tier: IrTier) => string; timeoutMs: number; oracleTimeoutMs: number; cwd: string; cases: () => Case[]; skipped?: () => SkippedCase[]; criterion?: Suite["criterion"] }): Suite => {
   const at = (name: string, tier: IrTier): Suite => ({
     name,
     milestone: "M7",
@@ -2125,6 +2125,7 @@ const irSuite = (d: { name: string; tier: IrTier; description: (tier: IrTier) =>
     oracleTimeoutMs: d.oracleTimeoutMs,
     cwd: d.cwd,
     cases: d.cases,
+    ...(d.skipped ? { skipped: d.skipped } : {}),
     irArgs: (c) => c.args,
     irTier: tier,
     irAt: (t) => at(`${d.name}@${t}`, t),
@@ -2263,6 +2264,253 @@ SUITES.push(
   rgSuite({ name: "check-rg", description: RG_CHECK_DESCRIPTION, target: () => COMPILETEST_TARGET, encodeMir: false, criterion: { percent: 97, what: M7A("check-rg >= 33 of 34, then 34") } }),
   rgSuite({ name: "check-rg-encode-mir", description: `${RG_CHECK_DESCRIPTION}. With -Copt-level=3 -Zalways-encode-mir on every unit (review plan-m7 F7)`, target: () => COMPILETEST_TARGET, encodeMir: true }),
   rgSuite({ name: "check-rg-host", description: `${RG_CHECK_DESCRIPTION}. For the host, aarch64-apple-darwin (review plan-m7 F7): cfg(target_arch = "aarch64") and libc's macOS modules; waits for lane abi-vtable`, target: () => oracleHost(), encodeMir: false }),
+);
+
+// M7b's suites (plan-m7 §6, D2, D3, D12; lane harness-m7b). All report only: no baseline, so none is in the gate's defaults.
+// - `ir-run-pass`, `ir-run-pass-o0`: mir-o2's cases (`runPassCompiles`: compiletest's argv, x86_64-unknown-linux-gnu, no aux crates, no `-o`)
+//   with `-Cno-prepopulate-passes --emit=llvm-ir`, the second with `-Copt-level=0` last (the last opt level wins over compiletest's `-O`
+//   and a test's own, checked on the oracle), through `irSuite` at N1, as `ir-hello`.
+// - `ir-host`: the same as `ir-run-pass`, for the host, aarch64-apple-darwin: compiletest's cases and argv as compiletest makes them on this
+//   machine (`hostRunCorpus`: harness/compiletest.ts `withCompiletestTarget`), so its case set differs from the x86_64 one by the `only-*`,
+//   `ignore-*` and `needs-*` that differ.
+// - `native-hello`, `run-pass-native`, `run-fail-native`: behaviour (plan-m7 §1g). scripts/native-run.ts builds with each side's own compiler,
+//   linking for the host with `cc` (D1) against the oracle's std (both sides pass the oracle's sysroot, D6), and runs the program safely
+//   (its header: fixed environment, scratch cwd, no network, no writes outside the case directory, a timeout, its own process group);
+//   the oracle's side runs it twice and an unequal pair is UNSTABLE. A case's `args` are the wrapper's run options, `--`, then the compiler
+//   argv (`nativeCmd`), so the oracle cache key covers both; `nativeOracleKey` adds the wrapper, the masks it uses, the oracle rustc build and
+//   the host tools that change a program (`cc`, `ld`, the SDK and the OS build).
+//   The run-pass and run-fail cases are `hostRunCorpus`'s, with compiletest's run rules: `run-flags`, `exec-env`, `unset-exec-env`, the dylib
+//   path, the cwd, and for the verdict line `error-pattern`, `regex-error-pattern` and `check-stdout`. Bootstrap's `-Lnative=<test helpers>`,
+//   which every other suite drops, is put back here, after `-Crpath` and its `-Cdebuginfo=0` as bootstrap orders its flags: `rust_test_helpers` is
+//   built once with `cc` (`rustTestHelpersDir`).
+const M7B = (what: string) => `plan-m7 gate ${what}; report until accepted`;
+/** The pass/fail mode of a skipped test's revision, for the suites of `modes`. */
+const skipsOfModes = (skipped: readonly SkippedCase[], modes: readonly string[]): SkippedCase[] =>
+  uiSorted(
+    skipped.filter((k) => {
+      const h = k.id.indexOf("#");
+      return declaredModes(h < 0 ? k.id : k.id.slice(0, h), h < 0 ? undefined : k.id.slice(h + 1)).some((d) => modes.includes(d));
+    }),
+  );
+let hostRunMemo: { cases: UiCase[]; skipped: SkippedCase[] } | undefined;
+/** `runCorpus` with compiletest run as on the oracle's host (plan-m7 D3): the native suites' and `ir-host`'s tests. */
+const hostRunCorpus = (): { cases: UiCase[]; skipped: SkippedCase[] } => (hostRunMemo ??= withCompiletestTarget(oracleHost(), () => uiFileCases(runModeFiles(), "human", { run: true, needs: true })));
+/** The IR flags of the run-pass IR suites (plan-m7 §6), before the case's own `-Copt-level`, if any. */
+const IR_PASS_ARGS = ["-Cno-prepopulate-passes", "--emit=llvm-ir"];
+
+/** The wrapper both sides of a native suite run (under Bun). */
+export const NATIVE_RUN = join(REPO, "scripts", "native-run.ts");
+/** A native case's directory, which both sides use in turn (scripts/native-run.ts `nativeDirRefusal`). */
+export const nativeDir = (suite: string, c: Case): string => join(DATA, "native", suite, hash(c.id).slice(0, 16));
+/** The oracle sysroot's library directory for the host: compiletest's `target_run_lib_path`, which it puts in the program's dylib path. */
+const hostRunLibPath = (): string => join(oracleSysroot(), "lib", "rustlib", oracleHost(), "lib");
+/**
+ * The compiler's `PATH` in a native case: the oracle's pinned one (`rustc +<pin>` is found there) and the system C compiler driver's
+ * directory, as rustc links with `cc` and asks `xcrun` for the SDK. Part of the case's env, so of its oracle key.
+ */
+const nativeCompileEnv = (): Record<string, string> => {
+  const cc = Bun.which("cc");
+  if (!cc) die("no `cc` on PATH: the native suites link with it, as rustc does (plan-m7 D1)");
+  return { ...oraclePinnedPathEnv(), PATH: [oraclePinnedPathEnv().PATH, dirname(cc!)].join(":") };
+};
+/** One side's command of a native case: its run options, then the side's compiler with the case's compiler argv (see above). */
+export function nativeCmd(suite: string, side: "oracle" | "subject", c: Case, compiler: (args: string[]) => string[]): string[] {
+  const dd = c.args.indexOf("--");
+  const opts = dd < 0 ? [] : c.args.slice(0, dd);
+  const rustc = dd < 0 ? c.args : c.args.slice(dd + 1);
+  return [process.execPath, NATIVE_RUN, "--dir", nativeDir(suite, c), "--side", side, "--runs", side === "oracle" ? "2" : "1", ...opts, "--", ...compiler(rustc)];
+}
+/** scripts/native-run.ts's options for compiletest's run props of a test (`--expect` only for a run mode). */
+export function nativeRunOpts(run: RunProps | undefined, mode: string | undefined): string[] {
+  const env = run?.env ?? [];
+  const bad = env.find(([k]) => k === "" || k.includes("="));
+  if (bad) throw new Error(`exec-env \`${bad[0]}=${bad[1]}\` has no variable name the wrapper can set`);
+  return [
+    ...(mode !== undefined && [...RUN_PASS_MODES, ...RUN_FAIL_MODES].includes(mode) ? ["--expect", mode] : []),
+    ...(run?.flags ?? []).flatMap((f) => ["--arg", f]),
+    ...env.flatMap(([k, v]) => ["--env", `${k}=${v}`]),
+    ...(run?.unsetEnv ?? []).flatMap((k) => ["--unset", k]),
+    ...(run?.errorPatterns ?? []).flatMap((p) => ["--error-pattern", p]),
+    ...(run?.regexErrorPatterns ?? []).flatMap((p) => ["--regex-error-pattern", p]),
+    ...(run?.checkStdout ? ["--check-stdout"] : []),
+  ];
+}
+/**
+ * `args` with bootstrap's `-Lnative=<dir>` back after its other target-rustcflags (see above): the first `-Crpath` and the `-Cdebuginfo=0`
+ * right after it, which compiletest's `maybe_add_external_args` leaves out when a test sets its own debug info (harness/compiletest.ts
+ * `compileArgs`); a test's own flags all come later. Throws if there is no `-Crpath`.
+ */
+export function withTestHelpers(args: readonly string[], dir: string): string[] {
+  const i = args.indexOf("-Crpath");
+  if (i < 0) throw new Error("its argv has no `-Crpath` (bootstrap's target-rustcflags) to put `-Lnative=<test helpers>` after");
+  // When a test's own first flag is `-Cdebuginfo=0`, this puts the -L after it instead of before; the two do not interact.
+  const at = args[i + 1] === "-Cdebuginfo=0" ? i + 2 : i + 1;
+  return [...args.slice(0, at), `-Lnative=${dir}`, ...args.slice(at)];
+}
+/** How `rust_test_helpers` is built: bootstrap's `cc` build of tests/auxiliary/rust_test_helpers.c (opt level 0, no debug info), for rustc's deployment target of the host. */
+const TEST_HELPERS_CFLAGS = ["-O0", "-ffunction-sections", "-fdata-sections", "-fPIC", "-mmacosx-version-min=11.0"];
+let testHelpersMemo: string | undefined;
+/**
+ * The directory of `librust_test_helpers.a`, built once per source, compiler and flags (the directory's name hashes them), in a temp
+ * directory renamed into place. An `ERROR:` line and the end of the run if it cannot be built.
+ */
+export function rustTestHelpersDir(): string {
+  if (testHelpersMemo !== undefined) return testHelpersMemo;
+  const src = join(UPSTREAM, "tests", "auxiliary", "rust_test_helpers.c");
+  const cc = Bun.which("cc");
+  const ar = Bun.which("ar");
+  if (!cc || !ar) die("no `cc` or `ar` on PATH to build rust_test_helpers (plan-m7 D12)");
+  const ccId = Bun.spawnSync([cc!, "-v"], { stdout: "pipe", stderr: "pipe" }).stderr.toString();
+  const dir = join(DATA, "native", "rust-test-helpers", hash([hash(readFileSync(src)), ccId, ...TEST_HELPERS_CFLAGS].join("\0")).slice(0, 16));
+  if (!existsSync(join(dir, "librust_test_helpers.a"))) {
+    ensureDir(dirname(dir));
+    const tmp = mkdtempSync(`${dir}.tmp-`);
+    const step = (cmd: string[]) => {
+      const r = Bun.spawnSync(cmd, { cwd: tmp, stdout: "pipe", stderr: "pipe" });
+      if (r.exitCode !== 0) die(`building rust_test_helpers failed: ${cmd.join(" ")}: ${r.stderr.toString().trim().split("\n")[0]}`);
+    };
+    step([cc!, "-c", ...TEST_HELPERS_CFLAGS, "-o", "rust_test_helpers.o", src]);
+    step([ar!, "crs", "librust_test_helpers.a", "rust_test_helpers.o"]);
+    try {
+      renameSync(tmp, dir);
+    } catch {
+      // Another process put it there first.
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+  return (testHelpersMemo = dir);
+}
+let nativeKeyMemo: string | undefined;
+/**
+ * `Suite.oracleKey` of a native suite: the wrapper and the masks it applies (scripts/lib/unstable.ts), the oracle rustc build (and so its
+ * std), and what else decides the program and its run on this machine: `cc -v` and `ld -v` (the link), the SDK version, and the OS build
+ * (`sw_vers`: libSystem, the sandbox, `perl`).
+ */
+const nativeOracleKey = (): string => {
+  if (nativeKeyMemo !== undefined) return nativeKeyMemo;
+  const out = (cmd: string[]) => {
+    const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" });
+    return `${r.exitCode}\0${r.stdout.toString()}\0${r.stderr.toString()}`;
+  };
+  const tools = [out(["cc", "-v"]), out(["ld", "-v"]), out(["xcrun", "--show-sdk-version"]), out(["sw_vers"])];
+  return (nativeKeyMemo = hash([hash(readFileSync(NATIVE_RUN)), hash(readFileSync(join(REPO, "scripts", "lib", "unstable.ts"))), rustcDriverHash(), ...tools].join("\0")));
+};
+/** A native suite (see above). */
+const nativeSuite = (d: { name: string; description: string; cwd: string; cases: () => Case[]; skipped?: () => SkippedCase[]; criterion?: Suite["criterion"] }): Suite => ({
+  name: d.name,
+  milestone: "M7",
+  description: d.description,
+  mode: "single",
+  // The port's compile reaches codegen and the link (mir-o2's 240 s), then a run of at most 30 s.
+  timeoutMs: 300_000,
+  // Two runs of at most 30 s each, after the compile and link.
+  oracleTimeoutMs: 180_000,
+  cwd: d.cwd,
+  cases: d.cases,
+  ...(d.skipped ? { skipped: d.skipped } : {}),
+  caseLock: (c) => `${nativeDir(d.name, c)}.case.lock`,
+  oracleKey: nativeOracleKey,
+  oracle: ([c]) => nativeCmd(d.name, "oracle", c!, oracleRustcCmd),
+  subject: ([c]) => nativeCmd(d.name, "subject", c!, (a) => [...bunCmd(RUSTC_DRIVER_ENTRY), ...a]),
+  ...(d.criterion ? { criterion: d.criterion } : {}),
+});
+const nativeMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
+/** The native cases of the run modes `modes` (see above), with the skips of those modes' tests. */
+function nativeCorpus(modes: readonly string[]): { cases: Case[]; skipped: SkippedCase[] } {
+  const key = modes.join(",");
+  const m = nativeMemo.get(key);
+  if (m) return m;
+  const ui = hostRunCorpus();
+  const helpers = rustTestHelpersDir();
+  const lib = hostRunLibPath();
+  const env = nativeCompileEnv();
+  const cases: Case[] = [];
+  const skipped: SkippedCase[] = [];
+  for (const c of ui.cases) {
+    if (!modes.includes(c.mode!)) continue;
+    try {
+      const args = [...nativeRunOpts(c.run, c.mode), "--lib-path", lib, "--", ...withTestHelpers(dropOutput(c.args), helpers)];
+      cases.push(pinSessionEnv({ id: c.id, file: c.file, args, env: { ...NOCORE_ENV, ...c.env, ...env } }));
+    } catch (e) {
+      skipped.push({ id: c.id, reason: `not run natively: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  }
+  const r = { cases, skipped: uiSorted([...skipped, ...skipsOfModes(ui.skipped, modes)]) };
+  nativeMemo.set(key, r);
+  return r;
+}
+const irRunPass = (extra: readonly string[]) => (): Case[] => runPassCompiles().cases.map((c) => withArgs(c, [...IR_PASS_ARGS, ...extra]));
+const IR_RUN_PASS_DESCRIPTION = (what: string, tier: IrTier) =>
+  `tests/ui's run-pass tests (no aux crates) with compiletest's argv${what}, pre-pass (-Cno-prepopulate-passes --emit=llvm-ir): the ${tier} normal form of their IR (scripts/ir-run.ts) + stderr + exit`;
+
+SUITES.push(
+  irSuite({
+    name: "ir-run-pass",
+    tier: "N1",
+    description: (tier) => IR_RUN_PASS_DESCRIPTION(" for x86_64-unknown-linux-gnu (mir-o2's cases, so nearly all at -O)", tier),
+    timeoutMs: 240_000,
+    oracleTimeoutMs: 300_000,
+    cwd: UPSTREAM,
+    cases: irRunPass([]),
+    skipped: () => runPassCompiles().skipped,
+    criterion: { percent: 70, what: M7B("M7b: ir-run-pass >= 70% (M7c: >= 95%)") },
+  }),
+  irSuite({
+    name: "ir-run-pass-o0",
+    tier: "N1",
+    description: (tier) => IR_RUN_PASS_DESCRIPTION(" for x86_64-unknown-linux-gnu and -Copt-level=0 last, over compiletest's -O and a test's own level (other MIR, no lifetime markers)", tier),
+    timeoutMs: 240_000,
+    oracleTimeoutMs: 300_000,
+    cwd: UPSTREAM,
+    cases: irRunPass(["-Copt-level=0"]),
+    skipped: () => runPassCompiles().skipped,
+  }),
+  irSuite({
+    name: "ir-host",
+    tier: "N1",
+    description: (tier) => IR_RUN_PASS_DESCRIPTION(" as compiletest makes them on the host, aarch64-apple-darwin (its own case set: only-*, ignore-*, needs-* for the host); localises the native suites' failures", tier),
+    timeoutMs: 240_000,
+    oracleTimeoutMs: 300_000,
+    cwd: UPSTREAM,
+    cases: () =>
+      hostRunCorpus()
+        .cases.filter((c) => RUN_PASS_MODES.includes(c.mode!))
+        .map((c) => pinSessionEnv({ id: c.id, file: c.file, args: [...dropOutput(c.args), ...IR_PASS_ARGS], env: { ...NOCORE_ENV, ...c.env } })),
+    skipped: () => skipsOfModes(hostRunCorpus().skipped, RUN_PASS_MODES),
+  }),
+  nativeSuite({
+    name: "native-hello",
+    description:
+      "std's hello world built by each side's own compiler for the host, aarch64-apple-darwin, linked with cc against the oracle's std rlibs (plan-m7 D1, D6), then run (scripts/native-run.ts: fixed environment, scratch cwd, no network, a timeout; the oracle's program twice): the compile's stderr and exit, then the program's exit, stdout and stderr",
+    cwd: REPO,
+    cases: () => [
+      {
+        id: "hello",
+        file: MIRI_HELLO,
+        args: ["--lib-path", hostRunLibPath(), "--", "--target", oracleHost(), "--sysroot", oracleSysroot(), "--edition=2021", MIRI_HELLO],
+        env: { ...NOCORE_ENV, ...nativeCompileEnv() },
+      },
+    ],
+    criterion: { percent: 100, what: M7B("M7b: native-hello MATCH") },
+  }),
+  nativeSuite({
+    name: "run-pass-native",
+    description:
+      "tests/ui's run-pass tests (no aux crates) with compiletest's argv for the host, aarch64-apple-darwin (prefer-dynamic and rpath, so std's dylib; -Lnative=<rust_test_helpers>), built by each side's compiler and linked with cc, then run by compiletest's rules (run-flags, exec-env, cwd, dylib path) made safe (scripts/native-run.ts: fixed environment, no network, no writes outside the case directory, a timeout; the oracle's program twice): the compile's stderr and exit, then the program's exit, stdout and stderr (thread ids masked, backtraces cut) and compiletest's verdict",
+    cwd: UPSTREAM,
+    cases: () => nativeCorpus(RUN_PASS_MODES).cases,
+    skipped: () => nativeCorpus(RUN_PASS_MODES).skipped,
+    criterion: { percent: 80, what: M7B("M7b: run-pass-native >= 80% (M7c: >= 98%, with its heavy cases)") },
+  }),
+  nativeSuite({
+    name: "run-fail-native",
+    description:
+      "tests/ui's run-fail, run-crash and run-fail-or-crash tests (no aux crates), as run-pass-native: the compile's stderr and exit, then the program's exit, stdout and stderr, and compiletest's verdict on the run (its run result for the mode, then each error-pattern and regex-error-pattern in its output)",
+    cwd: UPSTREAM,
+    cases: () => nativeCorpus(RUN_FAIL_MODES).cases,
+    skipped: () => nativeCorpus(RUN_FAIL_MODES).skipped,
+    criterion: { percent: 95, what: M7B("M7c: run-fail-native >= 95%") },
+  }),
 );
 
 export function suite(name: string): Suite {

@@ -106,10 +106,11 @@ test("the suites, without running one", () => {
   expect(j.rg[2][3]).toContain("--target aarch64-apple-darwin");
 }, 120_000);
 
-// Only ir-hello: the others become protected at wave 39's accept, which writes their baselines (re-check integ-w39 M1).
-test("ir-hello is not protected, so it is not in the gate's defaults", () => {
-  const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));
-  expect(baseline.has("ir-hello")).toBe(false);
+// ir-hello was report only until root named it in wave 40q's gate (decision 2026-11-14T06:52) and that run's accept (0da8b38d) wrote its
+// baseline, so this test, which said it was not protected, failed from that commit on (lane harness-m7b). It is protected now, with both cases.
+test("ir-hello is protected since wave 40q's accept, with both its cases", () => {
+  const baseline = readFileSync(join(REPO, "harness/baseline/ir-hello.txt"), "utf8").split("\n").filter(Boolean);
+  expect(baseline).toEqual(["hello -Copt-level=0", "hello -O"]);
 });
 
 test("the sparse list adds exactly the two directories root approved", () => {
@@ -131,3 +132,70 @@ test("a dump directory keeps a test's -Zdump-mir out of the cwd: the oracle, on 
   expect(bare.exitCode).toBe(0);
   expect(existsSync(join(TMP, "mir_dump"))).toBe(true);
 });
+
+// Lane harness-m7b: M7b's suites, without building their case lists (the run corpus for two targets would spend the unit step's budget):
+// the commands, the pure helpers, and the target override on two files.
+test("M7b's suites: report only, their commands, and compiletest run as on the host", () => {
+  const code = `
+const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+const ct = await import(${JSON.stringify(join(REPO, "harness/compiletest.ts"))});
+const { oracleHost } = await import(${JSON.stringify(join(REPO, "scripts/lib/oracle.ts"))});
+const get = (n) => s.suite(n);
+const FILES = ["tests/ui/asm/x86_64/may_unwind.rs", "tests/ui/linkage-attr/linkage-attr-does-not-panic-llvm-issue-33992.rs"];
+const set = () => { const r = ct.uiFileCases(FILES, "human", { run: true, needs: true }); return { cases: r.cases.map((c) => [c.id, c.args.find((a) => a.startsWith("--target="))]), skipped: r.skipped.map((k) => k.id) }; };
+const before = set();
+const host = ct.withCompiletestTarget(oracleHost(), set);
+const after = set();
+const fake = { id: "tests/ui/a.rs", file: "tests/ui/a.rs", args: ["--expect", "run-pass", "--", "tests/ui/a.rs", "-O"] };
+const hello = get("native-hello").cases()[0];
+console.log(JSON.stringify({
+  before, host, after, hostName: oracleHost(),
+  ir: ["ir-run-pass", "ir-run-pass-o0", "ir-host"].map((n) => [get(n).irTier, get(n).criterion?.percent ?? null, get(n).oracle([fake]).slice(1, 2)[0].split("/").pop()]),
+  native: ["native-hello", "run-pass-native", "run-fail-native"].map((n) => [get(n).criterion?.percent ?? null, get(n).timeoutMs, get(n).oracleTimeoutMs]),
+  oracle: get("run-pass-native").oracle([fake]),
+  subject: get("run-pass-native").subject([fake]),
+  empty: get("run-fail-native").oracle([{ id: "", file: "", args: [] }]).slice(-3),
+  hello: { args: hello.args, file: hello.file, cwd: get("native-hello").cwd },
+  helpers: s.withTestHelpers(["x", "-Crpath", "-Cdebuginfo=0", "-g"], "/h"),
+  helpersOwnDebug: s.withTestHelpers(["x", "-Crpath", "-g"], "/h"),
+  helpersNone: (() => { try { s.withTestHelpers(["x"], "/h"); return "no throw"; } catch (e) { return e.message; } })(),
+  opts: s.nativeRunOpts({ flags: ["a b"], env: [["K", "v=w"]], unsetEnv: ["U"], errorPatterns: ["boom"], regexErrorPatterns: ["r+"], checkStdout: true }, "run-fail"),
+  optsPass: s.nativeRunOpts(undefined, "run-pass"),
+  optsBadEnv: (() => { try { s.nativeRunOpts({ flags: [], env: [["", "x"]], unsetEnv: [], errorPatterns: [], regexErrorPatterns: [], checkStdout: false }, "run-pass"); return "no throw"; } catch (e) { return e.message; } })(),
+}));
+`;
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
+  expect(r.exitCode, r.stderr.toString() + r.stdout.toString()).toBe(0);
+  const j = JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!);
+  // The override gives the host's case set and argv, and puts COMPILETEST_TARGET's memos back: the case set after equals the one before.
+  expect(j.before.cases).toEqual([["tests/ui/asm/x86_64/may_unwind.rs", "--target=x86_64-unknown-linux-gnu"], ["tests/ui/linkage-attr/linkage-attr-does-not-panic-llvm-issue-33992.rs", "--target=x86_64-unknown-linux-gnu"]]);
+  expect(j.after).toEqual(j.before);
+  expect(j.hostName).toBe("aarch64-apple-darwin");
+  expect(j.host.cases).toEqual([]);
+  expect(j.host.skipped).toEqual(["tests/ui/asm/x86_64/may_unwind.rs", "tests/ui/linkage-attr/linkage-attr-does-not-panic-llvm-issue-33992.rs"]);
+  expect(j.ir).toEqual([["N1", 70, "ir-run.ts"], ["N1", null, "ir-run.ts"], ["N1", null, "ir-run.ts"]]);
+  expect(j.native).toEqual([[100, 300_000, 180_000], [80, 300_000, 180_000], [95, 300_000, 180_000]]);
+  // Both sides in one case directory, the oracle's program twice, the run options before the compiler.
+  const dir = (cmd: string[]) => cmd[cmd.indexOf("--dir") + 1];
+  expect(j.oracle[1]).toEndWith("scripts/native-run.ts");
+  expect(dir(j.oracle)).toBe(dir(j.subject));
+  expect(dir(j.oracle)).toMatch(/\/native\/run-pass-native\/[0-9a-f]{16}$/);
+  expect(j.oracle.slice(4, 11)).toEqual(["--side", "oracle", "--runs", "2", "--expect", "run-pass", "--"]);
+  expect(j.oracle.slice(11, 13)).toEqual(["rustc", expect.stringMatching(/^\+nightly/)]);
+  expect(j.oracle.slice(-2)).toEqual(["tests/ui/a.rs", "-O"]);
+  expect(j.subject.slice(4, 8)).toEqual(["--side", "subject", "--runs", "1"]);
+  expect(j.subject.join(" ")).toContain("src/rust_ts/main.ts tests/ui/a.rs -O");
+  // gate.ts's probe check calls the oracle with an empty case.
+  expect(j.empty).toEqual(["--", "rustc", expect.stringMatching(/^\+nightly/)]);
+  expect(j.hello.file).toBe("harness/corpus/miri/hello.rs");
+  expect(j.hello.args.slice(j.hello.args.indexOf("--"))).toEqual(["--", "--target", "aarch64-apple-darwin", "--sysroot", expect.any(String), "--edition=2021", "harness/corpus/miri/hello.rs"]);
+  expect(j.helpers).toEqual(["x", "-Crpath", "-Cdebuginfo=0", "-Lnative=/h", "-g"]);
+  expect(j.helpersOwnDebug).toEqual(["x", "-Crpath", "-Lnative=/h", "-g"]);
+  expect(j.helpersNone).toContain("-Crpath");
+  expect(j.opts).toEqual(["--expect", "run-fail", "--arg", "a b", "--env", "K=v=w", "--unset", "U", "--error-pattern", "boom", "--regex-error-pattern", "r+", "--check-stdout"]);
+  expect(j.optsPass).toEqual(["--expect", "run-pass"]);
+  expect(j.optsBadEnv).toContain("exec-env");
+  // Report only: no baseline, so not in the gate's defaults.
+  const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));
+  for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "native-hello", "run-pass-native", "run-fail-native"]) expect(baseline.has(n)).toBe(false);
+}, 120_000);
