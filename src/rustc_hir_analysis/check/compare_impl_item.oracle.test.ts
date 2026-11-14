@@ -44,9 +44,12 @@ const CASES = readdirSync(CASES_DIR)
  * symbol-export-metadata: `exported_non_generic_symbols_helper` is ported; the stop is the encoder's
  * `encode_exported_symbols`, whose element encoder `(ExportedSymbol, SymbolExportInfo)` is not ported. Re-pinned by
  * exported-symbols-codec: that codec is ported, so metadata is written; the stop is codegen's mono item collection.
+ * Re-pinned by cg-register (the ported LLVM backend runs codegen): the stop is the IR model's, in `LLVMRustOptimize`, as the
+ * rlib embeds bitcode (fixers-57 made `LLVMRustDisableSystemDialogsOnCrash` the Unix no-op, so `CI` no longer moves it).
  */
 const PENDING: Record<string, string> = {
-  refine_rpitit: "rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)",
+  refine_rpitit:
+    "llir: LLVMRustOptimize's ThinLTO buffer (ThinLTOBitcodeWriterPass inside the pass pipeline: -Cembed-bitcode for an rlib built with link output, --emit=thin-link-bitcode)",
 };
 
 /**

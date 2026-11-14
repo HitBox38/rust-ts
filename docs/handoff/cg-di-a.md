@@ -110,7 +110,9 @@ Branch `t3/port-cg-di-a-debuginfo`, from `7b71d658`. No merges.
 - Everything past `LLVMCreateDIBuilder` under `-g`: `dbg_scope_fn`, `dbg_create_lexical_block`, `dbg_loc`, `create_dbg_var`,
   `dbg_var_addr`/`dbg_var_value` (DIExpression ops), `item_namespace`, `create_template_type_parameter`, `create_static_variable`,
   `with_move_annotation` (`-Zannotate-moves`). They need llir-di's `LLVMDI*` and wave 44's metadata.rs.
-- `wide_pointer_kind`, `get_namespace_for_item` and `DIBuilderBox::drop`: only metadata.rs calls them.
+- `wide_pointer_kind` and `get_namespace_for_item`: only metadata.rs calls them.
+- `DIBuilderBox::drop`: upstream drops the box implicitly when `cx` leaves scope at the end of `module_codegen`'s block
+  (base.rs:216). base.ts has no call yet; it belongs with llir-di (review cg-di-a N3; corrected by fixers-57).
 - MSVC's `col: UNKNOWN_COLUMN_NUMBER` in `lookup_debug_loc`, and `DebuginfoKind::Pdb`'s `CodeView` flag: Windows targets are out
   of M7 (D18).
 - `#[debugger_visualizer]` gdb printers: the fixture has none.

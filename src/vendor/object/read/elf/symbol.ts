@@ -11,7 +11,7 @@ import * as elf from "../../elf.ts";
 import type { SymbolKind } from "../../common.ts";
 import { type Endianness, U16, U32 } from "../../endian.ts";
 import { PodSlice } from "../../pod.ts";
-import { Error, read_error_err, read_error_opt, type Result, SectionIndex, SymbolIndex } from "../mod.ts";
+import { Error, read_error_err, read_error_opt, read_error_unit, type Result, SectionIndex, SymbolIndex } from "../mod.ts";
 import { StringTable } from "../util.ts";
 import type { FileHeader } from "./file.ts";
 import { SectionHeader_provided, type SectionHeaderValue, type SectionTable } from "./section.ts";
@@ -235,3 +235,22 @@ export class ElfSymbol {
     return !(this.symbol.st_bind() === elf.STB_LOCAL);
   }
 }
+
+/** An `elf::Sym32` or `elf::Sym64` (the `Sym` trait's `Self`). */
+export type { SymValue };
+
+/// The provided methods of the `Sym` trait (`elf::Sym32` and `elf::Sym64` have the fields they read under the same
+/// names, so one function serves both). PORT (lane ssa-archive): only what `rustc_codegen_ssa::back::symbol_edit` calls.
+export const Sym_provided = {
+  /// Parse the symbol name from the string table.
+  // crate: object-0.39.1/src/read/elf/symbol.rs:507 name
+  name(self: SymValue, endian: Endianness, strings: StringTable): Result<Uint8Array> {
+    return read_error_unit(strings.get(U32.get(self.st_name, endian)), "Invalid ELF symbol name offset");
+  },
+
+  /// Return true if the symbol section is `SHN_UNDEF`.
+  // crate: object-0.39.1/src/read/elf/symbol.rs:519 is_undefined
+  is_undefined(self: SymValue, endian: Endianness): boolean {
+    return U16.get(self.st_shndx, endian) === elf.SHN_UNDEF;
+  },
+};

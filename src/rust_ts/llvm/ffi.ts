@@ -14,7 +14,7 @@ export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Conte
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 283 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 285 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -238,6 +238,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMBuildCallWithOperandBundles",
   "LLVMBuildInvokeWithOperandBundles",
   "LLVMRustInstallErrorHandlers",
+  "LLVMRustDisableSystemDialogsOnCrash",
   "LLVMRustIsNonGVFunctionPointerTy",
   "LLVMRustStripPointerCasts",
   "LLVMRustConstIntGetZExtValue",
@@ -268,6 +269,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustBuildMemMove",
   "LLVMRustBuildMemSet",
   "LLVMRustGetLastError",
+  "LLVMRustInlineAsmVerify",
   "LLVMRustDebugMetadataVersion",
   "LLVMRustVersionMajor",
   "LLVMRustAddModuleFlagU32",
@@ -1061,7 +1063,7 @@ export const LLVMDIBuilderCreateParameterVariable: (Builder: DIBuilder, Scope: M
 export const LLVMRustInstallErrorHandlers: () => void = bind("LLVMRustInstallErrorHandlers", impl3.LLVMRustInstallErrorHandlers);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1981 LLVMRustDisableSystemDialogsOnCrash
-export const LLVMRustDisableSystemDialogsOnCrash: () => void = stub("LLVMRustDisableSystemDialogsOnCrash");
+export const LLVMRustDisableSystemDialogsOnCrash: () => void = bind("LLVMRustDisableSystemDialogsOnCrash", impl3.LLVMRustDisableSystemDialogsOnCrash);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1984 LLVMRustIsNonGVFunctionPointerTy
 export const LLVMRustIsNonGVFunctionPointerTy: (Val: Value) => boolean = bind("LLVMRustIsNonGVFunctionPointerTy", impl0.LLVMRustIsNonGVFunctionPointerTy);
@@ -1178,7 +1180,7 @@ export const LLVMRustPrintStatistics: (OutStr: RustString) => void = stub("LLVMR
 export const LLVMRustPrintStatisticsJSON: (OutStr: RustString) => void = stub("LLVMRustPrintStatisticsJSON");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2117 LLVMRustInlineAsmVerify
-export const LLVMRustInlineAsmVerify: (Ty: Type, Constraints: PtrLenStr | undefined, ConstraintsLen: number) => boolean = stub("LLVMRustInlineAsmVerify");
+export const LLVMRustInlineAsmVerify: (Ty: Type, Constraints: PtrLenStr | undefined, ConstraintsLen: number) => boolean = bind("LLVMRustInlineAsmVerify", impl0.LLVMRustInlineAsmVerify);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2124 LLVMRustAppendModuleInlineAsm
 export const LLVMRustAppendModuleInlineAsm: (M: Module, Asm: PtrLenStr | undefined, AsmLen: number, TargetFeatures: PtrLenStr | undefined, TargetFeaturesLen: number, TargetCpu: PtrLenStr | undefined, TargetCpuLen: number) => void = stub("LLVMRustAppendModuleInlineAsm");

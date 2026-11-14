@@ -115,7 +115,7 @@ function rebuild(s: Session, rlib: Uint8Array, archives: string[]): Uint8Array {
   ab.add_file(join(d, "lib.rmeta-link"), "Other");
   for (const a of archives) expect(ab.add_archive(a, { $: "Other" })).toEqual({ $: "Ok", _0: null });
   const out = join(d, "libnc.rlib");
-  expect(ab.build(out)).toBe(true);
+  expect(ab.build(out, undefined)).toBe(true);
   return readFileSync(out);
 }
 
@@ -219,7 +219,7 @@ test("+whole-archive: the .bundled_lib wrapper, the rmeta-link record of its fil
   const d = fresh_dir({ "lib.rmeta": rmeta, "lib.rmeta-link": link, "libfoo.a": create_wrapper_file(HOST, ".bundled_lib", LIBFOO_MACHO)[0] });
   const ab = ArArchiveBuilder.new(HOST, DEFAULT_OBJECT_READER);
   for (const n of ["lib.rmeta", "lib.rmeta-link", "libfoo.a"]) ab.add_file(join(d, n), "Other");
-  expect(ab.build(join(d, "libnc.rlib"))).toBe(true);
+  expect(ab.build(join(d, "libnc.rlib"), undefined)).toBe(true);
   expect([...readFileSync(join(d, "libnc.rlib"))]).toEqual([...RLIB_HOST_WHOLE_ARCHIVE]);
 });
 

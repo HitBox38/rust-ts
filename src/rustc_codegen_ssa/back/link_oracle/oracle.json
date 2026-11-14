@@ -1,0 +1,170 @@
+{
+  "toolchain": "nightly",
+  "commit": "6f5da406b56c2db6607202b63daee73aa8c61297",
+  "native_static_libs": {
+    "aarch64-apple-darwin": "-la -lb -lc -ld.so -la",
+    "x86_64-unknown-linux-gnu": "-la -lb -lc -l:d.so -la"
+  },
+  "link_args": [
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "default",
+      "flags": [],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "linker-fake-ld",
+      "flags": [
+        "-Clinker=fake-ld.sh"
+      ],
+      "program": "fake-ld.sh",
+      "wl": false,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "linker-mycc",
+      "flags": [
+        "-Clinker=mycc"
+      ],
+      "program": "mycc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "linker-rust-lld",
+      "flags": [
+        "-Clinker=rust-lld"
+      ],
+      "program": "rust-lld",
+      "wl": false,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "flavor-gcc",
+      "flags": [
+        "-Clinker-flavor=gcc"
+      ],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "flavor-ld",
+      "flags": [
+        "-Clinker-flavor=ld"
+      ],
+      "program": "ld",
+      "wl": false,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "features-lld",
+      "flags": [
+        "-Zunstable-options",
+        "-Clinker-features=+lld"
+      ],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": true
+    },
+    {
+      "tuple": "aarch64-apple-darwin",
+      "id": "features-no-lld",
+      "flags": [
+        "-Zunstable-options",
+        "-Clinker-features=-lld"
+      ],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "default",
+      "flags": [],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "linker-fake-ld",
+      "flags": [
+        "-Clinker=fake-ld.sh"
+      ],
+      "program": "fake-ld.sh",
+      "wl": false,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "linker-mycc",
+      "flags": [
+        "-Clinker=mycc"
+      ],
+      "program": "mycc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "linker-rust-lld",
+      "flags": [
+        "-Clinker=rust-lld"
+      ],
+      "program": "rust-lld",
+      "wl": false,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "flavor-gcc",
+      "flags": [
+        "-Clinker-flavor=gcc"
+      ],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "flavor-ld",
+      "flags": [
+        "-Clinker-flavor=ld"
+      ],
+      "program": "ld",
+      "wl": false,
+      "fuse_lld": false
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "features-lld",
+      "flags": [
+        "-Zunstable-options",
+        "-Clinker-features=+lld"
+      ],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": true
+    },
+    {
+      "tuple": "x86_64-unknown-linux-gnu",
+      "id": "features-no-lld",
+      "flags": [
+        "-Zunstable-options",
+        "-Clinker-features=-lld"
+      ],
+      "program": "cc",
+      "wl": true,
+      "fuse_lld": false
+    }
+  ]
+}

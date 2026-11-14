@@ -477,6 +477,18 @@ export function LLVMGetInlineAsm(Ty: Type, AsmString: PtrLenStr | undefined, Asm
   return getInlineAsm(Ty, bytesArg(AsmString, AsmStringSize), bytesArg(Constraints, ConstraintsSize), HasSideEffects.value !== 0, IsAlignStack.value !== 0, AD, CanThrow.value !== 0);
 }
 
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:654 LLVMRustInlineAsmVerify
+export function LLVMRustInlineAsmVerify(Ty: Type, Constraints: PtrLenStr | undefined, ConstraintsLen: number): boolean {
+  // PORT (plan-m7 D10; root at integ-w57 from lane cg-register's handoff, review cg-register N3): `InlineAsm::verify`
+  // (InlineAsm.cpp:274) is not ported yet, so this answers "valid" for every constraint string. Upstream answers "invalid" only
+  // where rustc then ICEs (rustc_codegen_llvm asm.rs:363 `span_bug!`, intrinsic.rs:173 `bug!`), so the stand-in differs from
+  // upstream only on a path that would be a compiler bug. A port of `InlineAsm::verify` belongs with lane cg-asm.
+  void Constraints;
+  void ConstraintsLen;
+  if (!(Ty instanceof FunctionType)) throw new Error("llvm: unwrap<FunctionType> of a type that is not a function type");
+  return true;
+}
+
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString
 export function LLVMRustWriteValueToString(value_ref: Value, s: RustString): void {
   // `(<type>:<value>)`. This reaches rustc's `Debug` for `Value`. Floating-point constants print as AsmWriter's

@@ -60,10 +60,11 @@ import { ModuleLlvm } from "../back/llvm_backend.ts";
 import { OwnedTargetMachine } from "../back/owned_target_machine.ts";
 import * as back_write from "../back/write.ts";
 import { compile_codegen_unit } from "../base.ts";
-import { type Builder, Builder_static } from "../builder.ts";
+import { Builder, Builder_static } from "../builder.ts";
 import type { LlvmTypes } from "../common.ts";
 import { CodegenCx } from "../context.ts";
 import type * as llvm from "../llvm/mod.ts";
+import { get_value_name } from "../llvm/mod.ts";
 import * as gdb from "./gdb.ts";
 import * as metadata from "./metadata.ts";
 import { CodegenUnitDebugContext } from "./mod.ts";
@@ -385,4 +386,30 @@ test("lookup_debug_loc, is_node_local_to_unit, mangled_name_of_instance against 
   } finally {
     for (const s of spies.reverse()) s.mockRestore();
   }
+});
+
+// cg-di-a N1: `set_var_name`'s argument-or-instruction guard (mod.rs:601-606). No fixture reaches it with a non-local value whose
+// name is empty, so it runs here on IR-model values, with a `Builder` whose session keeps value names (`fewer_names()` false):
+// the only part of the builder `set_var_name` reads.
+test("set_var_name names an unnamed argument or instruction, never an unnamed global", () => {
+  const bx = { sess: () => ({ fewer_names: () => false }) } as unknown as Builder;
+  const C = ffi.LLVMContextCreate();
+  const M = ffi.LLVMModuleCreateWithNameInContext("set_var_name", C);
+  const i32 = ffi.LLVMInt32TypeInContext(C);
+  const global = ffi.LLVMAddGlobal(M, i32, "");
+  const f = ffi.LLVMAddFunction(M, "f", ffi.LLVMFunctionType(i32, [i32], 1, ffi.FALSE));
+  const arg = ffi.LLVMGetParam(f, 0);
+  const b = ffi.LLVMCreateBuilderInContext(C);
+  ffi.LLVMPositionBuilderAtEnd(b, ffi.LLVMAppendBasicBlockInContext(C, f, "start"));
+  const inst = ffi.LLVMBuildAdd(b, arg, arg, "");
+  const name = (v: llvm.Value): string => new TextDecoder().decode(get_value_name(v));
+  for (const v of [global, arg, inst]) expect(name(v)).toBe("");
+  Builder.prototype.set_var_name.call(bx, global, "g");
+  Builder.prototype.set_var_name.call(bx, arg, "x");
+  Builder.prototype.set_var_name.call(bx, inst, "sum");
+  expect([name(global), name(arg), name(inst)]).toEqual(["", "x", "sum"]);
+  // An existing name is kept.
+  Builder.prototype.set_var_name.call(bx, arg, "y");
+  expect(name(arg)).toBe("x");
+  ffi.LLVMDisposeBuilder(b);
 });

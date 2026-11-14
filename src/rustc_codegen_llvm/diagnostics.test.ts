@@ -56,8 +56,9 @@ test("WithLlvmError(CreateMCSubtargetInfo) matches the pinned rustc's stderr for
   expect(render(WithLlvmError_diagnostic({ _0: { $: "CreateMCSubtargetInfo", triple: utf8(TRIPLE) }, _1: LOOKUP_ERR }))).toBe(ORACLE);
 });
 
-// The C-string arguments (`triple: SmallCStr`, `name: CString`) need rustc_error_messages's `IntoDiagArg for SmallCStr` /
-// `for CString` (diagnostic_impls.rs:142, :149), which fixers-56 ports (docs/handoff/cg-lto-diag.md).
+// The C-string arguments (`triple: SmallCStr`, `name: CString`) need rustc_error_messages's `IntoDiagArg for CString` /
+// `for SmallCStr` (their `into_diag_arg` at diagnostic_impls.rs:143, :149), which cg-lto-diag ported under root's exception
+// (docs/handoff/cg-lto-diag.md; review cg-lto-diag N3).
 test("WithLlvmError: every variant's message is its derive's message plus `: {$llvm_err}` (diagnostics.rs:144-165)", () => {
   const cases: [LlvmError, string][] = [
     [{ $: "WriteOutput", path: "out/a.o" }, "could not write output to out/a.o: E"],

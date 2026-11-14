@@ -19,7 +19,7 @@
 //
 // The mock implements what `codegen_mir` and `non_ssa_locals` call on the context: queries through `tcx`, in
 // `TypingEnv::fully_monomorphized()` (cg_llvm's `typing_env()`), and `intrinsic_call_expects_place_always` as cg_llvm's
-// (`matches!(name, sym::black_box)`, context.rs:1081). The `xlane` stubs of other fill lanes are replaced by recorders,
+// (`matches!(name, sym::black_box)`, context.rs:1081). The `xlane` forwarders to other fill lanes are replaced by recorders,
 // and `monomorphized_place_ty` by upstream's body (place.rs:424). `wants_new_eh_instructions` is upstream's (base.rs:392).
 import { appendFileSync } from "node:fs";
 import type { Compiler, Config } from "../../../rustc_interface/interface.ts";

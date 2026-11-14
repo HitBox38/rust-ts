@@ -1,0 +1,9 @@
+{
+  global:
+    _RNvCs9aN7gpkyK74_3lib3add;
+    exp_c;
+    rust_metadata_lib_6adb25ab93837d00;
+
+  local:
+    *;
+};

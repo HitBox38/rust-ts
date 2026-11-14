@@ -348,7 +348,8 @@ describe("codegen_intrinsic_call against the oracle (x86_64-unknown-linux-gnu, -
       const v = bx.codegen_llvm_intrinsic_call(intrinsic(r, "llvm_ctpop_i64", []), [new OperandRef<Value>({ $: "Immediate", _0: ps[0]! }, inputs[0]!, undefined)], false);
       bx.ret(named(v, "_0"));
     }
-    // `black_box`: the store into the return place, then `crate::asm::inline_asm_call` (cg-asm's stub).
+    // `black_box`: the store into the return place, then `crate::asm::inline_asm_call` (ported by cg-register), which asks the IR
+    // model's `LLVMRustInlineAsmVerify`.
     {
       const { bx, ps, inputs, output } = define(r, "f_bb", ["x"]);
       const place = bx.alloca(output.size, output.align.abi);
@@ -382,9 +383,13 @@ describe("codegen_intrinsic_call against the oracle (x86_64-unknown-linux-gnu, -
     expect(def(printed).replace(/ #\d+/, "")).toBe(def(ir).replace(" zeroext", "").replace(/ #\d+/, "").replace(/ !guid !\d+/, ""));
     expect(declare(printed, "rust_eh_personality")).toBe(declare(ir, "rust_eh_personality"));
   });
-  test("black_box: the store into the return place, then cg-asm's inline_asm_call", () => {
-    expect(stops).toEqual(["cg-asm: compiler/rustc_codegen_llvm/src/asm.rs inline_asm_call"]);
-    expect(body(printed, "f_bb").split("\n")).toEqual(body(ir, "f_bb").split("\n").slice(0, 3));
+  test("black_box: the store into the return place, then inline_asm_call", () => {
+    // The `asm` call follows the store, as the oracle's 4th line (the IR model's `LLVMRustInlineAsmVerify`, root at integ-w57). The
+    // case ends there (the oracle's load and `ret` are the caller's); the `!srcloc` node's number is the module's, and its value the
+    // span (`DUMMY_SP` here), so the line is compared without it.
+    expect(stops).toEqual([]);
+    const lines = (b: string): string[] => b.split("\n").map((l) => l.replace(/, !srcloc !\d+$/, ", !srcloc"));
+    expect(lines(body(printed, "f_bb"))).toEqual(lines(body(ir, "f_bb")).slice(0, 4));
   });
 });
 

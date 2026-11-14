@@ -3,9 +3,10 @@
 // backend (rustc_codegen_llvm back/llvm_backend.rs `impl CodegenBackend for LlvmCodegenBackend`) answers at the
 // metadata level: `init` (its `global_backend_features` from `llvm_util::global_llvm_features`) and `target_config`
 // (the oracle table src/rust_ts/target_config.gen.ts, decision D4), `supported_crate_types` (the trait default),
-// `target_cpu` (`llvm_util::target_cpu`) and `link` (codegen_ssa `link_binary`, as LLVM's `link` does). Codegen
-// itself (`codegen_crate` past monomorphization, `join_codegen`) and LLVM's statistics are `unported`: unreachable for
-// `--emit=metadata` (D5).
+// `target_cpu` (`llvm_util::target_cpu`) and a check-only compile's `link` (codegen_ssa `link_binary`, as LLVM's `link` does).
+// Codegen itself (`codegen_crate`, `join_codegen`, then `link`) and LLVM's statistics forward to the ported backend,
+// src/rustc_codegen_llvm/back/llvm_backend.ts, loaded at the first forward (decision 2026-11-14, wave 40q cg-register; plan-m7
+// D14): see `ported_backend`. `mono_collection_head` keeps what `codegen_crate` ran before that, for scripts/mono-run.ts.
 import type { CodegenBackendInit, EarlySession, Session } from "../rustc_session/session.ts";
 import { type OutputFilenames, std_print } from "../rustc_session/config.ts";
 import type { CrateType } from "../rustc_structures/crate_type.ts";
@@ -29,6 +30,8 @@ import * as target_features from "../rustc_codegen_ssa/target_features.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
 import type { CompiledModules, CrateInfo } from "../rustc_codegen_ssa/lib.ts";
 import type { EncodedMetadata } from "../rustc_metadata/lib.ts";
+// Type only, so erased: the crate is `require`d by `ported_backend` (D14).
+import type { LlvmCodegenBackend as PortedLlvmCodegenBackend } from "../rustc_codegen_llvm/lib.ts";
 import {
   type CodegenBackend,
   CodegenBackend_provided,
@@ -38,8 +41,9 @@ import {
 } from "../rustc_interface/stand_ins.ts";
 
 /**
- * PORT: `-C llvm-args` lists whose whole effect is in LLVM's own passes, which never run where this stand-in is reached
- * (`codegen_crate` is unported; under Miri the dummy backend codegens). `configure_llvm` hands them to
+ * PORT: `-C llvm-args` lists whose whole effect is in LLVM's own passes, which never run in this stand-in's `init` (codegen
+ * forwards to the ported backend, whose model `configure_llvm` takes them at the first forward; under Miri the dummy backend
+ * codegens). `configure_llvm` hands them to
  * `LLVMRustSetLLVMOptions`, whose parser (LLVM's `cl::ParseCommandLineOptions`) is not ported: an unknown value prints
  * LLVM's error and exits 1, and `--help` and the like print and exit. So only the lists the oracle was seen to accept are
  * let through, by exact list, and everything else stays `unported`.
@@ -247,51 +251,40 @@ export class LlvmCodegenBackend implements CodegenBackend {
   target_cpu(sess: Session): string {
     return llvm_util_target_cpu(sess.early_sess);
   }
+  // PORT (decision 2026-11-14, wave 40q cg-register): codegen, the statistics and `link` forward to the ported backend
+  // (rustc_codegen_llvm back/llvm_backend.ts), loaded at the first forward (`ported_backend`). Its `codegen_crate` is
+  // back/llvm_backend.rs:336 whole: the offload check, then `rustc_codegen_ssa::base::codegen_crate`, which runs the CPU checks
+  // and the collector itself (base.rs:723-739). `mono_collection_head` below keeps that head for scripts/mono-run.ts.
   codegen_crate(tcx: TyCtxt): unknown {
-    // back/llvm_backend.rs:336: the offload check, which stops below (no lane yet; plan-m7 D18), then
-    // `rustc_codegen_ssa::base::codegen_crate(LlvmCodegenBackend(()), tcx)`.
-    // PORT: only the head of that function (base.rs:723-739), which is everything before LLVM: the CPU checks and the
-    // collector and partitioner, which print `-Zprint-mono-items` and write `-Zdump-mono-stats`. No `// rustc:` marker, as
-    // base.rs's `codegen_crate` stays to be ported. The stop that follows never counts as success: docs/handoff/mono-wire.md
-    // says how a suite reads this output.
-    const offload = tcx.sess.opts.unstable_opts.offload;
-    if (offload.some((o) => o.$ === "Device") || offload.some((o) => o.$ === "Host")) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
-    if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
-      // The target has no default cpu, but none is set explicitly
-      tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));
-    }
-
-    const target_cpu = tcx.sess.opts.cg.target_cpu;
-    if (target_cpu !== undefined && tcx.sess.target.unsupported_cpus.includes(target_cpu)) {
-      // The target cpu is explicitly listed as an unsupported cpu
-      tcx.dcx().emit_fatal(CpuUnsupported_diagnostic({ target_cpu }));
-    }
-
-    // Run the monomorphization collector and partition the collected items into
-    // codegen units.
-    tcx.collect_and_partition_mono_items(null);
-
-    return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (after collect_and_partition_mono_items; codegen; M7)");
+    return ported_backend(tcx.sess.early_sess).codegen_crate(tcx);
   }
   join_codegen(
-    _ongoing_codegen: unknown,
-    _sess: Session,
-    _incr_comp_session: IncrCompSession | undefined,
-    _outputs: OutputFilenames,
-    _crate_info: CrateInfo,
+    ongoing_codegen: unknown,
+    sess: Session,
+    incr_comp_session: IncrCompSession | undefined,
+    outputs: OutputFilenames,
+    crate_info: CrateInfo,
   ): [CompiledModules, WorkProductMap] {
-    return unported("rustc_codegen_llvm::LlvmCodegenBackend::join_codegen (codegen; M7)");
+    return ported_backend(sess.early_sess).join_codegen(ongoing_codegen, sess, incr_comp_session, outputs, crate_info);
   }
   print_pass_timings(): void {
-    unported("rustc_codegen_llvm::LlvmCodegenBackend::print_pass_timings (-Z time-llvm-passes)");
+    ported_backend(undefined).print_pass_timings();
   }
   print_statistics(): void {
-    unported("rustc_codegen_llvm::LlvmCodegenBackend::print_statistics (-Z print-codegen-stats)");
+    ported_backend(undefined).print_statistics();
   }
   print_statistics_json(): string {
-    return unported("rustc_codegen_llvm::LlvmCodegenBackend::print_statistics_json (-Z print-codegen-stats-json)");
+    return ported_backend(undefined).print_statistics_json();
   }
   link(sess: Session, compiled_modules: CompiledModules, crate_info: CrateInfo, metadata: EncodedMetadata, outputs: OutputFilenames): void {
+    // PORT (decision 2026-11-14, cg-register): `Linker::link` calls `link` on every compile, a check-only one too (rustc_interface
+    // queries.rs:49, with the empty `CompiledModules` `start_codegen` made), and that must not load the port or init the model.
+    // So `link` forwards only once `codegen_crate` has. Otherwise it is back/llvm_backend.rs:397's body as before, with the
+    // stand-in's `LlvmArchiveBuilderBuilder` (the port's back/archive.ts builder is the same `link_binary` call's other argument).
+    if (PORTED_BACKEND !== undefined) {
+      ported_backend(sess.early_sess).link(sess, compiled_modules, crate_info, metadata, outputs);
+      return;
+    }
     // use rustc_codegen_ssa::back::link::link_binary;
     //
     // use crate::back::archive::LlvmArchiveBuilderBuilder;
@@ -300,6 +293,63 @@ export class LlvmCodegenBackend implements CodegenBackend {
     // This should produce either a finished executable or library.
     link_binary(sess, LlvmArchiveBuilderBuilder, compiled_modules, crate_info, metadata, outputs, this.name());
   }
+}
+
+/** The ported backend, once loaded (`ported_backend`). */
+let PORTED_BACKEND: PortedLlvmCodegenBackend | undefined;
+/** Whether `ported_backend` has run the model's LLVM init. */
+let PORTED_LLVM_INITED = false;
+
+/**
+ * PORT (decision 2026-11-14, wave 40q cg-register; plan-m7 D14): the ported `LlvmCodegenBackend`, which this stand-in forwards
+ * codegen to. `require`d on first use, so a compile that never reaches `codegen_crate` (every `--emit=metadata` and check run)
+ * loads neither rustc_codegen_llvm nor the IR model. Upstream inits LLVM in `CodegenBackend::init` (llvm_backend.rs:180,
+ * `llvm_util::init(sess)`), which stays the stand-in's, as `target_config` does (oracle tables, D4); so the model's
+ * `llvm_util::init` runs here instead, once, at the first forward that has a session. It is idempotent anyway (`INIT`). The port's
+ * own `init` is not called: its `global_llvm_features` would emit `-Ctarget-feature` warnings a second time, and its other
+ * values are the stand-in's, already in the session. The statistics forwards (no session: `print_pass_timings` and the others are
+ * only reached after `join_codegen`) only load the backend.
+ * The model's init therefore runs just before the CPU checks (base.rs:723-733), where upstream runs it before everything. No
+ * output changes (`configure_llvm` prints nothing on a path the port reaches); only the order of stops can: a compile that
+ * upstream fails with `CpuRequired` stops in the model first when its init stops (review cg-register N2; no protected case).
+ */
+function ported_backend(sess: EarlySession | undefined): PortedLlvmCodegenBackend {
+  if (PORTED_BACKEND === undefined) {
+    // Through the crate root, which attaches the extension methods (PORTING section 8) and re-exports the backend.
+    const m = require("../rustc_codegen_llvm/lib.ts") as typeof import("../rustc_codegen_llvm/lib.ts");
+    PORTED_BACKEND = new m.LlvmCodegenBackend();
+  }
+  if (sess !== undefined && !PORTED_LLVM_INITED) {
+    const llvm_util = require("../rustc_codegen_llvm/llvm_util.ts") as typeof import("../rustc_codegen_llvm/llvm_util.ts");
+    llvm_util.init(sess); // Make sure llvm is inited
+    PORTED_LLVM_INITED = true;
+  }
+  return PORTED_BACKEND;
+}
+
+/**
+ * Not upstream: the head of the LLVM backend's `codegen_crate`, as this stand-in ran it before it forwarded (lane mono-wire), for
+ * scripts/mono-run.ts (`mono-ui`'s subject), which stops after mono collection. That is back/llvm_backend.rs:336's offload check,
+ * which stops (plan-m7 D18), then rustc_codegen_ssa base.rs:723-739: the CPU checks, then the collector and partitioner, which
+ * print `-Zprint-mono-items` and write `-Zdump-mono-stats`. The ported `codegen_crate` (back/llvm_backend.ts) runs the same lines itself.
+ */
+export function mono_collection_head(tcx: TyCtxt): void {
+  const offload = tcx.sess.opts.unstable_opts.offload;
+  if (offload.some((o) => o.$ === "Device") || offload.some((o) => o.$ === "Host")) return unported("rustc_codegen_llvm::LlvmCodegenBackend::codegen_crate (-Zoffload; plan-m7 D18)");
+  if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
+    // The target has no default cpu, but none is set explicitly
+    tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));
+  }
+
+  const target_cpu = tcx.sess.opts.cg.target_cpu;
+  if (target_cpu !== undefined && tcx.sess.target.unsupported_cpus.includes(target_cpu)) {
+    // The target cpu is explicitly listed as an unsupported cpu
+    tcx.dcx().emit_fatal(CpuUnsupported_diagnostic({ target_cpu }));
+  }
+
+  // Run the monomorphization collector and partition the collected items into
+  // codegen units.
+  tcx.collect_and_partition_mono_items(null);
 }
 
 /** PORT: build constant of the oracle (its bundled LLVM), like `CFG_VERSION`; see `LlvmCodegenBackend`. */
@@ -705,7 +755,8 @@ function llvm_util_target_cpu(sess: EarlySession): string {
 
 /** PORT: `rustc_codegen_llvm::back::archive::LlvmArchiveBuilderBuilder` (M7): opaque, see `ArchiveBuilderBuilder`. */
 const LlvmArchiveBuilderBuilder: ArchiveBuilderBuilder = {
-  // PORT: rustc_codegen_llvm's builder (`ArArchiveBuilder` over LLVM's object reader): not reached, `codegen_crate` stops first (M7).
+  // PORT: rustc_codegen_llvm's builder (`ArArchiveBuilder` over LLVM's object reader): used only by a `link` that codegen did
+  // not reach (a check-only compile), which writes no archive; after codegen, `link` forwards to the port and its builder.
   new_archive_builder() {
     return unported("rustc_codegen_llvm::back::archive::LlvmArchiveBuilderBuilder::new_archive_builder (M7)");
   },

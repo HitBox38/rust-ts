@@ -13,6 +13,7 @@ import { TyAndLayout as TyAndLayout_ } from "../rustc_abi/layout/ty.ts";
 import "../rustc_target/lib.ts";
 import { FnAbi } from "../rustc_target/callconv/mod.ts";
 import { printValueToString } from "../rust_ts/llvm/printer.ts";
+import { llvm_cl_args, with_fresh_llvm_options_for_tests } from "../rust_ts/llvm/target.ts";
 import { Unported } from "../std/panic.ts";
 import { compiler_entrypoint } from "../rustc_driver_impl/lib.ts";
 import { type Config, run_compiler } from "../rustc_interface/interface.ts";
@@ -122,7 +123,8 @@ describe("stub counts per lane", () => {
   // Every `unported("<lane>: ...")` in the crate's sources, by lane: trait methods, the cross-lane surface (review F2) and the
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
-    "cg-asm": 4,
+    // cg-register (wave 40q) ported `inline_asm_call` (asm.rs:536), which `black_box` reaches in every std program.
+    "cg-asm": 3,
     // 21 cg-contract left; cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs (`build_global_var_di_node`,
     // `apply_vcall_visibility_metadata`, `create_vtable_di_node`). Left: the 9 metadata.rs fns that debuginfo/mod.rs and those
     // three call past their `-g` checks (wave 44, plan-m7 D9).
@@ -354,23 +356,19 @@ describe("LlvmCodegenBackend", () => {
     const b = new LlvmCodegenBackend();
     // llvm_util.rs init, ported (cg-write), called by the driver on its early session. Since llir-init (root at integ-w56),
     // `configure_llvm` runs through the IR model's init, `initialize_available_targets` and `LLVMRustSetLLVMOptions`. With `CI`
-    // set (as the gate's unit step sets it, scripts/lib/unit-steps.ts), it first calls `LLVMRustDisableSystemDialogsOnCrash`,
-    // still the model's stop (its LLVM source is not pinned yet): then `init` stops there and LLVM stays uninitialised;
-    // without `CI`, `init` completes. Each branch checks its own outcome (a test may not read `CI` by name).
-    let stop: string | undefined;
-    try {
+    // set (the gate's unit step sets it, scripts/lib/unit-steps.ts) it also calls `LLVMRustDisableSystemDialogsOnCrash`, a no-op
+    // on Unix since fixers-57 (Signals.inc:991), so `init` completes either way (review root-w56-check 1). The options are set on
+    // fresh ones and put back after, as LLVM's are process-wide (target.ts `with_fresh_llvm_options_for_tests`).
+    const args = with_fresh_llvm_options_for_tests(() => {
       drive_init(b);
-    } catch (e) {
-      if (!(e instanceof Unported)) throw e;
-      stop = e.what;
-    }
-    if (stop !== undefined) {
-      expect(stop).toBe("llir: LLVMRustDisableSystemDialogsOnCrash");
-      // llvm_util.rs print, ported (cg-write): `require_inited` is a `bug!` before `init` has run to completion.
-      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).toThrow(/LLVM is not initialized/);
-    } else {
-      expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
-    }
+      return llvm_cl_args();
+    });
+    // `configure_llvm` returned through `LLVMRustSetLLVMOptions`, its last call: these two are added unconditionally
+    // (llvm_util.rs:136, :139). Then `require_inited` passes, which needs `INIT` completed (review root-w56-check 2): `print`
+    // throws past it on the `undefined` session, but not "LLVM is not initialized".
+    expect(args).toContain("-preserve-alignment-assumptions-during-inlining=false");
+    expect(args).toContain("-import-cold-multiplier=0.1");
+    expect(() => b.print({ kind: "TargetCPUs" } as never, { value: "" }, undefined as never)).not.toThrow(/LLVM is not initialized/);
     stops(() => b.has_zstd(), /^llir: LLVMRustLLVMHasZstdCompression$/);
   });
 });

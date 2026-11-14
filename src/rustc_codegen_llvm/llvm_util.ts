@@ -6,8 +6,10 @@
 //
 // The LLVM calls go to the IR model (src/rust_ts/llvm/ffi.ts) under their ffi.rs names. Those the model has no answer for are
 // its stops (an `unported` naming `llir: <fn>`; llir-init implemented the init, error-handler, options and subtarget ones):
-// `LLVMRustTimeTraceProfiler*`, `LLVMRustPrintPasses`, `LLVMRustGetTargetFeature*`, `LLVMRustPrintTargetCPUs`, `LLVMRustGetHostCPUName`,
-// `LLVMGetHostCPUFeatures`, `LLVMRustTargetHasMnemonic` (docs/handoff/cg-write.md lists them).
+// `LLVMRustTimeTraceProfiler*`, `LLVMRustPrintPasses`, `LLVMRustGetTargetFeature*`, `LLVMRustPrintTargetCPUs`,
+// `LLVMRustGetHostCPUName`, `LLVMGetHostCPUFeatures` and the `LLVMDisposeMessage` after it, `LLVMRustTargetHasMnemonic`
+// (docs/handoff/cg-write.md lists them). `LLVMRustDisableSystemDialogsOnCrash`, which `configure_llvm` calls when `CI` is set, is
+// a no-op on a Unix host and stops by name only on a Windows host (fixers-57; review root-w56-check 4).
 import { type Endian } from "../rustc_abi/lib.ts";
 import { versioned_llvm_target } from "../rustc_codegen_ssa/back/mod.ts";
 import { wants_wasm_eh } from "../rustc_codegen_ssa/base.ts";
@@ -401,7 +403,8 @@ export function target_config(sess: EarlySession): TargetConfig {
   // PORT: the `SmallCStr`s are the text, and `SmallCStr::new`'s interior-NUL panic ("The string \"..\" cannot be converted into a
   // CStr: ..") is dropped: a NUL cannot come from argv itself (`-C target-cpu`), but it can from an `@argfile` line
   // (rustc_driver_impl/src/args.rs:26-27 reads the file and splits it with `lines()`, which keeps a U+0000, so
-  // `-Ctarget-cpu=a<NUL>b` reaches here) or from a target-spec JSON's `\u0000`, and no suite has either. The same drop as `target_machine_factory`'s (back/write.ts) and `create_module`'s (context.ts).
+  // `-Ctarget-cpu=a<NUL>b` reaches here) or from a target-spec JSON's `\u0000`, and no suite has either. The same drop as
+  // `target_machine_factory`'s (back/write.ts) and `create_module`'s (context.ts).
   const triple = versioned_llvm_target(sess);
   const cpu = target_cpu(sess);
   const features = cstring_new_unwrap(target_features.join(","));

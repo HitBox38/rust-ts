@@ -297,9 +297,10 @@ for the intrinsic table.
 - **N4** `skeleton.test.ts`:
   - The test drives `LlvmCodegenBackend::init` again, through the port's driver: `Config::make_codegen_backend` hands
     `run_compiler` the backend, and the driver calls `init(early_sess)`.
-  - It asserts the stop `llir: rustc_llvm::initialize_available_targets`, or `LLVMRustDisableSystemDialogsOnCrash` if `CI` is
+  - It asserted the stop `llir: rustc_llvm::initialize_available_targets`, or `LLVMRustDisableSystemDialogsOnCrash` if `CI` is
     set.
-  - Once root makes the `llvm_util.ts` one-liner, this expectation moves to the next stop.
+  - Since root's integ-w56 wiring and fixers-57 (a no-op `LLVMRustDisableSystemDialogsOnCrash` on Unix), `init` completes with
+    or without `CI`, and the test asserts that (review root-w56-check 1, 4).
 - **N5** The repeated-option stop's reason is corrected (PORT 2). It is still a stop.
 - **N6 (optional, done)** The target machines copy `TargetOptions` with its `MCOptions`.
 - **N7** Every libLLVM test calls `libLLVM()` first. Without the toolchain under `RUST_TS_REQUIRE_PROBES=1`, each fails with one

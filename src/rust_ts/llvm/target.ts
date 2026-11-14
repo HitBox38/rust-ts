@@ -20,7 +20,7 @@
 //   `codegen::InitTargetOptionsFromCodeGenFlags` is not modelled (its flags are LLVM `cl::opt`s, none of which the model accepts,
 //   so they keep their defaults). The effective relocation and code models (`getEffectiveRelocModel`, ...) are not computed:
 //   nothing in the model reads them, and `llc` derives them from the same arguments.
-import { write_stderr } from "../../std/io.ts";
+import { stderr_write_all } from "../../std/io.ts";
 import { assert, unported } from "../../std/panic.ts";
 import { LLVMRustSetLastError, NORMAL_TRIPLES } from "./core.ts";
 import type { CodeGenOptLevel, CodeModel, CompressionKind, FloatAbi, RelocModel } from "./ffi_types.ts";
@@ -70,10 +70,14 @@ function install_out_of_memory_new_handler(): void {
   ERROR_HANDLERS.newHandlerInstalled = true;
 }
 
-/** Writes `s` to file descriptor 2 as bytes, through `std/io.ts`'s `write_stderr` (never `process.stderr`, which makes a pipe
- *  non-blocking; root at integ-w56, the io.test.ts guard). */
+const utf8 = new TextEncoder();
+
+/** Writes `s` to file descriptor 2 as UTF-8 bytes and ignores a failed write, as the handlers' `std::cerr` and `(void)!::write(2,
+ *  ...)` do and `report_fatal_error`'s `write_retry` does. It goes through `std/io.ts`'s `stderr_write_all` (never
+ *  `process.stderr`, which makes a pipe non-blocking; root at integ-w56, the io.test.ts guard), not `write_stderr`: those C++
+ *  writes bypass Rust's `OUTPUT_CAPTURE`, and `write_stderr` would panic on a failed write (review root-w56-recheck nits 1-2). */
 function writeStderr(s: string): void {
-  write_stderr(s);
+  void stderr_write_all(utf8.encode(s));
 }
 
 // Custom error handler for fatal LLVM errors.
@@ -92,6 +96,14 @@ function FatalErrorHandler(UserData: unknown, Reason: string, GenCrashDiag: bool
   // Since this error handler exits the process, we have to run any cleanup that
   // LLVM would run after handling the error. This might change with an LLVM
   // upgrade.
+  //
+  // In practice, this will do nothing, because the only cleanup LLVM does is
+  // to remove all files that were registered with it via a frontend calling
+  // one of the `createOutputFile` family of functions in LLVM and passing true
+  // to RemoveFileOnSignal, something that rustc does not do. However, it would
+  // be... inadvisable to suddenly stop running these handlers, if LLVM gets
+  // "interesting" ideas in the future about what cleanup should be done.
+  // We might even find it useful for generating less artifacts.
   // sys::RunInterruptHandlers();  (the model registers no file for removal on a signal, as rustc does not)
 
   process.exit(101);
@@ -116,6 +128,19 @@ export function LLVMRustInstallErrorHandlers(): void {
   install_bad_alloc_error_handler(BadAllocErrorHandler);
   install_fatal_error_handler(FatalErrorHandler);
   install_out_of_memory_new_handler();
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:130 LLVMRustDisableSystemDialogsOnCrash
+export function LLVMRustDisableSystemDialogsOnCrash(): void {
+  DisableSystemDialogsOnCrash();
+}
+
+/** `llvm::sys::DisableSystemDialogsOnCrash()`, defined by the host's `Signals.inc`. */
+// llvm: llvm/lib/Support/Unix/Signals.inc:991 DisableSystemDialogsOnCrash
+function DisableSystemDialogsOnCrash(): void {
+  // PORT: Unix/Signals.inc's definition is empty, so nothing is done on a Unix host. A Windows host uses
+  // Windows/Signals.inc's, which is not pinned, so it stops by name (fixers-57, review root-w56-check 1).
+  if (process.platform === "win32") unported("llir: sys::DisableSystemDialogsOnCrash on a Windows host (llvm/lib/Support/Windows/Signals.inc is not pinned)");
 }
 
 /** `report_fatal_error(const Twine &Reason, bool GenCrashDiag = true)`: for model code that reaches one of LLVM's fatal errors. */
@@ -172,12 +197,19 @@ export function llvm_cl_args(): readonly string[] {
   return CL_ARGS;
 }
 
-/** Tests only, not upstream: forget the first `LLVMRustSetLLVMOptions` call. LLVM's options are process-wide, and one
- *  `bun test` process runs every test file, so a test that drives `init` would otherwise fix them for the rest (root at
- *  integ-w56). */
-export function reset_llvm_options_for_tests(): void {
+/** Tests only, not upstream: runs `f` as if `LLVMRustSetLLVMOptions` had never been called, then puts the options back as they
+ *  were. LLVM's options are process-wide, and one `bun test` process runs every test file, so a test that sets them would
+ *  otherwise fix them for every later file, and `opt`/`llc` runs there would get them (root at integ-w56; review
+ *  root-w56-check 3, fixers-57). */
+export function with_fresh_llvm_options_for_tests<T>(f: () => T): T {
+  const saved: [boolean, readonly string[]] = [Initialized, CL_ARGS];
   Initialized = false;
   CL_ARGS = [];
+  try {
+    return f();
+  } finally {
+    [Initialized, CL_ARGS] = saved;
+  }
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:440 LLVMRustSetLLVMOptions
