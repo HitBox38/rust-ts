@@ -1,0 +1,7 @@
+{
+  global:
+    exp_c;
+
+  local:
+    *;
+};

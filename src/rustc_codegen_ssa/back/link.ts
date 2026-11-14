@@ -138,9 +138,7 @@ function eii_impl_crate_name(crate_info: CrateInfo, cnum: CrateNum): Symbol {
   if (cnum === LOCAL_CRATE) {
     return crate_info.local_crate_name;
   } else {
-    const name = crate_info.crate_name.get(cnum);
-    if (name === undefined) return bug("CrateInfo::crate_name: no entry for the crate");
-    return name;
+    return crate_info_crate_name(crate_info, cnum);
   }
 }
 
@@ -3980,7 +3978,8 @@ function add_lld_args(cmd: Linker, sess: Session, flavor: LinkerFlavor, self_con
     let linker_path_exists = false;
     for (const path of xlane.get_tools_search_paths(sess, false)) {
       const linker_path = path_join(path, "gcc-ld");
-      linker_path_exists ||= path_exists(linker_path);
+      // `|=`: every path is checked, as upstream does (no short circuit).
+      linker_path_exists = path_exists(linker_path) || linker_path_exists;
       cmd.cc_arg(`-B${linker_path}`);
     }
     if (!linker_path_exists) {

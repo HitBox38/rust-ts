@@ -2,13 +2,17 @@
 //
 // PORT:
 // - `create_dll_import_lib` is a provided method of `ArchiveBuilderBuilder` (back/archive.ts `ArchiveBuilderBuilder_provided`,
-//   receiver first), reached through link.ts's `xlane` table so tests can replace it.
+//   receiver first), called directly. (link.ts's `xlane` table wraps `create_raw_dylib_dll_import_libs`, not this method. An
+//   implementor's override, such as the dummy backend's, is not dispatched to: see docs/handoff/ssa-link-b.md, review N2.)
 // - `create_elf_raw_dylib_stub` uses `object::write::elf::Writer`'s dynamic-symbol, GNU-version and `.dynamic` writers, which
 //   the vendored object (write/elf/writer.ts) does not have yet. The function is ported against `ElfStubWriter` (the methods it
 //   calls, as upstream names them) and getting the writer stops by name, so only that stand-in changes when the vendor grows.
+//   The stand-in is reached through `vendor_object`, so tests can give a writer and check what is built around it.
 //   It is reached only with `#[link(kind = "raw-dylib")]` on an ELF target.
 // - `FxIndexMap`s are `Map`s (insertion-ordered); `FxHashMap` is a `Map` that is only looked up.
 import { closeSync, openSync, writeSync } from "node:fs";
+// Load order: rustc_target through its crate root first (spec/mod.ts and spec/json.ts import each other; as back/link.ts).
+import "../../../rustc_target/lib.ts";
 import { CASE_INSENSITIVE, ToBaseN_u128, to_base_fixed_len } from "../../../rustc_data_structures/base_n.ts";
 import { StableHasher } from "../../../rustc_data_structures/stable_hash.ts";
 import { Hash128 } from "../../../rustc_hashes/lib.ts";
@@ -180,7 +184,7 @@ export function create_raw_dylib_elf_stub_shared_objects(sess: Session, used_lib
     }
 
     const library_filename: Hash128 = file_name_hasher.finish(Hash128);
-    const temporary_lib_name = `${sess.target.options.dll_prefix}${to_base_fixed_len(Hash128.as_u128(library_filename), CASE_INSENSITIVE, ToBaseN_u128)}${sess.target.options.dll_suffix}`;
+    const temporary_lib_name = `${sess.target.options.dll_prefix}${to_base_fixed_len(Hash128.as_u128(library_filename), CASE_INSENSITIVE, ToBaseN_u128).as_str()}${sess.target.options.dll_suffix}`;
     const link_path = path_join(raw_dylib_so_dir, temporary_lib_name);
 
     // let file = match fs::File::create_new(&link_path) { .. };
@@ -236,7 +240,7 @@ function create_elf_raw_dylib_stub(sess: Session, soname: string, symbols: reado
     return sess.dcx().fatal(`raw-dylib is not supported for the architecture \`${Arch.desc(sess.target.arch)}\``);
   }
 
-  const stub = new_elf_stub_writer(endianness, is_64, stub_buf);
+  const stub = vendor_object.new_elf_stub_writer(endianness, is_64, stub_buf);
 
   const vers: [string, StringId][] = [];
   const vers_map = new Map<string, number>();
@@ -574,7 +578,7 @@ interface WriteVerdef {
 }
 
 /** The methods of `object::write::elf::Writer` that `create_elf_raw_dylib_stub` calls (see the header). */
-interface ElfStubWriter {
+export interface ElfStubWriter {
   add_dynamic_string(name: Uint8Array): StringId;
   reserve_null_dynamic_symbol_index(): void;
   reserve_dynamic_symbol_index(): void;
@@ -616,10 +620,13 @@ interface ElfStubWriter {
   write_dynamic(tag: number, val: number): { $: "Ok" } | { $: "Err"; _0: string };
 }
 
-/** `write::Writer::new(endianness, is_64, &mut stub_buf)`: see the header. */
-function new_elf_stub_writer(_endian: Endianness, _is_64: boolean, _buffer: number[]): ElfStubWriter {
-  return unported("object::write::elf::Writer (dynamic symbols, GNU versions and .dynamic: vendor object; raw-dylib on ELF)");
-}
+/** The vendored object's pieces this file needs and does not have yet (see the header); tests can replace them. */
+export const vendor_object = {
+  /** `write::Writer::new(endianness, is_64, &mut stub_buf)`. */
+  new_elf_stub_writer(_endian: Endianness, _is_64: boolean, _buffer: number[]): ElfStubWriter {
+    return unported("object::write::elf::Writer (dynamic symbols, GNU versions and .dynamic: vendor object; raw-dylib on ELF)");
+  },
+};
 
 /** `.unwrap()` of the writer's `Result<()>` (`object::write::Error(String)`, derived `Debug`). */
 function unwrap_write(r: { $: "Ok" } | { $: "Err"; _0: string }): void {
