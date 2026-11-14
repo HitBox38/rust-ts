@@ -59,6 +59,21 @@ function rust_ts_data(): string | undefined {
 
 let SYSROOT: string | undefined;
 /**
+ * The environment of the oracle's `--print sysroot`: only what rustup needs to find the pinned toolchain (`PATH`, `HOME`,
+ * `RUSTUP_HOME`, `CARGO_HOME`), and never installing anything. PORT (root at integ-w58): the compile's own environment must not
+ * reach the oracle here, or a variable rustc reads at session start (`MACOSX_DEPLOYMENT_TARGET=abc` in
+ * codegen_backend.oracle.test.ts) fails this spawn instead of the compile.
+ */
+function oracle_sysroot_env(): Record<string, string> {
+  const env: Record<string, string> = { RUSTUP_AUTO_INSTALL: "0" };
+  for (const k of ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"]) {
+    const v = process.env[k];
+    if (v !== undefined) env[k] = v;
+  }
+  return env;
+}
+
+/**
  * The oracle toolchain's sysroot: `rustc +<UPSTREAM.json rust.toolchain> --print sysroot`, never installing anything
  * (`RUSTUP_AUTO_INSTALL=0`), once per process.
  * PORT: rustc's LLVM is the library it is linked with; the port's is the toolchain the harness pins (plan-m7 D1), found the
@@ -67,7 +82,7 @@ let SYSROOT: string | undefined;
 export function oracle_sysroot(): string {
   if (SYSROOT !== undefined) return SYSROOT;
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { toolchain: string } };
-  const r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], { env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" }, stdout: "pipe", stderr: "pipe" });
+  const r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], { env: oracle_sysroot_env(), stdout: "pipe", stderr: "pipe" });
   if (r.exitCode !== 0) panic(`llir: cannot find the pinned LLVM tools: rustc +${pin.rust.toolchain} --print sysroot failed: ${firstLine(r.stderr.toString())}`);
   return (SYSROOT = r.stdout.toString().trim());
 }

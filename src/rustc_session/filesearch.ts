@@ -167,6 +167,21 @@ let DEFAULT_SYSROOT: PathBuf | undefined;
 // not ported (no marker; filesearch.rs:279 default_sysroot, :280 default_from_rustc_driver_dll,
 // :323 from_env_args_next): see the PORT below.
 /**
+ * The environment of the oracle's `--print sysroot`: only what rustup needs to find the pinned toolchain (`PATH`, `HOME`,
+ * `RUSTUP_HOME`, `CARGO_HOME`), and never installing anything. PORT (root at integ-w58): the compile's own environment must not
+ * reach the oracle here, or a variable rustc reads at session start (`MACOSX_DEPLOYMENT_TARGET=abc` in
+ * codegen_backend.oracle.test.ts) fails this spawn instead of the compile.
+ */
+function oracle_sysroot_env(): Record<string, string> {
+  const env: Record<string, string> = { RUSTUP_AUTO_INSTALL: "0" };
+  for (const k of ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"]) {
+    const v = process.env[k];
+    if (v !== undefined) env[k] = v;
+  }
+  return env;
+}
+
+/**
  * PORT (decision 2026-11-14, wave 40q, docs/reviews/ssa-linker.md §2): the default sysroot is the pinned oracle toolchain's
  * sysroot, the exact string `rustc +<UPSTREAM.json rust.toolchain> --print sysroot` prints, found the way
  * rust_ts/llvm/tools.ts `oracle_sysroot` finds the pinned toolchain: one spawn that never installs anything
@@ -192,7 +207,7 @@ export function default_sysroot(): PathBuf {
   let r: { exitCode: number | null; stdout: Buffer; stderr: Buffer };
   try {
     r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], {
-      env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" },
+      env: oracle_sysroot_env(),
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
