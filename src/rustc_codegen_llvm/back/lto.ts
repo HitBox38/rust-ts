@@ -783,16 +783,24 @@ export function optimize_and_codegen_thin_module(
     //   imported, so nothing needs promoting. It also clears `dso_local` on declarations for ELF PIC modules with the
     //   default PIE level, and sets it where the index proves a local definition: both only choose between direct and
     //   GOT access to a symbol that resolves the same way;
-    // - resolve-weak (`thinLTOFinalizeInModule`): picks one prevailing copy of each linkonce/weak symbol defined in several
-    //   CGUs (`weak_odr`) and drops the others (`available_externally`), and propagates function attributes from the
-    //   index. Without it every CGU keeps its `linkonce_odr` copy and the linker keeps one, as in a multi-CGU build
-    //   without LTO;
+    // - resolve-weak (`thinLTOResolvePrevailingGUID` in the index, then `thinLTOFinalizeInModule`): makes every prevailing
+    //   linkonce definition weak, single copies included (`isPrevailing` is true for a GUID with one summary; `PrevailingCopy`
+    //   is filled only for those with several), gives a `linkonce_odr` that `canAutoHide` hidden visibility, turns the
+    //   other copies `available_externally`, and re-applies function attributes from the index (a no-op: rustc's thin link
+    //   never runs `thinLTOPropagateFunctionAttrs`). Without it every CGU keeps its `linkonce_odr` copy and the linker keeps
+    //   one, as in a multi-CGU build without LTO; the post-link GlobalDCE may also drop an unreferenced `linkonce_odr` that
+    //   upstream keeps as a hidden `weak_odr`, which no run can observe (review cg-lto-diag N1);
     // - internalize (`thinLTOInternalizeModule`): makes symbols that are dead from the preserved roots internal (the index
     //   marks only those; "everything that's already external linkage will stay as external"). Without it they stay
     //   external: emitted and visible to the linker, but unreachable;
     // - import: copies small functions from other CGUs for inlining. Skipping it is the D8 difference: less cross-CGU
     //   inlining.
     // `-Clto=thin` never gets here: `thin_lto` stops first.
+    // Why no link can fail: at `-O` with several CGUs and `-Clto=off`, a configuration upstream supports, `sess.lto()` is
+    // `Lto::No` and none of these steps runs, so rustc's partitioning never relies on them to make a crate link. The no-op is
+    // that configuration with the thin pass pipelines, which add no cross-module references; it only keeps more (dead symbols
+    // external, duplicate linkonce copies for the linker to coalesce), and keeping more cannot leave a symbol undefined
+    // (review cg-lto-diag §3 and N1).
     const thin_local_no_op = cgcx.lto === "ThinLocal";
     {
       const _timer = generic_activity_with_arg(prof, "LLVM_thin_lto_rename", thin_module.name());
@@ -962,9 +970,10 @@ function cstring_new_unwrap(s: string): string {
   return s;
 }
 
-/** `Ord for CStr` (and `String`): byte order. */
+/** `Ord for CStr` (and `String`): byte order. Node's `Buffer.compare`, named through `globalThis`: this file's `Buffer` type is
+ *  `llvm::Buffer` (review cg-lto-diag N5). */
 function cmp_cstr(a: string, b: string): number {
-  return Buffer.compare(utf8(a), utf8(b));
+  return globalThis.Buffer.compare(utf8(a), utf8(b));
 }
 
 /** `<CStr as Debug>`: `"` + the bytes' `escape_ascii()` + `"`. */

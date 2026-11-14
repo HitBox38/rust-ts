@@ -61,7 +61,9 @@ export function get_or_insert_gdb_debug_scripts_section_global(cx: CodegenCx): V
     section_contents.push(...utf8("\x04"));
     const vis_name = `pretty-printer-${Symbol.as_str(crate_name)}-${index}\n`;
     section_contents.push(...utf8(vis_name));
-    section_contents.push(...visualizer.src);
+    // PORT: `extend_from_slice(&visualizer.src)` by a loop: a spread passes every byte as a call argument, which overflows the
+    // stack for a script of about 1 MB (review cg-di-a N6).
+    for (const b of visualizer.src) section_contents.push(b);
 
     // The final byte `0` tells GDB that the pretty printer has been
     // fully defined and can continue searching for additional

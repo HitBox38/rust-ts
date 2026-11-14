@@ -7,12 +7,15 @@
 // reached (no `LLVMRustCreateThinLTOData` under the no-op). `optimize_and_codegen_thin` records the `ThinModule` it gets: the
 // real one parses the module back into the IR model (`LLVMRustParseBitcodeForLTO`, an IR-model call: docs/handoff/cg-lto-diag.md).
 //
+// One test runs the real `optimize_and_codegen_thin_module` on a module of the IR model, with `codegen` replaced (review
+// cg-lto-diag N4).
+//
 // Where the expected order comes from: back/write.rs at the pin, evaluated by hand for two CGUs at -O (the derivation is
 // next to the test).
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { oracleSysroot } from "../../../scripts/lib/oracle.ts";
-import type { ThinModule } from "../../rustc_codegen_ssa/back/lto.ts";
-import { type CodegenContext, type ModuleConfig, ModuleConfig as ModuleConfigC, start_async_codegen, submit_codegened_module_to_llvm, type ThinLtoInput } from "../../rustc_codegen_ssa/back/write.ts";
+import { ThinModule } from "../../rustc_codegen_ssa/back/lto.ts";
+import { type CodegenContext, type ModuleConfig, ModuleConfig as ModuleConfigC, SharedEmitter, start_async_codegen, submit_codegened_module_to_llvm, type ThinLtoInput } from "../../rustc_codegen_ssa/back/write.ts";
 import { type CompiledModule, type CrateInfo, ModuleCodegen } from "../../rustc_codegen_ssa/lib.ts";
 import type { WriteBackendMethods, WriteBackendTypes } from "../../rustc_codegen_ssa/traits/write.ts";
 import { compiler_entrypoint } from "../../rustc_driver_impl/lib.ts";
@@ -24,10 +27,16 @@ import type { OutputFilenames } from "../../rustc_session/config.ts";
 import type { Session } from "../../rustc_session/session.ts";
 import type { SelfProfilerRef } from "../../rustc_session/stand_ins.ts";
 import type { CrateType } from "../../rustc_structures/crate_type.ts";
+import * as ffi from "../../rust_ts/llvm/ffi.ts";
+import { initialize_available_targets } from "../../rust_ts/llvm/target.ts";
+import { module_text, pinned_tool, set_module_text } from "../../rust_ts/llvm/tools.ts";
 import { Unported } from "../../std/panic.ts";
 import { CURRENT_THREAD } from "../../std/panicking.ts";
 import type { LlvmWriteTypes } from "./llvm_backend.ts";
-import { run_thin, ThinData } from "./lto.ts";
+import * as llvm from "../llvm/mod.ts";
+import * as lto from "./lto.ts";
+import { ModuleBuffer, optimize_and_codegen_thin_module, run_thin, ThinData } from "./lto.ts";
+import * as write from "./write.ts";
 
 // ---- sessions (as ssa-write's test) ----------------------------------------------------------------------------------------
 
@@ -73,6 +82,19 @@ function mock_tcx(sess: Session, crate_types: CrateType[], outputs: OutputFilena
     dependency_formats: () => new Map(),
   } as unknown as TyCtxt;
 }
+
+/** The pinned opt on aarch64 macOS, for the test that runs the thin pass manager (as tools.test.ts). */
+const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
+const HAVE_OPT = (() => {
+  if (process.platform !== "darwin" || process.arch !== "arm64") return false;
+  try {
+    pinned_tool("opt");
+    return true;
+  } catch {
+    return false;
+  }
+})();
+if (!HAVE_OPT && !REQUIRE) console.log("SKIP: the pinned opt on aarch64 macOS is unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure");
 
 const X86 = ["--target", "x86_64-unknown-linux-gnu"];
 const CGU0 = "cgus.a762f592f3f797ae-cgu.0";
@@ -205,6 +227,65 @@ describe("ThinLocal (plan-m7 D8): -O with two CGUs, through the coordinator over
     expect(shared.module_names).toEqual([CGU1, CGU0]);
     expect(thins.map((t) => new TextDecoder().decode(t.data()))).toEqual([`bitcode of ${CGU1}`, `bitcode of ${CGU0}`]);
     expect(CURRENT_THREAD.name).toBe("main");
+  });
+
+  // Review cg-lto-diag N4: the real `optimize_and_codegen_thin_module` (lto.rs:700) under ThinLocal parses the thin buffer back
+  // into the IR model, skips the four `LLVMRustPrepareThinLTO*` steps (each a model stub, so a call would stop), and reaches
+  // `run_pass_manager(.., thin = true)`, which runs opt's thin post-link pipeline. `codegen` (llc and the output files) is
+  // replaced by a recorder. The control gives the same module an index: then the first step is reached, and stops.
+  test.skipIf(!HAVE_OPT && !REQUIRE)("optimize_and_codegen_thin_module under ThinLocal skips the LLVMRustPrepareThinLTO* steps and runs the thin pass manager", () => {
+    const backend = new ThinLocalBackend([]);
+    with_sess([...X86, "-Copt-level=2", "-Ccodegen-units=2", "--emit=obj", "--out-dir", "out"], (sess) => {
+      const tcx = mock_tcx(sess, ["Executable"], build_output_filenames([], sess));
+      drive(sess, tcx, backend, [
+        [CGU1, 7],
+        [CGU0, 3],
+      ]);
+      const cgcx = backend.cgcx!;
+      expect(cgcx.lto).toBe("ThinLocal");
+      // llvm_util.rs init's `initialize_available_targets`, which the target machine factory needs.
+      initialize_available_targets();
+      const M = ffi.LLVMModuleCreateWithNameInContext(CGU0, ffi.LLVMContextCreate());
+      set_module_text(M, `target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"\ntarget triple = "x86_64-unknown-linux-gnu"\n\ndefine i32 @f(i32 %x) {\n  %a = add i32 %x, 1\n  %b = add i32 %a, 1\n  ret i32 %b\n}\n`);
+      const shared = (data: ThinData): ThinModule<LlvmWriteTypes> => new ThinModule<LlvmWriteTypes>({ data, modules: [{ $: "Local", _0: ModuleBuffer.new(M, true) }], module_names: [CGU0] }, 0);
+      const prepare = ["LLVMRustPrepareThinLTORename", "LLVMRustPrepareThinLTOResolveWeak", "LLVMRustPrepareThinLTOInternalize", "LLVMRustPrepareThinLTOImport"] as const;
+      const passes: [boolean, string][] = [];
+      const rpm = spyOn(lto, "run_pass_manager").mockImplementation((cgcx_, prof, dcx, module, thin) => {
+        rpm.mockRestore();
+        try {
+          lto.run_pass_manager(cgcx_, prof, dcx, module, thin);
+        } finally {
+          passes.push([thin, module_text(module.module_llvm.llmod())]);
+        }
+      });
+      const codegened: string[] = [];
+      const cg = spyOn(write, "codegen").mockImplementation((_c, _p, _e, module) => {
+        codegened.push(module.name);
+        return { name: module.name } as CompiledModule;
+      });
+      const [emitter] = SharedEmitter.new();
+      try {
+        for (const f of prepare) expect(ffi.IMPLEMENTED.has(f)).toBe(false);
+        const out = optimize_and_codegen_thin_module(cgcx, sess.prof, emitter, write.target_machine_factory(sess, sess.opts.optimize), shared(new ThinData(undefined)));
+        expect(out.name).toBe(CGU0);
+        expect(codegened).toEqual([CGU0]);
+        // The thin post-link pipeline ran: at -O2 instcombine folds the two adds.
+        expect(passes.map(([thin]) => thin)).toEqual([true]);
+        expect(passes[0]![1]).toContain("add i32 %x, 2");
+        // Control: with an index (as `-Clto=thin` would build), the first step is reached.
+        let stop: unknown;
+        try {
+          optimize_and_codegen_thin_module({ ...cgcx, lto: "Thin" }, sess.prof, emitter, write.target_machine_factory(sess, sess.opts.optimize), shared(new ThinData({} as llvm.ThinLTOData)));
+        } catch (e) {
+          stop = e;
+        }
+        expect(stop).toBeInstanceOf(Unported);
+        expect((stop as Unported).what).toBe("llir: LLVMRustPrepareThinLTORename");
+      } finally {
+        rpm.mockRestore();
+        cg.mockRestore();
+      }
+    });
   });
 
   test("-Clto=thin stops at unported where the combined index would be built (D8)", () => {
