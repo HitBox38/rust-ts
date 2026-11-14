@@ -40,7 +40,9 @@ except item 4's error handling in a hand-run tool.
        no leftover rustc; restored;
      - a real run: wrote both `.tm` files (2 calls each) and `version.txt`; `git status` clean, so byte-identical.
    - R2, `llvm_util.ts:402-403`: a NUL cannot come from argv itself, but can from an `@argfile` line
-     (rustc_driver_impl/src/args.rs:26-27) or a target-spec JSON. `back/write.ts:253` and `context.ts` refer to this comment.
+     (rustc_driver_impl/src/args.rs:26-27) or a target-spec JSON. `back/write.ts:253` refers to this comment; `context.ts`
+     `create_module` has only the commented `SmallCStr::new` lines, and this comment names its drop (corrected by fixers-57,
+     review fixers-56 N2).
 5. **done, dropped** (`cceda39c`, fixers-55 N2). `analyze_oracle/driver.ts` no longer reads `RUST_TS_SSA_STACK`: it only
    appended a stack trace to an unported stop's stderr line, which is debug output the test never relies on. The driver reads
    no environment variable now. (`base_oracle/driver.ts` prints the stack unconditionally; I did not change that.)
