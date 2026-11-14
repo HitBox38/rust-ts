@@ -38,10 +38,24 @@ import {
   UnknownLlvmTargetFeaturePrefix_diagnostic,
 } from "./diagnostics.gen.ts";
 import * as llvm from "./llvm/mod.ts";
-import { initialize_available_targets } from "../rust_ts/llvm/target.ts";
+import { initialize_available_targets, with_fresh_llvm_options_for_tests } from "../rust_ts/llvm/target.ts";
 
 /** `static INIT: Once = Once::new();` (PORTING §5 global state: a module-level value; one thread). */
 const INIT: { completed: boolean } = { completed: false };
+
+/** Tests only, not upstream: runs `f` as if `init` had never run in this process (`INIT` not completed, and fresh LLVM options
+ *  through target.ts `with_fresh_llvm_options_for_tests`), then puts both back as they were. One `bun test` process runs every
+ *  test file, so an earlier file that completed `init` would otherwise make a later `init` skip `configure_llvm` (review
+ *  fixers-57 N2). */
+export function with_fresh_llvm_init_for_tests<T>(f: () => T): T {
+  const saved = INIT.completed;
+  INIT.completed = false;
+  try {
+    return with_fresh_llvm_options_for_tests(f);
+  } finally {
+    INIT.completed = saved;
+  }
+}
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm_util.rs:31 init
 export function init(sess: EarlySession): void {
