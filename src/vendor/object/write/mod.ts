@@ -978,6 +978,7 @@ export class Section {
   /// Returns the section as-built so far.
   ///
   /// This requires that the section is not a bss section.
+  /** PORT: `data()` is `data_()`, since the field is `data` (as `name()` is `name_str()`). */
   // crate: object-0.39.1/src/write/mod.rs:1009 data
   data_(): Uint8Array {
     // debug_assert!(!self.is_bss());
