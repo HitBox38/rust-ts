@@ -17,7 +17,8 @@ import "../../../rustc_crate_store/cstore.ts"; // `DllImport::ordinal` / `is_mis
 import type { Session } from "../../../rustc_session/session.ts";
 import { Symbol } from "../../../rustc_span/symbol.ts";
 import { Arch } from "../../../rustc_target/spec/mod.ts";
-import { assert, unported } from "../../../std/panic.ts";
+import { assert, panic, unported } from "../../../std/panic.ts";
+import { debug_str } from "../../../std/fmt.ts";
 import { display_IoError, io_error_from_node } from "../../../std/io.ts";
 import { path_join } from "../../../std/path.ts";
 import { utf8 } from "../../../std/str.ts";
@@ -412,14 +413,16 @@ function create_elf_raw_dylib_stub(sess: Session, soname: string, symbols: reado
     }
   }
 
-  stub.write_file_header({
-    os_abi: elf_os_abi(sess),
-    abi_version: 0,
-    e_type: elf.ET_DYN,
-    e_machine,
-    e_entry: 0,
-    e_flags: elf_e_flags(arch, sess),
-  });
+  unwrap_write(
+    stub.write_file_header({
+      os_abi: elf_os_abi(sess),
+      abi_version: 0,
+      e_type: elf.ET_DYN,
+      e_machine,
+      e_entry: 0,
+      e_flags: elf_e_flags(arch, sess),
+    }),
+  );
 
   // .shstrtab
   stub.write_shstrtab();
@@ -591,7 +594,7 @@ interface ElfStubWriter {
   reserve_gnu_versym(): void;
   reserve_gnu_verdef(verdef_count: number, verdaux_count: number): void;
   reserve_dynamic(dynamic_num: number): void;
-  write_file_header(header: WriteFileHeader): void;
+  write_file_header(header: WriteFileHeader): { $: "Ok" } | { $: "Err"; _0: string };
   write_shstrtab(): void;
   write_null_section_header(): void;
   write_shstrtab_section_header(): void;
@@ -618,9 +621,9 @@ function new_elf_stub_writer(_endian: Endianness, _is_64: boolean, _buffer: numb
   return unported("object::write::elf::Writer (dynamic symbols, GNU versions and .dynamic: vendor object; raw-dylib on ELF)");
 }
 
-/** `.unwrap()` of `write_dynamic*`'s `Result<()>`. */
+/** `.unwrap()` of the writer's `Result<()>` (`object::write::Error(String)`, derived `Debug`). */
 function unwrap_write(r: { $: "Ok" } | { $: "Err"; _0: string }): void {
-  if (r.$ === "Err") unported(`object::write::Error Debug (${r._0})`);
+  if (r.$ === "Err") panic(`called \`Result::unwrap()\` on an \`Err\` value: Error(${debug_str(r._0)})`);
 }
 
 /** `DllCallingConvention`'s derived `PartialEq`. */

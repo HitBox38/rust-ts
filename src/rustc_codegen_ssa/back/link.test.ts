@@ -300,7 +300,7 @@ test("link_rlib's members, in order (link.rs:545)", () => {
   }
 });
 
-test("escape_string and report_linker_output's line filters (link.rs:1629, :1061)", () => {
+test("escape_string (link.rs:1629)", () => {
   expect(escape_string(new TextEncoder().encode("ok\n"))).toBe("ok\n");
   expect(escape_string(new Uint8Array([0x61, 0xff, 0x0a, 0x22]))).toBe('Non-UTF-8 output: a\\xff\\n\\"');
 });
