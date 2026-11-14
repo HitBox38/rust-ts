@@ -148,8 +148,18 @@ const host = ct.withCompiletestTarget(oracleHost(), set);
 const after = set();
 const fake = { id: "tests/ui/a.rs", file: "tests/ui/a.rs", args: ["--expect", "run-pass", "--", "tests/ui/a.rs", "-O"] };
 const hello = get("native-hello").cases()[0];
+const { readFileSync: read } = await import("node:fs");
+const libc = {
+  text: ["extern crate libc;", "    extern crate libc as c;", "#![feature(rustc_private)]\\nextern crate libc;", "// extern crate libc;", "extern crate libcore;", "use libc::c_int;", "#![feature(rustc_private)]"].map((t) => s.namesLibcCrate(t)),
+  cloexec: s.hostLibcConflict("tests/ui/process/fds-are-cloexec.rs", undefined),
+  plain: s.hostLibcConflict("tests/ui/array-slice-vec/subslice-patterns-const-eval.rs", undefined),
+  viaAux: s.hostLibcConflict("tests/ui/array-slice-vec/subslice-patterns-const-eval.rs", undefined, ["tests/ui/process/fds-are-cloexec.rs"]),
+  hello: s.namesLibcCrate(read(${JSON.stringify(join(REPO, "harness/corpus/miri/hello.rs"))}, "utf8")),
+  reason: s.DUPLICATE_LIBC_REASON,
+};
 const { asSubjectSide } = await import(${JSON.stringify(join(REPO, "scripts/oracle-self.ts"))});
 console.log(JSON.stringify({
+  libc,
   selfSide: asSubjectSide(get("run-pass-native").oracle([fake])).slice(4, 8),
   selfIr: asSubjectSide(get("ir-run-pass").oracle([fake])).slice(4, 6),
   before, host, after, hostName: oracleHost(),
@@ -192,6 +202,11 @@ console.log(JSON.stringify({
   expect(j.empty).toEqual(["--", "rustc", expect.stringMatching(/^\+nightly/)]);
   expect(j.hello.file).toBe("harness/corpus/miri/hello.rs");
   expect(j.hello.args.slice(j.hello.args.indexOf("--"))).toEqual(["--", "--target", "aarch64-apple-darwin", "--sysroot", expect.any(String), "--edition=2021", "harness/corpus/miri/hello.rs"]);
+  // Root's decision (2026-11-14): host cases naming the libc crate are skipped, decided from the source (the test, what it includes, its aux files).
+  expect(j.libc.text).toEqual([true, true, true, false, false, false, false]);
+  expect([j.libc.cloexec, j.libc.plain, j.libc.viaAux, j.libc.hello]).toEqual([true, false, true, false]);
+  expect(j.libc.reason).toContain("two libc candidates");
+  expect(j.libc.reason).toContain("E0464");
   // scripts/oracle-self.ts: the oracle's command as the subject side, still with the oracle's compiler.
   expect(j.selfSide).toEqual(["--side", "subject", "--runs", "1"]);
   expect(j.selfIr).toEqual(["--side", "subject"]);

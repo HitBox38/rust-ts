@@ -2283,6 +2283,7 @@ SUITES.push(
 //   path, the cwd, and for the verdict line `error-pattern`, `regex-error-pattern` and `check-stdout`. Bootstrap's `-Lnative=<test helpers>`,
 //   which every other suite drops, is put back here, after `-Crpath` and its `-Cdebuginfo=0` as bootstrap orders its flags: `rust_test_helpers` is
 //   built once with `cc` (`rustTestHelpersDir`).
+// - The host suites (the native ones and `ir-host`) skip every case that names the `libc` crate (`DUPLICATE_LIBC_REASON`, root's decision).
 const M7B = (what: string) => `plan-m7 gate ${what}; report until accepted`;
 /** The pass/fail mode of a skipped test's revision, for the suites of `modes`. */
 const skipsOfModes = (skipped: readonly SkippedCase[], modes: readonly string[]): SkippedCase[] =>
@@ -2416,6 +2417,29 @@ const nativeSuite = (d: { name: string; description: string; cwd: string; cases:
   subject: ([c]) => nativeCmd(d.name, "subject", c!, (a) => [...bunCmd(RUSTC_DRIVER_ENTRY), ...a]),
   ...(d.criterion ? { criterion: d.criterion } : {}),
 });
+/**
+ * Root's decision (2026-11-14T13:56, wave 40r): the oracle's host sysroot holds two `libc` candidates, std's rlib and the rmeta of
+ * `rustc-dev`, a component the oracle toolchain has and compiletest's stage sysroot does not. So a host compile of `extern crate libc`
+ * fails on both sides with E0464 ("multiple candidates for `rlib` dependency `libc`"), and a MATCH there tests nothing the suite means to
+ * test. Those cases are skipped with this reason, in the suites that compile for the host (the native ones and `ir-host`); the
+ * x86_64-unknown-linux-gnu sysroot has one `libc`, so `ir-run-pass` and `ir-run-pass-o0` keep them (checked on the oracle,
+ * docs/handoff/harness-m7b.md). Decided from the source, never by running a compiler: `hostLibcConflict`.
+ */
+export const DUPLICATE_LIBC_REASON =
+  "skipped on the host: it has `extern crate libc`, and the oracle's host sysroot holds two libc candidates (std's rlib and rustc-dev's rmeta, which compiletest's stage sysroot lacks), so both sides fail with E0464 and the case would test nothing (root's decision 2026-11-14)";
+/** `extern crate libc` (with any `as` rename), outside a `//` comment. `#![feature(rustc_private)]` alone does not load it. */
+const EXTERN_CRATE_LIBC = /\bextern\s+crate\s+libc\b/;
+/** Whether `text` names the `libc` crate (see `EXTERN_CRATE_LIBC`); `//` comments are dropped first, block comments are not (an over-approximation). */
+export const namesLibcCrate = (text: string): boolean => text.split("\n").some((l) => EXTERN_CRATE_LIBC.test(l.replace(/\/\/.*$/, "")));
+/**
+ * Whether case file `file` (relative to the upstream checkout) or a file it may read, `mod`, `#[path]`, the include macros (scripts/lib/deps.ts
+ * `caseDeps`), or one of its aux crates' files (`auxFiles`), names the `libc` crate: `DUPLICATE_LIBC_REASON`.
+ */
+export function hostLibcConflict(file: string, env: Case["env"], auxFiles: readonly string[] = []): boolean {
+  const texts = [file, ...auxFiles].map((f) => readFileSync(join(UPSTREAM, f), "utf8"));
+  for (const [p, st] of caseDeps(UPSTREAM, file, env)) if (st !== "-" && st !== "dir" && st !== "other" && !st.startsWith("ls:")) texts.push(readFileSync(join(UPSTREAM, p), "utf8"));
+  return texts.some(namesLibcCrate);
+}
 const nativeMemo = new Map<string, { cases: Case[]; skipped: SkippedCase[] }>();
 /** The native cases of the run modes `modes` (see above), with the skips of those modes' tests. */
 function nativeCorpus(modes: readonly string[]): { cases: Case[]; skipped: SkippedCase[] } {
@@ -2430,6 +2454,10 @@ function nativeCorpus(modes: readonly string[]): { cases: Case[]; skipped: Skipp
   const skipped: SkippedCase[] = [];
   for (const c of ui.cases) {
     if (!modes.includes(c.mode!)) continue;
+    if (hostLibcConflict(c.file, c.env)) {
+      skipped.push({ id: c.id, reason: DUPLICATE_LIBC_REASON });
+      continue;
+    }
     try {
       const args = [...nativeRunOpts(c.run, c.mode), "--lib-path", lib, "--", ...withTestHelpers(dropOutput(c.args), helpers)];
       cases.push(pinSessionEnv({ id: c.id, file: c.file, args, env: { ...NOCORE_ENV, ...c.env, ...env } }));
@@ -2440,6 +2468,19 @@ function nativeCorpus(modes: readonly string[]): { cases: Case[]; skipped: Skipp
   const r = { cases, skipped: uiSorted([...skipped, ...skipsOfModes(ui.skipped, modes)]) };
   nativeMemo.set(key, r);
   return r;
+}
+let irHostMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
+/** `ir-host`'s cases: `hostRunCorpus`'s run-pass tests, less those of `DUPLICATE_LIBC_REASON` (the same E0464 on the oracle, checked). */
+function irHostCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
+  if (irHostMemo) return irHostMemo;
+  const cases: Case[] = [];
+  const skipped: SkippedCase[] = [];
+  for (const c of hostRunCorpus().cases) {
+    if (!RUN_PASS_MODES.includes(c.mode!)) continue;
+    if (hostLibcConflict(c.file, c.env)) skipped.push({ id: c.id, reason: DUPLICATE_LIBC_REASON });
+    else cases.push(pinSessionEnv({ id: c.id, file: c.file, args: [...dropOutput(c.args), ...IR_PASS_ARGS], env: { ...NOCORE_ENV, ...c.env } }));
+  }
+  return (irHostMemo = { cases, skipped: uiSorted([...skipped, ...skipsOfModes(hostRunCorpus().skipped, RUN_PASS_MODES)]) });
 }
 const irRunPass = (extra: readonly string[]) => (): Case[] => runPassCompiles().cases.map((c) => withArgs(c, [...IR_PASS_ARGS, ...extra]));
 const IR_RUN_PASS_DESCRIPTION = (what: string, tier: IrTier) =>
@@ -2474,11 +2515,8 @@ SUITES.push(
     timeoutMs: 240_000,
     oracleTimeoutMs: 300_000,
     cwd: UPSTREAM,
-    cases: () =>
-      hostRunCorpus()
-        .cases.filter((c) => RUN_PASS_MODES.includes(c.mode!))
-        .map((c) => pinSessionEnv({ id: c.id, file: c.file, args: [...dropOutput(c.args), ...IR_PASS_ARGS], env: { ...NOCORE_ENV, ...c.env } })),
-    skipped: () => skipsOfModes(hostRunCorpus().skipped, RUN_PASS_MODES),
+    cases: () => irHostCorpus().cases,
+    skipped: () => irHostCorpus().skipped,
   }),
   nativeSuite({
     name: "native-hello",

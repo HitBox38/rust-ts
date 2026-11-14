@@ -8,9 +8,9 @@ Branch `t3/add-m7b-report-suites`, from `e80bc814`. No port code: nothing under 
 |---|---|
 | `ir-run-pass` | Done. 3,479 cases. Criterion 70% (M7b), with M7c's 95% in `criteria.ts` |
 | `ir-run-pass-o0` | Done. 3,479 cases. Report |
-| `ir-host` | Done. 3,432 cases, compiletest's own case set for the host. Report |
+| `ir-host` | Done. 3,412 cases, compiletest's own case set for the host, less 20 duplicate-libc cases. Report |
 | `native-hello` | Done. 1 case. Criterion 100% (M7b) |
-| `run-pass-native` | Done. 3,432 cases. Criterion 80% (M7b), with M7c's 98% in `criteria.ts`. **Heavy split not done:** see "Heavy" |
+| `run-pass-native` | Done. 3,412 cases (20 duplicate-libc cases skipped). Criterion 80% (M7b), with M7c's 98% in `criteria.ts`. **Heavy split not done:** see "Heavy" |
 | `run-fail-native` | Done. 289 cases, with compiletest's run verdict. Criterion 95% (M7c) |
 | mono-run N1, N2, N4 | Done |
 
@@ -25,7 +25,7 @@ Say if either should go.
 ## For root
 
 1. **`harness/m7-suites.test.ts` was failing at `e80bc814`.** Its test "ir-hello is not protected" broke when the wave 40q accept (`0da8b38d`) wrote `harness/baseline/ir-hello.txt`. The gate that made that accept ran before the baseline existed, so it could not see the failure. The next gate's unit step would have failed on it. The test now pins the two protected ids.
-2. **The host sysroot has two `libc` candidates.** `lib/rustlib/aarch64-apple-darwin/lib` holds `liblibc-36b36a684e611815.rlib` and `liblibc-ced695bcfa8f795f.rmeta`, the second from `rustc-dev`. So every native run-pass test with `extern crate libc` fails to compile with E0464, on the oracle too. That is the plan's "1 duplicate candidate" (§1f). Both sides see the same sysroot, so these cases compare the error. They are 2 of the 50 sampled, and the only 2 MATCH. Not fixed here: the toolchain must not change. Decide whether the native suites should list them as skipped instead.
+2. **The host sysroot has two `libc` candidates: done, per root's decision (2026-11-14T13:56).** `lib/rustlib/aarch64-apple-darwin/lib` holds `liblibc-36b36a684e611815.rlib` and `liblibc-ced695bcfa8f795f.rmeta`, the second from `rustc-dev`. So a host compile of `extern crate libc` fails with E0464 on both sides. Those cases are now skipped with `DUPLICATE_LIBC_REASON`; see "Duplicate libc" below.
 3. **Merge order:** none. The native suites score UNPORTED until ssa-link-b and default-sysroot land, which is expected.
 4. **Disk:** 5.2 GiB free at the end, down from 7.2 GiB at the start. Most of that went to other lanes; my additions are below.
 
@@ -35,9 +35,9 @@ Say if either should go.
 |---|---|---:|---|---|---|
 | `ir-run-pass` | IR N1 (`irSuite`) | 3,479 (488) | x86_64-unknown-linux-gnu | `main.ts` | M7b ≥ 70%; M7c ≥ 95% in `criteria.ts` |
 | `ir-run-pass-o0` | IR N1 | 3,479 (488) | x86_64-unknown-linux-gnu | `main.ts` | report until M7c |
-| `ir-host` | IR N1 | 3,432 (535) | aarch64-apple-darwin | `main.ts` | report |
+| `ir-host` | IR N1 | 3,412 (555) | aarch64-apple-darwin | `main.ts` | report |
 | `native-hello` | native | 1 | host | `main.ts` | M7b MATCH (100%, every case) |
-| `run-pass-native` | native | 3,432 (535) | host | `main.ts` | M7b ≥ 80%; M7c ≥ 98% |
+| `run-pass-native` | native | 3,412 (555) | host | `main.ts` | M7b ≥ 80%; M7c ≥ 98% |
 | `run-fail-native` | native | 289 (37) | host | `main.ts` | M7c ≥ 95% |
 
 The plan counts 3,478 for `ir-run-pass`; it is 3,479, as harness-m7a found for `mir-o2`. The plan's 294 for `run-fail-native` is the x86_64 count (`run-fail-miri`). On the host compiletest's `only-*`, `ignore-*` and `needs-*` leave 289.
@@ -165,7 +165,7 @@ On that DIFF:
 **The native suites:**
 - **Every UNPORTED case reaches the link.** 46 of `run-pass-native`'s 48, all 48 of `run-fail-native`'s, and `native-hello` stop at `ssa-link-b: self_contained_components`.
 - The other two `run-pass-native` stops are `llir: LLVMCreateDIBuilder` and the aarch64 intrinsic table.
-- The 2 MATCH are the `libc` E0464 cases (For root, item 2).
+- The 2 MATCH were the `libc` E0464 cases (For root, item 2), now skipped: see "Duplicate libc" for the re-run.
 
 ### Protected suites (`--sample 200`)
 
@@ -214,6 +214,52 @@ Also written:
 
 **Full runs would add about 40 MiB (`ir-run-pass`), 67 MiB (`-o0`), 58 MiB (`ir-host`) and 3 MiB (native): about 170 MiB.**
 
+## Duplicate libc (root's decision, follow-up commit)
+
+**What is skipped, and why.** Every host-target case that names the `libc` crate is skipped with `DUPLICATE_LIBC_REASON` (harness/suites.ts):
+- "skipped on the host: it has `extern crate libc`, and the oracle's host sysroot holds two libc candidates (std's rlib and rustc-dev's rmeta, which compiletest's stage sysroot lacks), so both sides fail with E0464 and the case would test nothing (root's decision 2026-11-14)".
+
+**How the cases are found: from the source, never by running a compiler** (`hostLibcConflict`). A case qualifies if any of these has `extern crate libc` (an `as` rename included) outside a `//` comment:
+- the test file;
+- a file it may read through `mod`, `#[path]` or the include macros (`caseDeps`);
+- an aux file it is given.
+
+`#![feature(rustc_private)]` alone does not load the crate, so it does not count, but it always comes with the `extern crate` line in these tests. Block comments are not stripped: an over-approximation. None of the 25 run-mode files that match has the line in a comment. The native suites build no aux crates, so the aux files are empty there today; the parameter is for the aux suites to come.
+
+**Which suites.**
+
+| Suite | Same failure on the oracle? | Applied |
+|---|---|---|
+| `run-pass-native`, `run-fail-native` | yes (the cause) | yes |
+| `native-hello` | does not apply: hello.rs has no `extern crate libc` (a test pins it) | nothing to skip |
+| `ir-host` | **yes**: `tests/ui/process/fds-are-cloexec.rs` exits 1 with `error[E0464]: multiple candidates for \`rlib\` dependency \`libc\` found` | yes |
+| `ir-run-pass`, `ir-run-pass-o0` | **no**: the same case compiles and writes `fds-are-cloexec.ll` (exit 0). The x86_64-unknown-linux-gnu sysroot has only std's `libc` | no |
+
+**New counts.**
+
+| Suite | Cases (skipped), before | After | Duplicate-libc skips |
+|---|---|---|---:|
+| `run-pass-native` | 3,432 (535) | **3,412 (555)** | 20 |
+| `run-fail-native` | 289 (37) | **289 (37)** | 0: the one run-fail test with `extern crate libc` is already skipped (`needs-sanitizer-support`) |
+| `ir-host` | 3,432 (535) | **3,412 (555)** | 20 |
+| `native-hello` | 1 (0) | **1 (0)** | 0 |
+| `ir-run-pass`, `ir-run-pass-o0` | 3,479 (488) | **3,479 (488)** | 0 |
+
+The 75 existing suites are still identical to the dump taken before this lane's first edit.
+
+**Re-run after the change.**
+| Check | Result |
+|---|---|
+| `bunx tsc --noEmit -p .` | clean |
+| `bun test ./harness/ ./scripts/` | 572 pass, 0 fail, 95 s, at load about 5 |
+| `run-pass-native --sample 50` | 0 MATCH, 0 DIFF, 50 UNPORTED (48 `ssa-link-b: self_contained_components`, 1 `LLVMCreateDIBuilder`, 1 aarch64 intrinsic table), 555 skipped |
+| `run-fail-native --sample 50` | 0 MATCH, 0 DIFF, 49 UNPORTED (all `ssa-link-b`), 1 UNSTABLE, 37 skipped. Same sample as before, as its case set did not change |
+| `oracle-self --suite run-pass-native --sample 50` | 50 equal, 0 unstable, 0 differ. Every oracle compile exits 0, so no duplicate-libc case is left in the sample |
+
+The two earlier `run-pass-native` MATCHes, both E0464, are gone: the sample now holds no case the oracle fails to compile.
+
+**A follow-up this re-run showed.** `test-attrs/test-panic-abort-nocapture.rs` was UNSTABLE in the first `run-fail-native` sample, but this time its two oracle runs agreed, so its output was cached. Two runs catch most nondeterminism, not all of it. That case, and any other a full run finds UNSTABLE even once, should go into `run-fail-native`'s `Suite.unstable` list with its cause. I have not diagnosed the cause; the first sample saw its stdout differ. Until then a later port MATCH or DIFF on it may be chance.
+
 ## Heavy (M7c's "+ heavy"): a follow-up
 
 No sampled case is slow natively: the oracle's maximum was 3.0 s, including two runs. Without a full oracle timing I cannot name a heavy set, and I did not guess one.
@@ -246,7 +292,8 @@ None: no port code. (`mono-run.ts`'s new `Unported` throws are harness stops, li
 
 - `965e96be`: the suites, the wrapper, compiletest's target override, criteria groups, gate's `oracleRuns`, the mono-run nits, the tests, and the `ir-hello` test fix.
 - `7ba72293`: the native key covers the case directories' root; `scripts/oracle-self.ts`.
-- This handoff.
+- `106929e3`: this handoff.
+- The duplicate-libc follow-up: skips, tests, this section.
 
 ## Files
 
