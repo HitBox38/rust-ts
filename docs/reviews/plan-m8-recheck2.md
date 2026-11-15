@@ -90,7 +90,7 @@ Clippy has exactly one `eval_always` lint, `cognitive_complexity.rs:40`.
   exclusions;
 - generated `lint_vec()`s: `src/rustc_lint/*.lints.gen.ts`.
 
-The pass-level filter that clippy's single combined pass goes through is `late_lint_crate`, at `src/rustc_lint/late.ts:479–485`
+The pass-level filter that clippy's single combined pass goes through is `late_lint_crate`, at `src/rustc_lint/late.ts:478–485`
 (upstream `late.rs:422–431`). The plan cites `late.ts:436–444` and `late.rs:369–380`, which are `late_lint_mod`'s filter for module
 passes (P5). The per-sub-pass `Option` construction itself is clippy's code: it is not in `src/` yet, and it arrives with
 `clippy-contract-a` and `codegen-clippy-macros`, as §2d point 2 says.
