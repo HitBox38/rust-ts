@@ -53,6 +53,8 @@ const C_API = {
   LLVMAddGlobal: { args: [P, P, P], returns: P },
   LLVMSetInitializer: { args: [P, P], returns: "void" },
   LLVMGlobalSetMetadata: { args: [P, "u32", P], returns: "void" },
+  LLVMGetMDKindIDInContext: { args: [P, P, "u32"], returns: "u32" },
+  LLVMMDNodeInContext2: { args: [P, P, "usize"], returns: P },
   LLVMGetParam: { args: [P, "u32"], returns: P },
   LLVMSetValueName2: { args: [P, P, "usize"], returns: "void" },
   LLVMConstInt: { args: [P, "u64", "i32"], returns: P },
@@ -249,6 +251,14 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-di vs libLLVM", () => {
       lib.LLVMDIBuilderCreateGlobalVariableExpression(dib.r, inner.r, b("G"), 1, b("_ZN2di5inner1GE"), 15, file.r, 7, arrTy.r, 1, noOps.r, null, 32),
       L.LLVMDIBuilderCreateGlobalVariableExpression(dib.m, inner.m, "G", 1, "_ZN2di5inner1GE", 15, file.m, 7, arrTy.m, Bool.TRUE, noOps.m, undefined, 32),
     );
+    // Another kind attached first (review llir-di N3): `processGlobalObjectMetadata` numbers a global's attachments in
+    // `getAllMetadata`'s order, sorted by kind, so the `!dbg` graph (kind 0) is numbered before this node.
+    const kindR = lib.LLVMGetMDKindIDInContext(ctx.r, cstr("rust_ts.n3"), 10);
+    const kindM = L.LLVMGetMDKindIDInContext(ctx.m, "rust_ts.n3", 10);
+    expect(kindM).toBe(kindR);
+    const empty = md(lib.LLVMMDNodeInContext2(ctx.r, new BigUint64Array(0), 0), L.LLVMMDNodeInContext2(ctx.m, [], 0));
+    lib.LLVMGlobalSetMetadata(g.r, kindR, empty.r);
+    L.LLVMGlobalSetMetadata(g.m, kindM, empty.m);
     lib.LLVMGlobalSetMetadata(g.r, MD_dbg, gve.r);
     L.LLVMGlobalSetMetadata(g.m, MD_dbg as MetadataKindId, gve.m);
 
@@ -335,6 +345,30 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-di vs libLLVM", () => {
     expect(L.LLVMGetCurrentDebugLocation2(bld.m)).toBeUndefined();
     lib.LLVMDisposeBuilder(bld.r);
     L.LLVMDisposeBuilder(bld.m);
+
+    // A second function with `!dbg` and a located body (review llir-di N1): AsmWriter numbers each function's attachments when it
+    // prints that function (`incorporateFunction`), so `sub`'s `DISubprogram` comes after `add`'s body locations. Numbering every
+    // function's attachments in the module pass would put it before them.
+    const fn2: Both<Value> = { r: lib.LLVMAddFunction(mod.r, cstr("_ZN2di3sub"), fnTy.r), m: L.LLVMAddFunction(mod.m, "_ZN2di3sub", fnTy.m) };
+    const sp2R: Pointer = lib.LLVMDIBuilderCreateFunction(dib.r, ns.r, b("sub"), 3, b("_ZN2di3sub"), 10, file.r, 20, subTy.r, 1, 1, 20, FlagPrototyped, 0);
+    lib.LLVMSetSubprogram(fn2.r, sp2R);
+    const sp2M = L.LLVMRustDIBuilderCreateFunction(dib.m, ns.m, "sub", 3, "_ZN2di3sub", 10, file.m, 20, subTy.m, 20, flags(FlagPrototyped), (4 | 8) as DISPFlags, fn2.m, undefined as unknown as Metadata, undefined);
+    const sp2 = md(sp2R, sp2M);
+    const bb2: Both<BasicBlock> = { r: lib.LLVMAppendBasicBlockInContext(ctx.r, fn2.r, cstr("start")), m: L.LLVMAppendBasicBlockInContext(ctx.m, fn2.m, "start") };
+    const bld2: Both<Builder> = { r: lib.LLVMCreateBuilderInContext(ctx.r), m: L.LLVMCreateBuilderInContext(ctx.m) };
+    lib.LLVMPositionBuilderAtEnd(bld2.r, bb2.r);
+    L.LLVMPositionBuilderAtEnd(bld2.m, bb2.m);
+    const l21 = loc(21, 5, sp2);
+    lib.LLVMSetCurrentDebugLocation2(bld2.r, l21.r);
+    L.LLVMSetCurrentDebugLocation2(bld2.m, l21.m);
+    const d: Both<Value> = { r: lib.LLVMBuildAdd(bld2.r, lib.LLVMGetParam(fn2.r, 0), lib.LLVMGetParam(fn2.r, 1), cstr("d")), m: L.LLVMBuildAdd(bld2.m, L.LLVMGetParam(fn2.m, 0), L.LLVMGetParam(fn2.m, 1), "d") };
+    const l22 = loc(22, 2, sp2);
+    lib.LLVMSetCurrentDebugLocation2(bld2.r, l22.r);
+    L.LLVMSetCurrentDebugLocation2(bld2.m, l22.m);
+    lib.LLVMBuildRet(bld2.r, d.r);
+    L.LLVMBuildRet(bld2.m, d.m);
+    lib.LLVMDisposeBuilder(bld2.r);
+    L.LLVMDisposeBuilder(bld2.m);
 
     lib.LLVMDIBuilderFinalize(dib.r);
     L.LLVMDIBuilderFinalize(dib.m);

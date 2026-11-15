@@ -251,7 +251,7 @@ export class DIBuilder {
     return T;
   }
 
-  // llvm: llvm/lib/IR/DIBuilder.cpp:473 DIBuilder::createMemberType
+  // llvm: llvm/lib/IR/DIBuilder.cpp:463 DIBuilder::createMemberType
   createMemberType(Scope: Metadata | undefined, Name: string, File: Metadata | undefined, LineNumber: number, SizeInBits: bigint, AlignInBits: number, OffsetInBits: bigint, Flags: number, Ty: Metadata | undefined): DIDerivedType {
     return getDerived(this.VMContext, DW_TAG_member, Name, File, LineNumber, getNonCompileUnitScope(Scope), Ty, SizeInBits, AlignInBits, OffsetInBits, undefined, Flags, undefined);
   }

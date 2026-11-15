@@ -249,7 +249,8 @@ export class Printer {
     // `function()` prints them (llir-di).
     for (const gv of module.globals) {
       if (!gv.hasName()) this.globalSlots.set(gv, this.globalSlots.size);
-      for (const [, n] of gv.metadata) this.mdSlot(n);
+      // `processGlobalObjectMetadata` (AsmWriter.cpp:1223-1228): `getAllMetadata`, stable-sorted by kind (review llir-di N3).
+      for (const [, n] of [...gv.metadata].sort((a, b) => a[0] - b[0])) this.mdSlot(n);
     }
     for (const a of module.aliases) if (!a.hasName()) this.globalSlots.set(a, this.globalSlots.size);
     for (const nodes of module.namedMetadata.values()) for (const n of nodes) this.mdSlot(n);
@@ -596,7 +597,6 @@ export class Printer {
     if (m.sourceFileName !== "") o += `source_filename = "${printEscapedString(m.sourceFileName)}"\n`;
     if (m.dataLayout !== "") o += `target datalayout = "${m.dataLayout}"\n`;
     if (m.targetTriple !== "") o += `target triple = "${m.targetTriple}"\n`;
-    if (m.inlineAsm !== "") return unported("llir: printing module inline asm");
     o += printModuleInlineAsm(m);
     // Print the bodies first: they number unnamed struct types and attribute groups as they go.
     const globals = m.globals.map((g) => `${this.global(g)}\n`).join("");
