@@ -1,12 +1,18 @@
 # M8 plan — cargo, rustfmt and clippy for rust-ts
 
-**Status: revised after review (planning lane plan-m8, 2026-11-16).** The independent review (`docs/reviews/plan-m8.md` on
-`t3/review-m8-plan`, 5a5f8beb) was APPROVE WITH CHANGES; this revision answers its findings F1–F11 (§11 lists where). Root has
-recorded three decisions that this text follows (`docs/state/history.jsonl`, 2026-11-15T22:38): **"M8 scope"** (option (c)
-stands until the owner overrules it, with the alternatives costed in §1e), **"M8 host capacity"** (M8a gates on the cargo build
-and `cargo-smoke`; cargo's testsuite is a report until the owner frees disk; the test-crate measurement moves to the first wave
-and runs alone behind a free-disk minimum and a memory watchdog) and **"plan-m8 D16"** (`-C incremental` stays out; root's
-decision). Decisions D1–D21 are in §7. **[owner]** marks what the owner may still want to overrule.
+**Status: second revision (planning lane plan-m8, 2026-11-16).** The independent review (`docs/reviews/plan-m8.md` on
+`t3/review-m8-plan`, 5a5f8beb) and its re-check (`docs/reviews/plan-m8-recheck.md` on `t3/review-revised-m8-plan`, 444ceedd) were
+both APPROVE WITH CHANGES; this text answers F1–F11 and N1–N9 (§11 lists where). It follows root's recorded decisions
+(`docs/state/history.jsonl`):
+- **"M8 scope"** (2026-11-15T22:38): option (c) stands until the owner overrules it, with the alternatives costed in §1e;
+- **"M8 host capacity"** (22:38): M8a gates on the cargo build and `cargo-smoke`; the test-crate measurement is in the first wave
+  and runs alone behind a free-disk minimum and a memory watchdog;
+- **"plan-m8 D16"** (22:38): `-C incremental` stays out, root's decision;
+- **"M8 host headroom"** (23:09): D20's minimums (20 GiB free, swap under 4 GiB) stand; every non-heavy wave-41 step runs now, and
+  `m8-measure` and every `cargo-build` run wait for the host; a watchdog stop inside a gate fails the run;
+- **"M8 cargo testsuite status"** (23:09): the testsuite stays a report for M8a; root revisits it after `m8-measure`.
+
+Decisions D1–D22 are in §7. **[owner]** marks what the owner may still want to overrule.
 
 Pin `6f5da406b56c` (1.101.0-nightly). Base: main `2f4cd61c` (M7 done, gate-20261115-141315-root-qswd; 26,263 / 27,873 fns).
 Paths are relative to the upstream checkout (`src/tools/…`, `compiler/…`) or to the cargo source. Line counts are `wc -l` of `.rs`
@@ -14,9 +20,10 @@ files unless "code" is written, which is `cloc`'s code column (no blank or comme
 lines (as plan-m7 did for `rustc_codegen_llvm`): coverage.ts does not count these trees yet. **Memory is in MiB/GiB** (the first
 version wrote MiB as "GB"; review F9): `/usr/bin/time -l`'s bytes divided by 2^20.
 
-**How measurements were taken.** macOS arm64, 12 cores, 24 GiB, 9.4–11 GiB free disk (98% used), swap 6.9–7.6 GB used before
-anything started; it grew to 14 GB, and free disk fell to 4.5 GiB, during the port's compile of the `cargo` crate (swap files
-live on the data volume). At the revision the host idles at 10–11 GB of swap. AC power throughout. Oracle `rustc
+**How measurements were taken.** macOS arm64, 12 cores, 24 GiB, 9.4–11 GiB free disk (98% used), swap 6.7–7.5 GiB used before
+anything started; it peaked at 12.8 GiB used (14.0 GiB allocated), and free disk fell to 4.5 GiB, during the port's compile of the
+`cargo` crate (swap files live on the data volume). At the revisions the host idled at 8.5–10.3 GiB of swap and 11–12 GiB free.
+Disk sizes are `du -h`'s, so GiB. AC power throughout. Oracle `rustc
 +nightly-2026-10-11`. Port = the gate's subject binary `$RUST_TS_DATA/subject-bin/5fb6b937…/rts` (main.ts, built from main
 cc7f52fa; `src/` is unchanged since) with `--sysroot <oracle sysroot>`, as `rgCompiler("subject")` runs it. "user" = user CPU,
 "rss" = max resident set. No oracle component was added or removed: clippy and rustfmt ran from their dist tarballs, unpacked
@@ -32,6 +39,7 @@ what is kept):
 | `port-log/`, `port-build{,2}.{out,err}` | the port's builds of cargo: per call `.time`, `.exit`, `.stderr` |
 | `scripts/clippy-ui.ts` → `clippy-ui-oracle.jsonl` | clippy ui as first measured (no `CLIPPY_CONF_DIR`, no `--crate-type=lib`) |
 | `scripts/clippy-ui2.ts` → `clippy-ui2-oracle.jsonl`; `scripts/clippy-classify.ts` | the same with upstream's settings (F3), and a classifier of what still differs from the committed `.stderr` |
+| `scripts/lane-probe.ts` → `lane-oracle.jsonl` | the re-check's probe (copied, unchanged), re-run here: each of the 1,019 clippy ui files in full, with the lint groups allowed, and with `-W` per annotated lint (N1) |
 | `scripts/rustfmt-sys.ts` → `rustfmt-sys-oracle.jsonl`, `rustfmt-sys2-oracle.jsonl` | rustfmt system tests, first under rustfmt's own `rustfmt.toml`, then without it and with an empty `HOME` (F3) |
 | `scripts/smoke.sh`, `smoke-{port,oracle}.txt` | the 11-step smoke test of a cargo binary, and its two outputs |
 | `scripts/tst-all.sh`, `tst-all.txt`, `tst-fail*.txt` | cargo's testsuite, oracle-built, module by module |
@@ -47,7 +55,7 @@ M8 should mean **two ports and one build**, option (c), which root has recorded 
   infrastructure or other targets. Their oracles are the pinned nightly's own `clippy-preview` and `rustfmt-preview`, built from
   the pin's commit.
 - **cargo is built by rust-ts from its pinned source**, and its own testsuite is run against the port-built `cargo`. A
-  line-by-line port with its C libraries behind an FFI seam, option (a′), is possible but costs about **1.5–2× all of (c)'s
+  line-by-line port with its C libraries behind an FFI seam, option (a′), is possible but costs about **1.7–2.5× all of (c)'s
   porting** (§1e). Building cargo is also the exact rehearsal M9 needs ("rust-ts compiles tsc-rs").
 
 What the measurements settle:
@@ -57,16 +65,17 @@ What the measurements settle:
 | Where are the sources? | clippy and rustfmt are in-tree subtrees at the pin (`src/tools/clippy` 27 MB, `src/tools/rustfmt` 10 MB), **not in the sparse checkout**. cargo is the submodule `src/tools/cargo` at `29c5daa1afc2`, fetched as a tarball (SHA-256 `a1aaf161…`) |
 | How big? | clippy 157k lines (116k code, ~4.4k fns, 835 lints); rustfmt 38k (31k code, ~1.6k fns); cargo 108k (82k code) plus about 11k in the workspace crates it links |
 | Are there oracles? | Yes: `clippy-preview` and `rustfmt-preview` for 2026-10-11, hashes equal to the manifest's; both link the oracle's `librustc_driver-3bee00c5d9e363a9.dylib`. cargo is the oracle toolchain's own component |
-| Do the upstream tests run, with upstream's settings? | clippy `tests/ui` (1,019 files without aux crates), with `CLIPPY_CONF_DIR=tests` and `--crate-type=lib` where there is no `main`: **22 s for all**; the raw stderr equals the committed `.stderr` for **452**, and 547 more differ only by ui_test's renderings (empty `\|` lines, `//~` annotations in quoted source). rustfmt `tests/source` (804) without rustfmt's own config: **9 s**, **748 of 802** equal their committed target (§2b, §3b) |
+| Do the upstream tests run, with upstream's settings? | clippy `tests/ui` (1,019 files without aux crates), with `CLIPPY_CONF_DIR=tests` and `--crate-type=lib` where there is no `main`: **22 s for all**; the raw stderr equals the committed `.stderr` for **311 of the 876** that have one (and 141 of the 143 without one print nothing), and 547 more differ only by ui_test's renderings (empty `\|` lines, `//~` annotations in quoted source). rustfmt `tests/source` (804) without rustfmt's own config: **9 s**, **748 of 802** equal their committed target (§2b, §3b) |
 | Can the port build cargo? | **Almost.** 389 of 392 calls exit 0, including the 108k-line `cargo` crate (424 s user, 12,450 MiB), all 12 proc macros (built and loaded by the port) and all 37 build scripts; 3 small crates stop on missing aarch64 intrinsic signatures in the IR model. With those three sent to the oracle, the build links a `cargo` that behaves like the oracle's on an 11-step smoke test, including ripgrep's `cargo check` (§4b) |
 | Does cargo's own testsuite run here? | With the oracle: 64 s to build, **4,425 tests in about 12 min**, 27 fail for host reasons and 33 are ignored; no network needed (§4c). Its test code need not be built by the port to test a port-built `cargo` (D9) |
 | Can the port's front end run clippy's tests? | The port as plain rustc on 3 sampled clippy ui files: 0.21–0.41 s wall, 292–517 MiB |
-| How big is the work? | About **220k upstream lines to port** (clippy 157k, rustfmt 38k, vendor about 25k), against M7's 52k + 9k vendor: about 82 lanes (73 porting, 9 vendor), plus fixers and about 9 harness and tools batches |
+| How big is the work? | About **220k upstream lines to port** (clippy 157k, rustfmt 38k, vendor about 25k), against M7's 52k + 9k vendor: about 82 lanes (73 porting, 9 vendor), plus fixers and about 10 harness and tools batches |
 
-**Order.** M8a (cargo built by the port) needs only one small fixer lane and its harness, so it comes first. rustfmt-ts (M8b) is
-about a fifth of the porting. clippy-ts (M8c) is most of the cost. Its gated suite cannot move until the last lint lane, because
-clippy runs every pass on every file (review F1); a report suite that enables only the ported lints, `clippy-ui-lane` (§2d, D14),
-measures it lane by lane and is in place before the first lint lane.
+**Order.** M8a (cargo built by the port) needs only one small fixer lane and its harness, so its code comes first; its heavy runs
+wait for the host (D20). rustfmt-ts (M8b) is about a fifth of the porting. clippy-ts (M8c) is most of the cost. At the pin clippy
+runs one combined early pass, whose sub-passes always run, and one combined late pass, whose sub-passes upstream builds only when
+one of their lints is not allowed (§2a). So once clippy's early group is ported, a report suite that allows every lint group and
+warns only the lints a test annotates, `clippy-ui-lane` (§2d), measures clippy lane by lane, with no glue in the port.
 
 ## 1. What "cargo-ts, rustfmt-ts, clippy-ts" can mean at the pin
 
@@ -181,7 +190,7 @@ links, and from where, is in §4a.
 |---|---|---|---|
 | **clippy** | 157k lines (~57 lanes) + vendor ~10k (toml, regex-syntax's parser, url's parser, quine-mc_cluskey, semver). Runs in the port's process on the port's HIR and types: a TS clippy | links the **oracle's** `librustc_driver` from `rustc-dev` (`#![feature(rustc_private)]`): the lints would run inside the oracle's compiler. It tests rust-ts as a compiler of 157k lines of rustc-internal Rust, and gives no TS clippy. `clippy_lints` is one crate of 134k lines through the port's front end; §4b's 108k-line `cargo` crate took 12,450 MiB, so it may not fit on this host | (a) |
 | **rustfmt** | 38k (~16 lanes) + vendor ~15k (toml stack shared, `diff`, `unicode-segmentation`, `ignore`/`globset`, `semver`, a `regex` subset). A TS formatter over the port's parser | the same trade as clippy: a binary around the oracle's `rustc_parse` | (a) |
-| **cargo** | §1e's (a′): its own 119k lines, the reached part of 2.13M lines of Rust dependencies, and 5 C libraries behind an FFI seam | the oracle's `cargo` builds cargo's source with `RUSTC` = the port, as `rg-build` builds ripgrep. **Measured (§4): 389 of 392 compiler calls through the port succeed, 3 stop on missing intrinsic signatures; with those three sent to the oracle, the build links a `cargo` that behaves like the oracle's on an 11-step smoke test** | (b) |
+| **cargo** | §1e's (a′): its own 119k lines, the reached part of 2.13M lines of Rust dependencies, and the C libraries behind an FFI seam | the oracle's `cargo` builds cargo's source with `RUSTC` = the port, as `rg-build` builds ripgrep. **Measured (§4): 389 of 392 compiler calls through the port succeed, 3 stop on missing intrinsic signatures; with those three sent to the oracle, the build links a `cargo` that behaves like the oracle's on an 11-step smoke test** | (b) |
 | Upstream tests that can run | clippy `tests/ui` 1,224 + `ui-toml` 130 (+ `ui-cargo` 91 with cargo); rustfmt `tests/source` 804, `tests/target` 1,065 (idempotence), 294 unit tests | the same tests, but they test the oracle's compiler with a port-compiled plugin | all of the left column, plus cargo's 4,425 tests against the port-built `cargo` |
 
 (b) for clippy and rustfmt is cheap but produces no TypeScript tool, and its signal ("rust-ts compiles rustc-internal code") is
@@ -194,34 +203,44 @@ a seam for native code: `rustc_codegen_llvm` is ported with its seam at `llvm/ff
 libm are reached through `bun:ffi`. So **(a′)** is a real option: port cargo's own crates line by line, vendor only the reached
 part of its Rust dependencies (PORTING §5b), and put the C libraries behind a `-sys` seam.
 
-**(a′) costed.** From `cargo-deps-lines.txt` (per-package lines of the 309 registry crates), grouped by what they are:
+**(a′) costed.** From `cargo-deps-lines.txt` (per-package lines of the 309 registry crates, without their tests, benches and
+examples). **Every package is assigned to one row, and the rows sum to the graph's 2,134,831 lines** (re-check N7: the first
+revision left about 470k unassigned):
 
-| Group | Lines in the graph | In (a′) | Estimate of what is reached |
-|---|---|---|---|
-| cargo's own `src/` + workspace crates | 119k | ported whole | 119k |
-| `gix*` (51 crates: fetch, status, revision, shallow clone, index, refs, packs) | 133k | vendor, reached part | 50–80k |
-| `toml`, `toml_edit`, `toml_parser`, `toml_writer`, `toml_datetime`, `serde_spanned`, `winnow` | 70k | vendor; manifests are cargo's core | 30–40k |
-| `serde`, `serde_core`, `serde_json`, `serde-untagged`, `serde_ignored`, … | 56k | the reached part of `serde::de` + generated derives (D6's approach) | 15–25k |
-| `clap`, `clap_builder`, `clap_lex`, `clap_complete`, `anstream`, `color-print` | 46k | vendor; cargo's `--help` texts are asserted by hundreds of tests | 20–30k |
-| `git2` + `git2-curl` (Rust side), `curl` (Rust side), `rusqlite` + `hashlink` | 68k | vendor; the C behind them goes through the seam | 25–35k |
-| `tar`, `flate2`, `zlib-rs`, `crc32fast`, `filetime` | 33k | vendor (`zlib-rs` is pure Rust) | 15–25k |
-| hashes (`sha1`, `sha2`, `blake3`, `hmac`, `digest`, `hex`, `base64`), time (`jiff`, `time`), regex stack, `ignore`/`globset`, `semver`, `url`, `indexmap`, `im-rc`, `tracing*`, `itertools`, `tempfile`, `walkdir`, … | about 540k | vendor, reached part; `regex-automata` partly vendored already | 60–110k |
-| platform and build-time crates (`libc`, `rustix`, `nix`, `objc2*`, `core-foundation`, `security-framework`, `encoding_rs`, `icu_*`, `zerovec`, `futures`, `tokio`, `syn`, `quote`, …) | about 720k | not ported: `src/std` stand-ins, codegen for the derives | 0 |
-| the C seam (curl easy/multi with callbacks, libgit2 with credential/transport callbacks and `git2-curl`'s custom transport, SQLite, libssh2 through libgit2) | | new TS over `bun:ffi`, as `rust_ts/proc_macro_host.ts` | 5–10k new |
-| **Total** | | | **about 330–470k upstream lines + 5–10k new**, 110–160 lanes |
+| Row | Packages | Lines | In (a′) | Estimate of what is reached |
+|---|---|---|---|---|
+| cargo's own `src/` + workspace crates | | 119k (not in the 2.13M) | ported whole | 119k |
+| `gix*` (fetch, status, revision, shallow clone, index, refs, packs) | 51 | 133,419 | vendor, reached part | 50–80k |
+| toml stack (`toml`, `toml_edit`, `toml_parser`, `toml_writer`, `toml_datetime`, `serde_spanned`, `winnow`) | 7 | 69,791 | vendor; manifests are cargo's core | 30–40k |
+| serde stack (`serde`, `serde_core`, `serde_json`, `serde_derive`, `serde-untagged`, `serde_ignored`, `serde-value`, `erased-serde`) | 8 | 65,189 | the reached part of `serde::de` + generated derives (D6) | 15–25k |
+| clap stack (`clap*`, `anstream`, `anstyle*`, `color-print*`, `terminal_size`, `unicode-width`, …) | 16 | 69,027 | vendor; cargo's `--help` texts are asserted by hundreds of tests | 20–30k |
+| Rust side of git, curl, SQLite (`git2`, `git2-curl`, `curl`, `rusqlite`, `hashlink`, `fallible-*`) | 7 | 68,015 | vendor; the C behind them goes through the seam | 25–35k |
+| archives (`tar`, `flate2`, `zlib-rs`, `libz-rs-sys`, `crc32fast`, `filetime`, `adler2`, `miniz_oxide`) | 5 | 32,501 | vendor (`zlib-rs` is pure Rust) | 15–25k |
+| the 9 `-sys` crates' bindings | 9 | 56,451 | not ported: replaced by the seam | 0 (seam below) |
+| platform and OS (`libc`, `rustix`, `nix`, `objc2*`, `core-foundation`, `security-framework`, `openssl*`, `cc`, `tempfile`, `walkdir`, `jobserver`, …) | 27 | 446,486 | `src/std` stand-ins | 0 |
+| proc macros and their deps (`syn`, `quote`, `proc-macro2`, the 12 derive crates) | 15 | 75,771 | `tools/codegen` | 0 |
+| i18n tables (`encoding_rs`, `icu_*`, `zerovec`, `yoke`, `tinystr`, …) | 19 | 209,602 | reached only through `url`/`idna` and `gix`'s path decoding | 0–10k |
+| async (`futures*`, `tokio`, `pin-project*`, `mio`, `bytes`, …) | 13 | 55,984 | cargo's HTTP registry blocks on futures | 5–15k |
+| time (`jiff`, `time*`, `deranged`, …) | 6 | 139,140 | timestamps, `-Z` date gates, gix's dates | 10–25k |
+| regex and text search (`regex*`, `aho-corasick`, `memchr`, `bstr`, `globset`, `ignore`, `unicode-normalization`, …) | 11 | 218,569 | `package` include/exclude, gix's matching; `regex-automata` partly vendored | 20–40k |
+| hashes and crypto (`sha1*`, `sha2`, `blake3`, `hmac`, `digest`, `typenum`, `rand*`, …) | 35 | 110,099 | vendor; `typenum`/`generic-array` erase | 10–20k |
+| everything else (`hashbrown` ×3, `indexmap`, `im-rc`, `itertools`, `tracing*`, `http`, `nom`, `url`, `heapless`, `crossbeam-channel`, `log`, …) | 80 | 384,787 | the hash tables become `Map`; `im-rc` is the resolver's | 40–80k |
+| **Graph total** | **309** | **2,134,831** | | |
+| the C seam (curl easy/multi with callbacks, libgit2 with credential/transport callbacks and `git2-curl`'s custom transport, SQLite, libssh2 through libgit2) | | | new TS over `bun:ffi`, as `rust_ts/proc_macro_host.ts` | 5–10k new |
+| **(a′) total** | | | | **about 360–550k upstream lines + 5–10k new**, 120–185 lanes |
 
-The reach column is an estimate from the groups' roles, not a trace (§10). Even at its low end, **(a′) is 1.5–2× all of (c)'s
-porting (220k), and 2–3× clippy-ts**. It has costs (c) does not: cargo's job queue and `gix`'s `parallel` feature use threads
+The reach column is an estimate from each row's role, not a trace (§10). Even at its low end, **(a′) is 1.7–2.5× all of (c)'s
+porting (220k), and 2.3–3.5× clippy-ts**. It has costs (c) does not: cargo's job queue and `gix`'s `parallel` feature use threads
 and `jobserver` (sequential `PORT:`s, as plan-m7 D15 did); `curl`'s multi handle and `gix`'s HTTP transport are callback-driven
 through the seam; and the C libraries stay native, so it is not TypeScript all the way down either. Its test strategy is good,
-though: the oracle-built testsuite (D9) can drive any `cargo` binary at its baked-in path, a TS one included. Calendar: 2–3 months
-at today's pace; tokens 200–350 M.
+though: an oracle-built testsuite (D9) can drive any `cargo` binary, a TS one included. Calendar: 2.5–3.5 months at today's pace;
+tokens 220–400 M.
 
 | Option | What M8 delivers | Porting | Calendar (est.) | Tokens (est.) |
 |---|---|---|---|---|
 | **(c) — recommended, recorded as M8 scope** | clippy-ts, rustfmt-ts; cargo built by the port, tested by its own testsuite | ~220k | 3–5 weeks | 80–120 M |
 | (c) without clippy-ts (clippy deferred after M9) | rustfmt-ts; cargo built by the port | ~53k (rustfmt 38k + ~15k vendor), ~21 lanes | 1–2 weeks | 25–35 M |
-| (a′) cargo ported too | all three in TS, C behind a seam | ~550–690k (with clippy and rustfmt) | 3–4 months | 300–450 M |
+| (a′) cargo ported too | all three in TS, C behind a seam | ~580–770k (with clippy and rustfmt) | 3.5–4.5 months | 300–520 M |
 | (c) with cargo-ts deferred to after M9 | as (c) minus `cargo-*` suites | ~220k | 3–5 weeks | 75–110 M |
 
 **Why (c) still.** (a′) is the largest single block of porting since rustc itself, and most of it is not compiler code: HTTP,
@@ -241,12 +260,26 @@ reorders the work rather than saving it. I recommend keeping it. **[owner]** The
 (and `clippy_config`'s `Conf::read` from `clippy.toml`, found through `CLIPPY_CONF_DIR` or the crate's directory), and sets
 `config.psess_created` to track the conf file and `config.override_queries` for `mir_borrowck`-style hooks. Every lint is an
 `EarlyLintPass` or `LateLintPass` over AST / HIR / `TyCtxt`, emitting through `clippy_utils::diagnostics::span_lint_and_*`, which
-are thin wrappers over `rustc_lint`'s `LintContext::opt_span_lint`. **`rustc_lint` runs every registered pass on every crate**;
-levels are consulted when a lint is emitted (and by the few passes that call `is_lint_allowed` first). That decides §2d.
+are thin wrappers over `rustc_lint`'s `LintContext::opt_span_lint`.
 
-The port already has every piece of this path for rustc's own lints: `rustc_lint` 714/718, `rustc_driver_impl`'s `Callbacks`
-(the Miri driver uses `after_analysis`, `override_queries` and `extra_symbols`). clippy's `sym.rs` extra symbols go past
-`PREDEFINED_SYMBOLS_COUNT` the way Miri's do (plan-m6 §1a).
+**How the passes are registered at the pin** (`clippy_lints/src/lib.rs:449–487`; re-check N1; the first two versions of this
+plan described an older architecture):
+- two pre-expansion passes, `attrs::EarlyAttributes` and `nonstandard_macro_braces::MacroBraces`;
+- **one** `CombinedEarlyLintPass` (`combined_early_pass.rs`, 92 lines), declared by `early_lint_methods!` (:492) with 51
+  sub-passes from 49 modules, among them the two lint-less collectors `FormatArgsCollector` and `AttrCollector`, whose
+  `FormatArgsStorage` and `AttrStorage` the late passes read. **Every early sub-pass runs on every crate**: "the early pass runner
+  has no such filtering";
+- **one** `CombinedLateLintPass` (`combined_late_pass.rs`, 91 lines), declared by `late_lint_methods!` (:553) with 316 sub-passes.
+  Each sub-pass is an `Option`, **built only if `is_lint_pass_required(tcx.skippable_lints(()), <T>::lint_vec())`** (:477–478).
+  `skippable_lints` (`compiler/rustc_lint/src/levels.rs:115`) holds every lint that is allowed at the crate root (command line
+  included) or allow-by-default and that nothing raises. `eval_always` lints (clippy has one, `cognitive_complexity`) and lint-less
+  passes are never skippable. rustc's own `late.rs:369–380` filters its passes the same way.
+
+The port already has both halves of that filter (`src/rustc_lint/levels.ts:162` `skippable_lints`, `late.ts:436–444`) and
+generated `lint_vec()`s, and every piece of the driver path for rustc's own lints: `rustc_lint` 714/718, `rustc_driver_impl`'s
+`Callbacks` (the Miri driver uses `after_analysis`, `override_queries` and `extra_symbols`). That structure decides §2d.
+
+clippy's `sym.rs` extra symbols go past `PREDEFINED_SYMBOLS_COUNT` the way Miri's do (plan-m6 §1a).
 
 ### 2b. Upstream tests
 
@@ -278,7 +311,8 @@ no aux, no revisions, no target filter and no external crate, run from the clipp
 | `CLIPPY_CONF_DIR=tests` + `--crate-type=lib` without `main` | **452** | **0** |
 
 With both settings: **22 s for all, p50 19 ms**; exit 0 on 149, exit 1 (the `-Dwarnings` lint errors) on 869, exit 101 on 1
-(`custom_ice_message.rs`, an intentional ICE). Of the 567 that still differ (`scripts/clippy-classify.ts`): **302 only by empty
+(`custom_ice_message.rs`, an intentional ICE). **143 of the 1,019 have no committed `.stderr`**; 141 of them match only because
+their empty output equals "no file" (re-check N9). With a `.stderr`, the match is **311 of 876**. Of the 567 that still differ (`scripts/clippy-classify.ts`): **302 only by empty
 `|` lines**, **245 by the `//~` annotations in quoted source** (and empty `|` lines), 6 are tests with their own
 `normalize-stderr-test`, 2 have no `.stderr`, and 12 need what this filter skipped (`libc` from `clippy_test_deps`,
 `proc_macro.rs`'s crate type, `--test`-style tests). So **with upstream's settings, every committed baseline but 14 is reproduced
@@ -293,59 +327,76 @@ exit 0, 0.21–0.41 s wall, 0.36–1.20 s user, 292–517 MiB. So a clippy ui ca
 
 | Group | Lines | Lanes (≤ ~3k) |
 |---|---|---|
-| ✱Contract: `src/driver.rs` 335, `declare_clippy_lint` 279, `clippy_lints/src/{lib.rs 874, declared_lints.rs 841, deprecated_lints.rs 206}` | 2,535 | 1 (`clippy-contract-a`) |
+| ✱Contract: `src/driver.rs` 335, `declare_clippy_lint` 279, `clippy_lints/src/{lib.rs 874, declared_lints.rs 841, deprecated_lints.rs 206, combined_early_pass.rs 92, combined_late_pass.rs 91}` | 2,718 | 1 (`clippy-contract-a`) |
 | ✱Contract: `clippy_config` (2,579) + `clippy_utils/src/{diagnostics.rs, sym.rs, msrvs.rs}` | ~3.9k | 2 (`clippy-contract-b`, chained) |
 | ✱Dispatch contracts: the directories' `mod.rs` (declarations, pass structs, `check_*` dispatch): `methods/mod.rs` 6,229 (two chained lanes), then `doc` 1,407 + `matches` 1,296, `operators` 1,133 + `loops` 1,005, `casts` 959 + `types` 703 + `attrs` 643, `functions` 633 + `transmute` 571 + `misc_early` 371 + `write` 355 + `cargo` 282 + the rest | 16.6k | 7 (`dispatch-methods-a/-b`, `dispatch-a…e`) |
 | `clippy_utils` (the rest) | ~17k | 6 |
+| **The early group, ported before any other lint file** (§2d): the 49 modules of `early_lint_methods!` (both pre-expansion passes and both collectors among them) and `cognitive_complexity.rs` (170, the one `eval_always` lint). At most 14.6k counting the mixed directories `attrs`, `doc`, `functions`, `misc_early` whole; their lines are part of the rows below | ≤ 14.6k | 5 (`clippy-early-a…e`) |
 | `methods/` lint files (without `mod.rs`) | 15.9k | 6 |
 | `matches/`, `loops/`, `operators/`, `casts/` files (without `mod.rs`) | 17.0k | 6 |
 | other directories' files (without `mod.rs`) | ~9.5k | 4 |
 | 340 top-level lint files | 72.9k | 25 |
 | **Total** | **~157k** | **~57** |
 
-About 28.6k of `clippy_lints`'s lines are comments, mostly the lint documentation inside `declare_clippy_lint!`, which PORTING §2
+The early group's lanes are taken from the rows below them, so the total stays about 57. About 28.6k of `clippy_lints`'s lines are comments, mostly the lint documentation inside `declare_clippy_lint!`, which PORTING §2
 keeps but which costs little to port. Macros (`declare_clippy_lint!`, `declare_lint_pass!`/`impl_lint_pass!`, `define_Conf!`,
-`msrv_aliases!`, clippy's `sym` list) are generated by `tools/codegen` (D5).
+`msrv_aliases!`, `combined_{early,late}_lint_pass!`, clippy's `sym` list) are generated by `tools/codegen` (D5).
 
-### 2d. Measuring clippy lane by lane (review F1)
+### 2d. Measuring clippy lane by lane (review F1, re-check N1)
 
-**The problem.** `register_lint_passes` registers about 400 early and late passes, and `rustc_lint` runs every one on every crate.
-The contract has to register a pass for every lint (D14), and a pass whose body is not yet ported stops with `unported`. So the ui
-test of lint X stops (exit 70) while *any* pass is a stub, and with `-Dwarnings` its expected stderr also depends on every
-default-on lint that does *not* fire. `clippy-ui` therefore reads 0% until the last of ~57 lanes merges. It is still the right
-gate; it is the wrong progress measure.
+**The problem.** The contract registers every sub-pass (D14), and a sub-pass whose body is not yet ported stops with `unported`.
+In the gated `clippy-ui`, a case stops while any sub-pass it activates is a stub: every early sub-pass (all always run), the
+`eval_always` `cognitive_complexity`, and every late sub-pass that holds a default-on lint (497 of the 835 lints are default-on) or a
+lint the file raises. So `clippy-ui` reads about 0 until the early group and every late sub-pass with a default-on lint have
+landed. It is still the right gate; it is the wrong progress measure.
 
-**The design: `clippy-ui-lane`, a report-only suite that enables only the ported lints, on both sides.**
-1. **Which lints are ported** is computed by the harness at run time from coverage: a lint is *ported* when every fn of the files
-   that declare and implement its pass is ported (`bun scripts/coverage.ts --missing <file>` empty for each; the pass ↔ file map
-   comes from the `declare_clippy_lint!`/`impl_lint_pass!` sites, which `codegen-tools-m8` emits as a generated table). No lane
-   edits a list.
-2. **Which cases are in scope** at a run: a ui file whose *mentioned* clippy lints are all ported. Mentioned = every `//~ <lint>`
-   annotation, every `clippy::<lint>` in an attribute (`warn`, `deny`, `allow`, `expect`) or in `//@compile-flags`, and, for
-   ui-toml, the lints its `clippy.toml` configures. Other cases are skipped with the reason `waiting for <lint>` and are not in the
-   denominator. So the suite's size grows lane by lane, and each lane can name its newly eligible cases.
-3. **Both sides get the same lint configuration**, through clippy's ordinary lint levels: `-A clippy::all -A clippy::pedantic -A
-   clippy::nursery -A clippy::cargo` (restriction is allow-by-default) appended to ui_test's argv, so a lint fires only if the file
-   turns it on by attribute. In-source attributes win over the command line, as for any rustc lint, so the file's own lints keep
-   their levels. Nothing else differs from `clippy-ui`'s argv and environment (D10).
-4. **On the port's side only, unported passes are not registered.** A small piece of glue in `src/rust_ts/clippy_lane.ts` (not
-   ported code; owned by `clippy-contract-a`) wraps `LintStore::register_{early,late}_pass` while `register_lint_passes` runs, and
-   when `RUST_TS_CLIPPY_LANE=<file of ported lint names>` is set, replaces each pass whose `get_lints()` are not all ported with
-   nothing. `get_lints()` comes from the generated declarations, so it works for a stub pass. The oracle runs all its passes, but
-   every lint they own is allowed (point 3), so they emit nothing: this is not a guessed value on either side.
-5. **Known approximations, which is why it is never protected:** a pass with side effects beyond its own lints (msrv attribute
-   tracking through `extract_msrv_attr!` is per pass, so local; any shared state between passes is found and recorded by the lane
-   that meets it); `#[expect(clippy::x)]` with `x` unported is excluded by point 2. A case that matches here and fails in
-   `clippy-ui` names exactly such a side effect.
-6. **When.** `clippy-contract-a` lands the glue; `codegen-tools-m8` the table; `harness-m8d` lands `clippy-ui-lane` with `clippy-ui`,
-   **before the first lint lane** (wave 42, §8). Before any lint lane the suite has 0 eligible cases; each lint lane's review
-   reports the cases it made eligible and how many match.
-7. **Its first use** is §9's trigger: if, over the first 3–5 lint lanes, most eligible cases stop in `rustc_*` code rather than in
-   clippy's, a `rustc-for-clippy` fixer wave goes before the remaining lint lanes.
+**The design: `clippy-ui-lane`, a report-only suite that relies on upstream's own late-pass filter. No glue, no environment
+variable, nothing under `src/`.**
+1. **Same lint configuration on both sides**, through ordinary lint levels, appended to `clippy-ui`'s argv (D10): `-A clippy::all
+   -A clippy::pedantic -A clippy::nursery -A clippy::cargo` (restriction is allow-by-default), then **`-W clippy::<lint>` for each
+   lint the file annotates with `//~`** (restored: re-check N1). In-source attributes still win over the command line.
+2. **The late pass selects itself.** With every group allowed, `skippable_lints` contains every clippy lint except those the file
+   raises (its `-W` lints, its `warn`/`deny`/`forbid`/`expect` attributes) and `cognitive_complexity`. Upstream's
+   `CombinedLateLintPass::new` (ported in `clippy-contract-a`) then builds only the sub-passes holding one of those lints, on both
+   sides alike. A stub sub-pass is never built unless the file makes it active, and then exit 70 is the honest answer.
+3. **The early group is a prerequisite.** Early sub-passes are never skipped, so no early stub may remain when the suite starts to
+   count: the early group (§2c, `clippy-early-a…e`, ≤ 14.6k lines, with `cognitive_complexity`) is the first clippy porting after
+   the contracts. That is what early passes need, and why: no filter exists for them upstream, and adding one in the port would be
+   a redesign. Before the early group lands, `clippy-ui-lane` has no eligible case.
+4. **Eligible cases** at a run: a ui file each of whose *raised* lints belongs to a sub-pass that is fully ported (every fn of the
+   files implementing it: `bun scripts/coverage.ts --missing`; the sub-pass ↔ lint ↔ file table is generated by
+   `codegen-clippy-macros`, D5). Raised = `//~` annotations, `warn`/`deny`/`forbid`/`expect` attributes and `//@compile-flags`.
+   **Group names in attributes** (`#![warn(clippy::pedantic)]`; 3 of the 1,019 files) are expanded to their member lints from the
+   generated group table (re-check N9). **`allow` attributes do not count** (255 files have some): an allowed lint's sub-pass is not
+   built unless something else raises it, and if it is, an unported stub shows as UNPORTED anyway. Ineligible cases are skipped
+   with `waiting for <sub-pass>` and are not in the denominator.
+5. **A lint is measurable only when its whole sub-pass is.** `Methods` holds 164 lints in one sub-pass, so no `methods-*` lane's
+   cases become eligible until the last of the methods lanes lands (§8 orders them together); the same holds for other
+   multi-lint sub-passes, which the generated table names.
+6. **Vacuous cases are excluded.** A case whose oracle lane output holds none of its annotated diagnostics would MATCH with empty
+   output on both sides. Measured on the oracle (`scripts/lane-probe.ts`, the re-check's probe re-run here; 1,019 files, 871 with
+   diagnostics in `clippy-ui`):
 
-The rejected alternative, stubs that return early when every lint they own is allowed at the node, would run in the gated suite
-and change what a stub does there; a mistake in it could turn an unported path into a silent MATCH. Keeping the approximation in
-one report suite, behind an environment variable that only the harness sets, keeps the gated `clippy-ui` exact.
+   | Configuration | Files with ≥ 1 diagnostic | Of the 871: **empty output** | fewer diagnostics (not empty) | Diagnostics in all |
+   |---|---|---|---|---|
+   | `clippy-ui` | 871 | – | – | 9,442 |
+   | groups allowed, no `-W` (the first revision's design) | 814 | **57** | 23 | 8,997 |
+   | groups allowed **+ `-W` per `//~` lint** (this design) | 866 | **5** | 1 | 9,432 |
+
+   The 5 (`blocks_in_conditions_2021.rs`, `blocks_in_conditions_unfixable.rs`, `def_id_nocore.rs`, `manual_filter_unfixable.rs`,
+   `mixed_attributes_style/mod_declaration.rs`) are listed and excluded by the harness; the 143 files without a `.stderr` are kept,
+   since an empty expectation is what they test.
+7. **Known approximation, which is why it is never protected (D19):** cross-pass state on the late side. The early collectors'
+   storage is filled by the (ported) early group on both sides, so it is exact; a late sub-pass that reads another late sub-pass's
+   state would see it missing on both sides alike only if that other sub-pass is skipped on both, which upstream does too. A case
+   that matches here and fails in `clippy-ui` names such a dependency.
+8. **When.** `clippy-contract-a` ports `combined_{early,late}_pass.rs`; `codegen-clippy-macros` emits the table; `harness-m8d`
+   lands `clippy-ui-lane` with `clippy-ui` before the first lint lane, and it starts to count once the early group is in.
+9. **Its first use** is §9's trigger: if, over the first 3–5 late lint lanes, most eligible cases stop in `rustc_*` code rather
+   than in clippy's, a `rustc-for-clippy` fixer wave goes before the remaining lint lanes.
+
+Because nothing in the port changes, there is no lane-only switch that could reach a gated suite (re-check N2 does not arise), and
+D18 needs no exception. The suite differs from `clippy-ui` only in its argv, which lives in its own case definitions.
 
 ## 3. rustfmt
 
@@ -414,7 +465,7 @@ per-function unit tests and the files whose constructs a lane covers.
 ### 4a. The oracle's build, and the C it links (review F7)
 
 `cargo build --offline --locked -j4` of cargo at `29c5daa1` (dev profile, `CARGO_INCREMENTAL=0`, isolated `CARGO_HOME`): **317
-`Compiling` lines, 54 s wall, 116 s user, 18 s sys, 2,482 MiB max rss, 2.1 GB of target directory.** cargo's `Cargo.toml` sets no
+`Compiling` lines, 54 s wall, 116 s user, 18 s sys, 2,482 MiB max rss, 2.1 GiB of target directory.** cargo's `Cargo.toml` sets no
 `[profile.*]`, so release is opt-level 3, 16 CGUs, no LTO (so no bitcode in rlibs: G2 and the ThinLTO buffer are not on this
 path, §5). Default features: `http-transport-curl`.
 
@@ -453,7 +504,7 @@ memory; `--keep-going` so that one stop does not hide the next):
 | CPU | **4,088 s user** (35× the oracle's 116 s), 642 s sys | 116 s user |
 | Largest compiles (user, max rss) | **`cargo` 424 s, 12,450 MiB** (12.2 GiB; 533 s wall, 419 s sys: it swapped); `objc2-foundation` 172 s, 6,267 MiB; `gix` 89 s, 6,045 MiB; `jiff` 62 s, 4,108 MiB; `regex-automata` 59 s, 3,721 MiB; `syn` 59 s, 3,188 MiB; `git2` 56 s, 2,761 MiB | 2,482 MiB for the whole build |
 | Sum of the calls' own wall time | **2,139 s (35.6 min)**, before the C compiles in build scripts and the final link: a `-j1` build is about **40–50 min per side** uncached (review F9) | |
-| Host | swap 6.9 → 13 GB used during `cargo`'s compile; free disk 11 → 4.5 GiB (swap files) | |
+| Host | swap 6.7 → 12.8 GiB used during `cargo`'s compile (14.0 GiB allocated); free disk 11 → 4.5 GiB (swap files) | |
 
 I did not split the `cargo` crate's 12,450 MiB between the front end and codegen. Wave 41's measurement does (D20).
 
@@ -495,25 +546,35 @@ behaviour (review F6).
 So the testsuite needs **no network and no registry stub of ours**: its stubs are its own. It needs `git` on `PATH` for 8.
 
 **Measured with the oracle** (oracle cargo and rustc build the testsuite; `scripts/tst-all.sh` runs it module by module, clearing
-the sandbox between modules because it grows about 0.3 GB per 200 tests):
+the sandbox between modules because it grows about 0.3 GiB per 200 tests):
 
 | | Result |
 |---|---|
-| Build of `testsuite` (`cargo test --test testsuite --no-run`, `-j4`, dev) | 64 s wall, 138 s user, 2,450 MiB max rss, 2.1 GB of target |
+| Build of `testsuite` (`cargo test --test testsuite --no-run`, `-j4`, dev) | 64 s wall, 138 s user, 2,450 MiB max rss, 2.1 GiB of target |
 | Tests listed | **4,425** (`--list`; the `#[cargo_test]` count of 4,454 includes a few behind `cfg`) |
 | Run, default test threads (12) | **about 12 min wall** (747 s including about 3 min of modules matched twice by the substring filter) |
 | Outcome | **27 fail, 33 ignored, the rest (about 4,365) pass** |
 | The 27 failures | 21 assert that a cross target is installed (`utils/cross_compile.rs:181`: on aarch64 macOS they cross-compile to `x86_64-apple-darwin`, whose std is not in the oracle toolchain and must not be added); 2 `cargo_alias_config` and 1 `script::cargo` tests that met external `cargo-*` subcommands on my inherited `PATH`; 2 `rustup`, 2 `install`, 1 `version::verbose`, 1 `jobserver`, 1 `standard_lib`: host and environment assumptions. **None is cargo** |
 
-**Three ways to run it** (review F5):
-- **`cargo-testsuite`: the oracle-built testsuite, with the port-built `cargo` copied to the baked-in `CARGO_BIN_EXE_cargo` path.**
-  Trusted test code (libtest, `cargo-test-support`, snapbox's comparisons are the oracle's) tests the port-built cargo, and the
-  port never has to compile the 210k-line test crate. No source is edited. This is the configuration to protect.
-- `cargo-testsuite-port`: testsuite and `cargo` both built by the port. It also tests the port on the largest single crate it will
-  have compiled (210k lines; the 108k-line `cargo` crate took 12,450 MiB), but a miscompile in the test code's own assertions could
-  turn a failure into `ok`, which outcome matching cannot see. Report, then protected after `cargo-testsuite` is.
-- `cargo-testsuite-rustc` (report, heavy): the oracle-built testsuite and cargo, with the **port** as `rustc` on `PATH`: about 4,000
-  cargo scenarios through the port, a large front-end and diagnostics check and a rehearsal of M9. Since every test runs with
+**Three ways to run it** (review F5, re-check N3):
+- **`cargo-testsuite`: an oracle-built testsuite per side, the subject side's `cargo` replaced by the port-built one.**
+  `cargo_bin!("cargo")` is `env!("CARGO_BIN_EXE_cargo")` (snapbox 1.2.2 `src/macros.rs:158–159`): an absolute path fixed when the
+  test crate is compiled, so a copied tree still runs the binary at the original path. The harness therefore builds the testsuite
+  **once per side**, with the oracle's cargo and rustc, into two fixed trees, `$RUST_TS_DATA/cargo-testsuite/oracle` and
+  `…/subject`; in the subject tree it replaces `debug/cargo` (the baked-in path) with `cargo-build`'s kept port-built binary.
+  Before every run it checks that the file at each tree's baked path has the hash of that side's binary, and refuses otherwise.
+  Each tree is keyed (source, lock, oracle rustc, `hostToolsId`) and locked, so the sides can run one after the other without an
+  interrupted run leaving the wrong binary where the other side expects its own. Trusted test code (libtest,
+  `cargo-test-support`, snapbox's comparisons are the oracle's) tests the port-built cargo, and the port never compiles the
+  210k-line test crate. No source is edited. **Disk: about 4.2 GiB kept** (two trees of 2.1 GiB), plus about 0.3 GiB of sandbox
+  per 200 tests, cleared per module; **time: 2 × 64 s to build the trees** (oracle only, cached between gates) and about 12 min
+  per side to run. This is the configuration that may be protected later (root's "M8 cargo testsuite status": a report for M8a,
+  revisited after `m8-measure`).
+- `cargo-testsuite-port`: testsuite and `cargo` both built by the port, in a third tree. It also tests the port on the largest
+  single crate it will have compiled (210k lines; the 108k-line `cargo` crate took 12,450 MiB), but a miscompile in the test code's
+  own assertions could turn a failure into `ok`, which outcome matching cannot see. Report.
+- `cargo-testsuite-rustc` (report, heavy): the oracle side's tree, with the **port** as `rustc` on `PATH`: about 4,000 cargo
+  scenarios through the port, a large front-end and diagnostics check and a rehearsal of M9. Since every test runs with
   `CARGO_INCREMENTAL=0`, only the few dozen tests that turn incremental back on stop (`unported`, listed as expected).
 
 ## 5. M7 follow-ups and M8
@@ -524,7 +585,7 @@ the sandbox between modules because it grows about 0.3 GB per 200 tests):
 | **ThinLTO embedded-bitcode buffer** | No for cargo's build; wait | rlibs carry bitcode only with LTO or `-C embed-bitcode=yes` |
 | **`uselistorder`** | No | it changes `__text` bytes of 15 of 283 pm-self dylibs, not behaviour (pm-self F1); M8 compares behaviour and test outcomes |
 | **`-C incremental`** | **No** (root's decision "plan-m8 D16") | cargo's test setup sets `CARGO_INCREMENTAL=0` for every test (§4c), and `cargo-build` sets it as rg-build does. Only the few dozen tests that turn it back on, in the report `cargo-testsuite-rustc`, need it. M9's plan revisits it |
-| **`std-self`** (port-built core/alloc/std) | No for M8; **yes for M9** | 12 GB on core; nothing in M8 needs a port-built sysroot. Keep it queued for M9's plan |
+| **`std-self`** (port-built core/alloc/std) | No for M8; **yes for M9** | about 12 GB of RSS on core (plan-m7's figure, its unit); nothing in M8 needs a port-built sysroot. Keep it queued for M9's plan |
 | **harness-m7d re-check notes 1–6** (sweep matches the tag anywhere, prune by build date, uncached-error race, signal exit, SIGHUP, rgtest spawns) | **Yes** | M8's `cargo-build` generalises `scripts/rg-build.ts`; fix them in that batch rather than copy them (D8) |
 
 The other queued items (review nits, `llvm-link` hash pinning, `Triple::normalize` for MSVC, StableHash generator, …) are not on
@@ -534,22 +595,24 @@ M8's path; they keep their place in the queue.
 
 Each suite is a separately reviewed harness batch (plan-m6 A2). Report until accepted; whatever an accepted gate matches is
 protected (plan-m6 A9). Denominators exclude ORACLE_TIMEOUT and UNSTABLE (plan-m7 harness-m7b decision), and, new here, **ENV**:
-a case the oracle side does not pass for host reasons (§4c's 27, `requires` a tool the host lacks), which is never protected (D9).
+a case the oracle side does not pass for host reasons (§4c's 27, `requires` a tool the host lacks). **Two mechanisms make "never
+protected" mechanical** (re-check N5, D19, in `harness-m8a`): ENV is its own difftest status, which `matchesOfRun` never returns; and
+a suite field `neverProtect` makes `gate accept` skip the suite with a note, whatever `--suites` named.
 
 | Suite | Mode | Cases | Oracle cost (measured) | Port estimate | Role |
 |---|---|---|---|---|---|
 | `cargo-build` | the oracle's `cargo build --features all-static` of cargo `29c5daa1` with every compile on the side's compiler (rg-build's design, `-j1`) | 1 (dev) | 54 s wall at `-j4` (without `all-static`; its OpenSSL build is unmeasured) | **40–50 min at `-j1`** (calls alone 35.6 min), heavy, alone | **M8a** |
 | `cargo-build-release` | the same, `--release` | 1 | not measured | about 2× dev | report |
 | `cargo-smoke` | the 11 steps of §4b's smoke test (and more as found), run by the port-built `cargo` and by an oracle-built `cargo` from the same source, oracle `rustc`; thread ids masked, `Compiling` lines sorted | ~11 | 3.6 s | 5.9 s (measured) | **M8a** |
-| `cargo-testsuite` | the oracle-built testsuite with the port-built `cargo` at the baked-in path; outcome per test (D9) | 4,425, minus ENV | 64 s build (cached) + about 12 min run | about 12 min (the binaries under test are native) | report until the owner frees disk (root's "M8 host capacity"), then **≥ 99%** |
-| `cargo-testsuite-port` | testsuite and `cargo` both port-built | same | | the 210k-line crate's build is measured in wave 41 (D20) | report |
-| `cargo-testsuite-rustc` | oracle-built testsuite and cargo, the port as `rustc` | same | | hours; heavy | report |
+| `cargo-testsuite` | an oracle-built testsuite per side, the subject side's `cargo` replaced by the port-built one; outcome per test (D9) | 4,425, minus ENV | 2 × 64 s build (cached), 4.2 GiB kept, + about 12 min run | about 12 min (the binaries under test are native) | report (`neverProtect` until root's revisit after `m8-measure`); if promoted, **≥ 99%** |
+| `cargo-testsuite-port` | testsuite and `cargo` both port-built, a third tree | same | | the 210k-line crate's build is measured in wave 41 (D20) | report (`neverProtect`) |
+| `cargo-testsuite-rustc` | oracle-built testsuite and cargo, the port as `rustc` | same | | hours; heavy | report (`neverProtect`) |
 | `rustfmt-system` | `tests/source/**` through `rustfmt` with a generated `rustfmt.toml` per case, no inherited config (D11); stdout, stderr, exit | 804 (per file of module trees) | 9 s | ~1–2 min | **M8b ≥ 99%** |
 | `rustfmt-idem` | `tests/target/**` through `rustfmt --check`, same settings | 1,065 | ~15 s (est.) | ~2 min | **M8b ≥ 99%** |
 | `rustfmt-emit` | the emit modes the tests use (`--emit json`, `checkstyle`, `--check` diff, stdin, `--file-lines`) on a fixed set from `tests/writemode`, `tests/rustfmt`, `tests/config` | ~60 | seconds | | **M8b ≥ 95%** |
 | rustfmt unit tests | `src/**` `#[test]` ported as `*.test.ts` (PORTING §2), including `src/test/mod.rs`'s `system_tests` and `idempotence_tests` against the **committed** targets | 294 fns | | in the unit step: must fit its budget (D13) | **M8b: all pass or `test.skip` with a recorded reason** |
 | `clippy-ui` | `tests/ui` with `compile-test.rs`'s environment and ui_test's per-file defaults (D10); stderr + exit | 1,224 files (+ revisions) | 22 s for 1,019 | ~4–8 min wall | **M8c ≥ 95%** |
-| `clippy-ui-lane` | `clippy-ui` with only the ported lints enabled on both sides, unported passes unregistered on the port's side (§2d) | grows lane by lane | the same | the same | report only, never protected |
+| `clippy-ui-lane` | `clippy-ui`'s argv + every lint group allowed + `-W` per `//~` lint, both sides; upstream's late-pass filter selects the sub-passes (§2d); eligible cases only, 5 vacuous ones excluded | grows lane by lane, from the early group on | the same | the same | report, `neverProtect` permanently |
 | `clippy-ui-json` | `clippy-ui` with `--error-format=json`: the suggestions behind every `.fixed` | 1,224 | the same | the same | **M8c ≥ 90%**, report before |
 | `clippy-ui-toml` | `tests/ui-toml`, `CLIPPY_CONF_DIR` per directory | 130 | seconds | | **M8c ≥ 95%** |
 | `clippy-ui-cargo` | `tests/ui-cargo` with the port-built or oracle `cargo-clippy` | 91 | | | report |
@@ -557,12 +620,14 @@ a case the oracle side does not pass for host reasons (§4c's 27, `requires` a t
 
 **Gates** (`scripts/criteria.ts` groups, per plan-m6 A12):
 - **M8a, cargo built by the port** (root's "M8 host capacity"): **`cargo-build` MATCH and `cargo-smoke` all MATCH.**
-  `cargo-testsuite` is a report until the owner frees about 20–30 GiB of disk; it then joins M8a at ≥ 99%, by a recorded decision.
+  `cargo-testsuite` stays a report for M8a (root's "M8 cargo testsuite status"); root revisits it after `m8-measure` gives real
+  numbers, and promoting it (≥ 99%) is a recorded decision plus a reviewed change of its `neverProtect` field.
 - **M8b, rustfmt-ts:** `rustfmt-system` ≥ 99%, `rustfmt-idem` ≥ 99%, `rustfmt-emit` ≥ 95%, unit tests clean.
 - **M8c, clippy-ts:** `clippy-ui` ≥ 95%, `clippy-ui-toml` ≥ 95%, `clippy-ui-json` ≥ 90%.
 - **M8 = M8a + M8b + M8c.**
-- **Report only:** `cargo-build-release`, `cargo-testsuite` (until promoted), `cargo-testsuite-port`, `cargo-testsuite-rustc`,
-  `clippy-ui-lane`, `clippy-ui-cargo`, `clippy-dogfood`.
+- **Report only, `neverProtect` set:** `cargo-build-release`, `cargo-testsuite` (until promoted), `cargo-testsuite-port`,
+  `cargo-testsuite-rustc`, `clippy-ui-lane` (always), `clippy-ui-cargo`, `clippy-dogfood`. Clearing the field for a suite other
+  than `clippy-ui-lane` is how root promotes it, in a reviewed harness batch.
 
 **Thresholds.** `cargo-testsuite` compares the same test code on the same `rustc` with only `cargo` rebuilt, so every non-flaky
 difference is a miscompile: **99%** (review F5), with every case below it named in the gate record. rustfmt's 99% is high for the
@@ -571,21 +636,29 @@ will hold `rustc_*` gaps that clippy reaches and rustc's own lints never did.
 
 **Gate time.** The last gate took 7 h 15 min over 71 suites. The clippy and rustfmt suites add minutes (check-ui's 730 cases took
 28 s in the last gate). `cargo-build`'s port side is one heavy case of 40–50 min at `-j1` that must run alone (12,450 MiB on one
-compile), with the oracle side cached: **M8a adds about 1 h** to a gate. When `cargo-testsuite` is promoted it adds about 12 min
-(oracle-built binary cached); `cargo-testsuite-port` would add its build, measured in wave 41, so up to 2 h (review F9).
+compile), with the oracle side cached: **M8a adds about 1 h** to a gate. If `cargo-testsuite` is promoted it adds about 12 min
+(both trees cached); `cargo-testsuite-port` would add its build, measured in wave 41, so up to 2 h (review F9).
+
+**Headroom inside a gate** (D20, root's "M8 host headroom"). The gate checks D20's start minimums **immediately before each
+D20-covered heavy suite starts** (`cargo-build`, `cargo-build-release`, `cargo-testsuite-port`, `cargo-testsuite-rustc`), not only
+at the gate's start, and `cargo-build` runs **first** among the gate's suites, when swap is lowest (a suite field, in
+`harness-m8a`). If the check fails, or the watchdog stops a suite, **the gate run fails and nothing is accepted**; it is re-run
+once the host meets D20, as a battery spell is treated, never recorded as a lost case. A consequence root should weigh: once
+`cargo-build` is protected, every later gate runs it, so every gate needs D20's headroom at its start. On today's host (11–12 GiB
+free, 8.5–10.3 GiB of swap at idle) that means a restart before each gate until the owner frees disk. **[owner]**
 
 ## 7. Decisions
 
 **D1. [owner] M8 = clippy-ts and rustfmt-ts as line-by-line ports; cargo built by rust-ts, not ported. Amends PLAN.md's M8 row
 ("cargo-ts").** Recorded by root as "M8 scope" under the owner's standing instruction; it changes what the milestone delivers and
 adds crates to `scope.json`, so the owner may overrule it. §1e costs the alternatives: (a′) port cargo with its C behind a seam
-(~330–470k more lines, 2–3 months), and deferring clippy-ts (M8 becomes 1–2 weeks). PLAN.md's row is amended when this plan is
+(~360–550k more lines, 2.5–3.5 months), and deferring clippy-ts (M8 becomes 1–2 weeks). PLAN.md's row is amended when this plan is
 accepted.
 
 **D2. Oracles: the pinned `clippy-preview` and `rustfmt-preview` dist tarballs, unpacked, run on the oracle's own
 `librustc_driver`** (review F11). `UPSTREAM.json` gains `tools: { clippy: {url, sha256}, rustfmt: {url, sha256} }` (the manifest's
 `xz_url` and `xz_hash`); a setup step downloads, checks and unpacks them into `$RUST_TS_DATA/tools/<sha256>/` (about 20 MB,
-instead of about 0.6 GB for an isolated rustup home). They run by absolute path with `DYLD_LIBRARY_PATH=<oracle sysroot>/lib`.
+instead of about 0.6 GiB for an isolated rustup home). They run by absolute path with `DYLD_LIBRARY_PATH=<oracle sysroot>/lib`.
 The guard test checks that the dylib each binary links (`otool -L`) is the oracle's `librustc_driver` file, that the oracle
 toolchain still has exactly `UPSTREAM.json`'s components (plan-m6 D1's rule), and the tarballs' hashes; the oracle key includes
 them. **Both sides pass the same explicit `--sysroot=<oracle sysroot>`**: a sysroot with `rust-src` (as the Miri home has) prints
@@ -604,11 +677,14 @@ crates `clippy_lints`, `clippy_utils`, `clippy_config`, `clippy`, `rustfmt` (in 
 the contract lanes' markers). `clippy_dev`, `lintcheck`, `clippy_lints_internal`, `clippy_dummy` and rustfmt's `check_diff` are out
 (`scope.json`, with D1).
 
-**D5. Macros through `tools/codegen`, never by hand** (PORTING §5): `declare_clippy_lint!` (lint statics + `LintInfo`, with the
-lint docs taken from the source), `declare_lint_pass!`/`impl_lint_pass!` (already generated for rustc's lints), clippy's `sym`
-list, `msrv_aliases!`, `define_Conf!`; rustfmt's `create_config!`, `#[config_type]` (config_proc_macro) and the serde derives on
-config and JSON types. The generator also emits the pass ↔ lint ↔ file table §2d needs. One tools batch, `codegen-tools-m8`,
-contract-first.
+**D5. Macros through `tools/codegen`, never by hand** (PORTING §5), **in two batches that merge before the contracts that use them**
+(re-check N6):
+- **`codegen-clippy-macros`**, before `clippy-contract-a/-b` integrate: `declare_clippy_lint!` (lint statics + `LintInfo`, with the
+  lint docs taken from the source), `declare_lint_pass!`/`impl_lint_pass!` and their `lint_vec()`s (already generated for rustc's
+  lints), `combined_{early,late}_lint_pass!` with `early_lint_methods!`/`late_lint_methods!`, clippy's `sym` list,
+  `msrv_aliases!`, `define_Conf!`, and two tables §2d needs: sub-pass ↔ lint ↔ implementing files, and lint group ↔ member lints;
+- **`codegen-fmt-serde`**, before `rustfmt-contract`'s config lane: rustfmt's `create_config!`, `#[config_type]`
+  (config_proc_macro) and the serde derives on config and JSON types (D6).
 
 **D6. serde follows the project's Decodable precedent** (review F10). The reached part of `serde::de` is vendored and ported
 (`Error`, `Unexpected`, `Expected`, `value`, and `private::de` where `untagged` or `flatten` is used): the observable error texts
@@ -636,18 +712,21 @@ and environment**: the component's version line carries bootstrap's `git-commit-
 (§4b). `rg-build`'s protected case must stay byte-identical (the batch's proof: re-run `rg-build` and `rg-behaviour` before and
 after).
 
-**D9. cargo's testsuite: the oracle-built testsuite against the port-built `cargo`, outcome per test, ENV cases never protected**
-(review F5).
-- **Configurations:** `cargo-testsuite` copies the port-built `cargo` (from `cargo-build`'s kept binary) into a copy of the
-  oracle-built test tree at the baked-in `CARGO_BIN_EXE_cargo` path; `cargo-testsuite-port` and `cargo-testsuite-rustc` as §4c.
-- **Cases:** test names from `--list`. A test the oracle side does not pass (FAILED, or skipped by `requires`) on two oracle runs is
-  **ENV**: out of the denominator, never protected, listed with its reason; `CFG_DISABLE_CROSS_TESTS=1` turns the 21 cross tests
-  into skips on both sides. A test whose outcome differs between oracle runs is UNSTABLE, as harness-m7b did.
+**D9. cargo's testsuite: oracle-built per side, the port-built `cargo` in the subject side's tree, outcome per test, ENV never
+protected** (review F5, re-check N3, N5, N8).
+- **Configurations:** as §4c. `cargo-testsuite` builds the testsuite once per side with the oracle (the `CARGO_BIN_EXE_cargo` path
+  is fixed at compile time), replaces `debug/cargo` in the subject tree with `cargo-build`'s kept port-built binary, and checks
+  the hash at each baked path before each run. 4.2 GiB kept; 2 × 64 s to build.
+- **Status:** a report for M8a, `neverProtect` set (root's "M8 cargo testsuite status"); root revisits after `m8-measure`.
+- **Cases:** test names from `--list`. A test the oracle side does not pass (FAILED, or skipped by `requires`) on two oracle runs gets
+  the difftest status **ENV**, which `matchesOfRun` never returns: out of the denominator, never protected, listed with its
+  reason. `CFG_DISABLE_CROSS_TESTS=1` turns the 21 cross tests into skips on both sides. A test whose outcome differs between
+  oracle runs is UNSTABLE, as harness-m7b did.
 - **Environment:** `PATH` is built, not inherited: the oracle toolchain's own `bin` (not the rustup proxy) first, then
-  `/usr/bin:/bin` (for `git`); no `~/.cargo/bin`, so external `cargo-*` subcommands cannot leak in (three of the 27 failures came
-  from them). `HOME` and `CARGO_HOME` point into the run's sandbox.
+  `/usr/bin:/bin` (for `git`, and `perl`/`make` for `all-static`'s OpenSSL build); no `~/.cargo/bin`, so external `cargo-*`
+  subcommands cannot leak in (three of the 27 failures came from them). `HOME` and `CARGO_HOME` point into the run's sandbox.
 - **Concurrency and disk:** module by module with libtest's `--test-threads=6`, each module's sandbox (`target/tmp/cit`) deleted
-  after it (it grows about 0.3 GB per 200 tests); the run refuses to start below the free-disk minimum (D20).
+  after it (it grows about 0.3 GiB per 200 tests); the run refuses to start below the free-disk minimum (D20).
 
 **D10. clippy's suites compare against the oracle's `clippy-driver` with upstream's settings, raw** (review F3). The harness
 reproduces `compile-test.rs`'s environment and ui_test's per-file defaults: `CLIPPY_CONF_DIR=tests` for ui (the per-directory value
@@ -657,7 +736,8 @@ plan-m6 D7), `harness/compiletest.ts`'s directive parsing, and each test's own `
 (they exist for nondeterminism: `custom_ice_message.rs` prints the version, target, flags and a rustc source location). It does not
 apply ui_test's presentation normalisations: both sides render the same way. **Proof in `harness-m8d`:** with ui_test's empty-`|`
 and `//~` normalisations applied to the oracle's output, the emulation reproduces the committed `.stderr` for every runnable case but
-a named list (measured here: all of the 1,019 runnable cases but 14, §2b).
+a named list (measured here: all of the 1,019 runnable cases but 14, §2b). The proof states separately that 141 of its matches
+are files with no `.stderr` whose expected output is empty (re-check N9).
 
 **D11. rustfmt's suites run with the default config plus the significant comments, as `src/test/mod.rs` does** (review F3). Each
 case runs from a scratch directory with no `rustfmt.toml` above it, with `HOME` and `XDG_CONFIG_HOME` pointing at an empty
@@ -675,12 +755,14 @@ the 748 targets measured here, with each remaining class named.
 grown). rustfmt's ported `system_tests` and `idempotence_tests` are about 1,870 formatting runs in one process: measure them first,
 and if they exceed the budget, run them as a suite (`rustfmt-upstream-tests`) instead of in the unit step.
 
-**D14. Contract-first, with clippy's lane-by-lane measurement settled in the contract** (review F1). ✱`clippy-contract-a`
-(driver, `declare_clippy_lint`, `clippy_lints/src/lib.rs` with every registration, `declared_lints.rs`, `deprecated_lints.rs`, and
-§2d's glue `src/rust_ts/clippy_lane.ts`), ✱`clippy-contract-b` (`clippy_config`, the core of `clippy_utils`), the ✱dispatch
-contracts (each directory's `mod.rs`, §2c) and ✱`rustfmt-contract` merge before their fill lanes. Stub pass bodies call `unported`,
-as everywhere: in the gated `clippy-ui` a stub stops the case, which is correct; in `clippy-ui-lane` stub passes are not registered
-(§2d). `clippy-ui` is expected to read 0 until the last lint lane; `clippy-ui-lane` is the progress measure.
+**D14. Contract-first, with clippy's lane-by-lane measurement settled by the pass structure** (review F1, re-check N1).
+✱`clippy-contract-a` (driver, `declare_clippy_lint`, `clippy_lints/src/lib.rs` with `register_lint_passes`, `declared_lints.rs`,
+`deprecated_lints.rs`, `combined_early_pass.rs`, `combined_late_pass.rs`), ✱`clippy-contract-b` (`clippy_config`, the core of
+`clippy_utils`), the ✱dispatch contracts (each directory's `mod.rs`, §2c) and ✱`rustfmt-contract` merge before their fill lanes,
+after the codegen batch each needs (D5). Stub sub-pass bodies call `unported`, as everywhere. **The early group** (§2c) is the first
+clippy porting after the contracts, because early sub-passes always run. Then `clippy-ui-lane` counts lane by lane through
+upstream's own late-pass filter (§2d), with nothing added to the port. `clippy-ui` is expected to read about 0 until the early
+group and every late sub-pass with a default-on lint have landed.
 
 **D15. cargo's stops are fixed in the port, never worked around in the harness; the build's C inputs are pinned by configuration**
 (review F7). §4b's stops are port bugs and go to fixer lanes. The harness sets what rg-build sets (`CARGO_INCREMENTAL=0`, no
@@ -699,81 +781,108 @@ wants a drop-in `rustc` for cargo's default profiles.
 
 **D17. Process and memory.** One heavy build at a time (`cargo-build`, the test-crate measurement, `rg-build`); the port's largest
 compiles in cargo's graph are the `cargo` crate at 12,450 MiB, `objc2-foundation` 6,267 MiB and `gix` 6,045 MiB (§4b), so `-j1` in
-the suite and nothing else heavy running. Disk: `cargo-build`'s target tree is about 2–3 GB per side and is deleted after its
+the suite and nothing else heavy running. Disk: `cargo-build`'s target tree is about 2–3 GiB per side and is deleted after its
 report, as rg-build's, keeping only the binary.
 
-**D18. Harness and porting never mix (plan-m6 A2).** `harness-m8*` and `tools-prep-m8` own `harness/` and `scripts/`; porting lanes
-own `src/clippy*`, `src/rustfmt`, `src/vendor/*`; codegen batches own `tools/`. The one exception is §2d's glue in `src/rust_ts/`,
-owned by `clippy-contract-a`: it is driver code, not harness code.
+**D18. Harness and porting never mix (plan-m6 A2).** `harness-m8*`, `tools-prep-m8` and the codegen batches own `harness/`,
+`scripts/` and `tools/`; porting lanes own `src/clippy*`, `src/rustfmt`, `src/vendor/*`. No exception: the lane measurement needs
+no code under `src/` (§2d). If a later lane proposes any lane-only switch in the port, it is a separate subject entry that no gated
+suite runs, or it is refused by `gateEnvRefusal`, nulled in every gated suite's case environment and unit-tested, in a reviewed
+harness batch (re-check N2).
 
-**D19. `clippy-ui-lane` is never protected and never a gate criterion** (§2d point 5). It may be retired once `clippy-ui` passes
-its threshold.
+**D19. "Never protected" is mechanical** (re-check N5; in `harness-m8a`'s scope). `harness/suites.ts` gains a `Suite` field,
+`neverProtect`: `gate accept` skips such a suite's matches with a note, whatever `--suites` named, and a unit test pins it. It is set
+permanently on `clippy-ui-lane`, and on the report suites of §6 until a recorded decision clears it in a reviewed batch. ENV is a
+difftest status of its own (D9) that `matchesOfRun` never returns. `clippy-ui-lane` may be retired once `clippy-ui` passes its
+threshold.
 
-**D20. Host headroom for heavy builds** (review F2; root's "M8 host capacity"). Every run of the port's cargo build, of the
-test-crate measurement and of `cargo-build` in a gate needs:
-- **before it starts:** AC power, no `GATE_RUNNING` (unless it is the gate), **at least 20 GiB free on the data volume**, and swap
-  used under 4 GB (in practice, soon after a restart, which returns the swap files' space). Today the host idles at 10–11 GiB free
-  and 10–11 GB of swap, so the first such run follows a restart, or the owner frees disk;
+**D20. Host headroom for heavy builds** (review F2, re-check N4; root's "M8 host capacity" and "M8 host headroom"). The minimums
+stand. Every run of the port's cargo build, of `m8-measure` and of a D20-covered heavy suite in a gate needs:
+- **before it starts:** AC power, no `GATE_RUNNING` (unless it is the gate), **at least 20 GiB free on the data volume, and swap
+  used under 4 GiB**. Today the host idles at 11–12 GiB free and 8.5–10.3 GiB of swap; a restart returns the swap files' space
+  (about 10 GiB, giving about 21.8 GiB by the re-check's count), and root has asked the owner to free 20–30 GiB;
 - **while it runs, a watchdog** (a small script beside the build, polling every 5 s) that kills the build's process group (by its
   own pid, never `pkill`) when free disk falls under 4 GiB or `kern.memorystatus_vm_pressure_level` reaches critical (4) for 60 s.
-  The run records why it stopped; a watchdog stop is not a result;
-- **in the gate:** a disk-free check in the gate's preflight beside the battery check (`scripts/lib/host-state.ts`'s
-  `batteryRefusal`): a gate whose suites include `cargo-build` refuses below 20 GiB free. A scripts change, in `harness-m8a`'s
-  reviewed batch.
+  For `m8-measure`, which runs before `harness-m8a` lands, the watchdog is a root scratch script under
+  `$RUST_TS_DATA/tmp/m8-measure/`; from `harness-m8a` on it is part of the project-build harness;
+- **in a gate:** the check runs **immediately before each D20-covered heavy suite starts** (`cargo-build`, `cargo-build-release`,
+  `cargo-testsuite-port`, `cargo-testsuite-rustc`), beside the battery check at the gate's start (`scripts/lib/host-state.ts`);
+  `cargo-build` runs first among the gate's suites. **A failed check or a watchdog stop fails the gate run: nothing is accepted**,
+  and the run is repeated once the host meets D20. It is never recorded as a lost case. The gate record names which. All of this is
+  a scripts change in `harness-m8a`'s reviewed batch.
 
-**D21. Wave-41 ordering** (review F8). `tools-prep-m8` (D3's sparse change, D4's coverage.ts crates, `scope.json` per D1) merges
-before any contract lane integrates, because `coverage.ts --check` (a gate step) rejects markers into trees that are not checked
-out. The rest of `harness-m8a` (D2, D8, D15, D20, `cargo-build`, `cargo-smoke`) is a second batch.
+**D21. Wave-41 ordering** (review F8, re-check N4, N6). `tools-prep-m8` (D3's sparse change, D4's coverage.ts crates,
+`scope.json` per D1) merges before any contract lane integrates, because `coverage.ts --check` (a gate step) rejects markers into
+trees that are not checked out. The codegen batches merge before the contracts that use them (D5). The rest of `harness-m8a` (D2,
+D8, D15, D19, D20, `cargo-build`, `cargo-smoke`) is a second batch whose code and review proceed now; its `cargo-build` proof runs
+wait on D20. Each step of §8's wave 41 is marked **now** or **waits on host**.
+
+**D22. `cargo-fix-a` is proved per crate now, end to end later.** Its intrinsic signatures are proved by compiling `crc32fast`,
+`sha1` and `sha2` alone through the port (small compiles, outside D20), against the oracle's IR; the end-to-end check through
+`cargo-build` waits on D20 with the other heavy runs.
 
 ## 8. Waves and lanes
 
 Lanes ≤ about 3k upstream lines; ✱ = contract-first, merges before its dependants. Start 5–6 heavy lanes at a time (memory: wave
 38's 11 lanes drove load to 100–300). Wave numbers continue from M7's 40t.
 
-**Wave 41: setup, cargo first light, the test-crate measurement, contracts (→ M8a measurable)**
-1. `tools-prep-m8` (scripts batch, merges first): D3 sources (sparse, cargo tarball, `CARGO_HOME`), D4 coverage.ts crates,
+**Wave 41: setup, cargo first light, the test-crate measurement, contracts (→ M8a measurable).** Each step is marked **now** (it
+can start today) or **waits on host** (it needs D20's headroom: a restart or freed disk), per root's "M8 host headroom".
+1. **now** — `tools-prep-m8` (scripts batch, merges first): D3 sources (sparse, cargo tarball, `CARGO_HOME`), D4 coverage.ts crates,
    `scope.json` entries (D1).
-2. **`m8-measure` (root-run, alone on the host, D20's preconditions and watchdog):** the port's build of cargo's 210k-line test
-   crate. Dependencies from the oracle (a wrapper that sends only `--crate-name testsuite`, and then `cargo`, to the port; mixing is
-   sound, plan-m7 §3), so only the crate in question is the port's. First `cargo check --tests` (front end only), then `cargo test
-   --no-run`; the same split for the `cargo` crate. It answers whether `cargo-testsuite-port` can run here and whether a memory lane
-   should target the front end or codegen and the IR model. If the watchdog stops it, that is the answer, recorded.
-3. `cargo-fix-a`: the three aarch64 intrinsic signatures (`crc32b`, `crypto.sha1h`, `crypto.sha256h`, and any other a run of
-   `cargo-build` reaches, each proved by the case that reaches it, from `IntrinsicsAArch64.td` pinned in the LLVM manifest). About 1
-   day.
-4. `harness-m8a` (harness batch): D2 tool oracles and guard, D8 project-build harness with the m7d notes, D15 (`all-static`, built
-   `PATH`, recorded build-script outputs), D20 (preflight disk check, watchdog), `cargo-build` and `cargo-smoke` (report).
-5. ✱`clippy-contract-a` (2,535 lines + §2d's glue), ✱`clippy-contract-b` (~3.9k, two chained lanes), ✱`rustfmt-contract` (7.4k,
-   three chained lanes), after `tools-prep-m8`.
-6. `codegen-tools-m8` (tools batch, D5, D6), with the `-Zunpretty=expanded` check and the pass ↔ lint ↔ file table.
+2. **now** — `codegen-clippy-macros` and `codegen-fmt-serde` (tools batches, D5, D6), with the `-Zunpretty=expanded` check and §2d's
+   two tables; each merges before the contracts that use it (re-check N6).
+3. **now** — ✱`clippy-contract-a` (2,718 lines, with the combined-pass files), ✱`clippy-contract-b` (~3.9k, two chained lanes),
+   ✱`rustfmt-contract` (7.4k, three chained lanes), after steps 1 and 2.
+4. **now** — `cargo-fix-a` code: the three aarch64 intrinsic signatures (`crc32b`, `crypto.sha1h`, `crypto.sha256h`, from
+   `IntrinsicsAArch64.td` pinned in the LLVM manifest), proved by compiling `crc32fast`, `sha1` and `sha2` alone (D22). About 1 day.
+   **Waits on host:** its end-to-end check through `cargo-build`, and any further signature that run reaches.
+5. **now** — `harness-m8a` code and review (harness batch): D2 tool oracles and guard, D8 project-build harness with the m7d notes,
+   D15 (`all-static`, built `PATH`, recorded build-script outputs), D19 (`neverProtect`, the ENV status), D20 (per-suite headroom
+   check, `cargo-build` first, the watchdog, a failed check or watchdog stop fails the run), `cargo-build` and `cargo-smoke`
+   (report), and its `rg-build`/`rg-behaviour` before-and-after proof (rg-build is outside D20). **Waits on host:** its proof run
+   of `cargo-build` on both sides, and `all-static`'s first oracle build.
+6. **waits on host** — `m8-measure` (root-run, alone, D20's preconditions, the scratch watchdog): the port's build of cargo's
+   210k-line test crate. Dependencies from the oracle (a wrapper that sends only `--crate-name testsuite`, and then `cargo`, to the
+   port; mixing is sound, plan-m7 §3), so only the crate in question is the port's. First `cargo check --tests` (front end only),
+   then `cargo test --no-run`; the same split for the `cargo` crate. It answers whether `cargo-testsuite-port` can run here, where a
+   memory lane would aim (front end or codegen and the IR model), and gives root the numbers for "M8 cargo testsuite status". If
+   the watchdog stops it, that is the answer, recorded.
+7. **waits on host** — every `cargo-build` run (the M8a gate's first one included).
 
-**Wave 42: dispatch contracts, rustfmt fill, clippy_utils, vendors, the clippy suites (→ M8b; clippy measurable)**
+**Wave 42: dispatch contracts, the early group, rustfmt fill, clippy_utils, vendors, the clippy suites (→ M8b; clippy measurable).
+All now**, except `harness-m8c`'s runs.
 - ✱`dispatch-methods-a`/`-b` (`methods/mod.rs`, 6,229), ✱`dispatch-a` … `-e` (the other directories' `mod.rs`, ~10.4k).
+- **`clippy-early-a` … `-e`** (§2c: the 49 early modules and `cognitive_complexity`, ≤ 14.6k), the first clippy porting after the
+  contracts: `clippy-ui-lane` counts from here on (§2d).
 - rustfmt: 13 fill lanes from §3c (with the bins and `src/test/*`).
 - `clippy-utils-a` … `-f` (~17k left of `clippy_utils`).
 - `vendor-toml` (~11k reached, two lanes), `vendor-serde-de` (D6), `vendor-fmt-small` (`diff`, `unicode-segmentation`, `semver`,
   `bytecount`, `unicode-width 0.1`), `vendor-ignore` (`ignore` + `globset`, reached part).
 - `harness-m8b`: `rustfmt-system`, `rustfmt-idem`, `rustfmt-emit` (report), D11's settings and proof, the rustfmt subject entry
   (D12).
-- **`harness-m8d`: `clippy-ui`, `clippy-ui-lane`, `clippy-ui-json`, `clippy-ui-toml` (report), `clippy_test_deps` setup, D10's
-  settings and proof, the clippy subject entry. It merges before the first lint lane.**
-- `harness-m8c`: `cargo-testsuite` (D9, report), and `cargo-testsuite-port` if wave 41's measurement says it can run.
-- Fixers from `rustfmt-system` first differences and from `cargo-build`.
+- **`harness-m8d`: `clippy-ui`, `clippy-ui-lane` (`neverProtect`), `clippy-ui-json`, `clippy-ui-toml` (report), `clippy_test_deps`
+  setup, D10's settings and proof, §2d's eligibility and vacuous-case list, the clippy subject entry. It merges before the first
+  late lint lane.**
+- `harness-m8c` code: `cargo-testsuite` (D9, the two oracle-built trees, `neverProtect`), and `cargo-testsuite-port` if
+  `m8-measure` says it can run. **Waits on host:** its runs, which need `cargo-build`'s kept binary.
+- Fixers from `rustfmt-system` first differences, and from `cargo-build` once it runs.
 
-**Waves 43–45: clippy lints (→ M8c)**
-- `methods-a` … `-f` (15.9k), `matches-a`/`-b`, `loops-a`/`-b`, `operators-a`, `casts-a` (17.0k in all), four lanes for the other
-  directories' files, 25 lanes for the top-level files (alphabetical blocks of ~3k, so a lane's ui tests are easy to name). Each
-  lane's review reports its newly eligible `clippy-ui-lane` cases and their matches.
+**Waves 43–45: clippy's late lints (→ M8c). Now** (as soon as wave 42's prerequisites land).
+- `methods-a` … `-f` (15.9k) **together** (the `Methods` sub-pass holds 164 lints, so none of its cases is eligible until the last
+  of these lands, §2d point 5), `matches-a`/`-b`, `loops-a`/`-b`, `operators-a`, `casts-a` (17.0k in all), the other directories'
+  late files, 25 lanes for the top-level files (alphabetical blocks of ~3k). Each lane's review reports the `clippy-ui-lane` cases
+  it made eligible and their matches.
 - `vendor-regex-syntax` (the parser, errors), `vendor-url` (parser), `vendor-quine`.
-- After the first 3–5 lint lanes, §9's `rustc-for-clippy` trigger is evaluated on `clippy-ui-lane`.
+- After the first 3–5 late lint lanes, §9's `rustc-for-clippy` trigger is evaluated on `clippy-ui-lane`.
 - Fixers per suite.
 
 **Wave 46: tail and reports**
 - Fixers on the three gates' tails; `clippy-ui-cargo`, `clippy-dogfood`, `cargo-testsuite-rustc` and `cargo-build-release` as
-  reports; `cargo-testsuite` promoted to M8a's gate if the owner has freed disk.
+  reports; `cargo-testsuite` promoted to M8a's gate if root decides so after `m8-measure`.
 
 **What it adds up to.** clippy ~157k + rustfmt ~38k + vendor ~25k = **about 220k upstream lines**, against M7's 52k + 9k vendor.
-About **73 porting lanes** (57 clippy, 16 rustfmt) + about 9 vendor lanes + 1–2 cargo fixer lanes, **plus perhaps 25 fixers, 9
+About **73 porting lanes** (57 clippy, 16 rustfmt) + about 9 vendor lanes + 1–2 cargo fixer lanes, **plus perhaps 25 fixers, 10
 harness and tools batches and one root-run measurement**, each lane and batch with an independent review.
 
 ## 9. Risks, cost, and what would change the plan
@@ -783,12 +892,14 @@ gates. M8 is about **2.5–3× M7's porting** (220k against 61k lines, ~82 lanes
 small, independent files that call a compiler which is already ported, rather than new infrastructure. I expect **3–5 weeks**, at
 5–6 heavy lanes in flight and a gate every 1–2 days, so 15–25 gates of 8–9 h (M8a adds about 1 h): the gate itself is the floor. In
 tokens, about 115 agents at ≤ 500k and about 95 reviews at about 300k: **order of 80–120 M tokens**. Extrapolated, with wide error;
-I measured no dollars. **M8a alone** is 3–5 days and 2–3 gates: `tools-prep-m8`, the measurement, `cargo-fix-a` and `harness-m8a`.
-The first heavy run waits on D20's headroom (a restart, or the owner freeing disk). The alternatives are costed in §1e.
+I measured no dollars. **M8a alone** is 3–5 days of work and 2–3 gates (`tools-prep-m8`, `cargo-fix-a`, `harness-m8a`, the
+measurement), **counted from the day the host first meets D20**: its code proceeds now, but `m8-measure`, `cargo-build` and M8a's
+gate wait for a restart or for the owner to free disk, and once `cargo-build` is protected every gate needs that headroom at its
+start (§6). The porting waves for M8b and M8c do not wait. The alternatives are costed in §1e.
 
 **Risks.**
-- **Host capacity (D20).** The host idles at 10–11 GiB free and 10–11 GB of swap; the `cargo` crate's compile alone took swap up
-  by about 6 GB and free disk down to 4.5 GiB. Every heavy step waits for headroom, and the watchdog makes an overrun a recorded
+- **Host capacity (D20).** The host idles at 11–12 GiB free and 8.5–10.3 GiB of swap; the `cargo` crate's compile alone took swap
+  up by about 6 GiB and free disk down to 4.5 GiB. A restart gives about 21.8 GiB free, under 2 GiB above the bar. Every heavy step waits for headroom, and the watchdog makes an overrun a recorded
   stop instead of a stalled host. If headroom cannot be had, M8a's heavy steps wait; the porting waves do not depend on them.
 - **The port's memory on cargo's testsuite crate.** 210k lines in one crate, twice the `cargo` crate's 12,450 MiB. It may not build
   on 24 GiB. It no longer blocks M8a (D9: the protected configuration uses the oracle-built testsuite), and wave 41 measures which
@@ -797,8 +908,11 @@ The first heavy run waits on D20's headroom (a restart, or the owner freeing dis
   is 256 fns short, `rustc_interface` 31, `rustc_driver_impl` 9; clippy uses `rustc_hir_typeck`'s `expr_use_visitor`,
   `rustc_mir_dataflow` analyses and `rustc_const_eval`'s const evaluation from lints). Each becomes a stop that a clippy lane cannot
   fix (it owns only clippy files): fixers in `rustc_*` crates run beside the lint lanes, steered by `clippy-ui-lane`.
-- **`clippy-ui-lane`'s approximation (§2d).** It can match where `clippy-ui` later fails, through shared state between passes. That
-  is why it is never protected; the difference names the shared state.
+- **`clippy-ui-lane`'s approximation (§2d).** It can match where `clippy-ui` later fails, through state shared between late
+  sub-passes, and it measures a multi-lint sub-pass only whole (`Methods`: 164 lints). That is why it is `neverProtect`; a
+  difference from `clippy-ui` names the shared state.
+- **The early group gates all of clippy's measurement** (§2d point 3): ≤ 14.6k lines in five lanes before any late lint is
+  measurable. If those lanes stall in `rustc_*` gaps, the `rustc-for-clippy` fixers start there.
 - **The lint docs.** 28.6k comment lines in `declare_clippy_lint!` are lint documentation (`clippy --explain`, the lint list).
   Porting them as comments is cheap; generating `LintInfo`'s doc text (D5) must take them from the source, not a lane.
 - **serde and toml exactness (D6).** `clippy.toml` and `rustfmt.toml` errors print serde/toml messages with spans. Following the
@@ -816,11 +930,12 @@ The first heavy run waits on D20's headroom (a restart, or the owner freeing dis
 What would change the plan:
 - Wave 41's measurement shows the port cannot build the 210k-line test crate within D20's limits: `cargo-testsuite-port` stays a
   report, and a front-end (or codegen) memory lane is queued; M8a is unaffected (D9).
-- Over the first 3–5 lint lanes, most of the cases they make eligible in **`clippy-ui-lane`** stop in `rustc_*` code rather than in
-  clippy's: a `rustc-for-clippy` fixer wave goes before the remaining lint lanes.
+- Over the first 3–5 late lint lanes, most of the cases they make eligible in **`clippy-ui-lane`** stop in `rustc_*` code rather
+  than in clippy's: a `rustc-for-clippy` fixer wave goes before the remaining lint lanes.
 - The owner overrules D1: to (a′) (§1e: plan a cargo port as its own milestone, reusing D9's oracle-built testsuite), or by
   deferring clippy-ts (M8 = M8a + M8b, 1–2 weeks).
-- The owner frees 20–30 GiB: `cargo-testsuite` joins M8a's gate at ≥ 99%.
+- `m8-measure`'s numbers: root revisits `cargo-testsuite`'s status ("M8 cargo testsuite status"); promoted, it joins M8a at ≥ 99%.
+- The owner frees 20–30 GiB: the restart before each gate is no longer needed (§6).
 
 ## 10. What I could not check
 
@@ -835,9 +950,13 @@ What would change the plan:
   behaviour was. The binary is the mixed one: three small crates were the oracle's.
 - **The smoke test's ripgrep step** used `$RUST_TS_DATA/ripgrep/cargo` as `CARGO_HOME` (offline, locked, read-only use, as check-rg
   does) and a copy of ripgrep's source; its target went to scratch.
-- **(a′)'s reach** (§1e): estimated per dependency group from roles, not traced through the code.
+- **(a′)'s reach** (§1e): every package is assigned to a row by name, and the rows sum to the graph; what each row reaches is
+  estimated from its role, not traced through the code.
 - **clippy or rustfmt built by rust-ts against `rustc-dev`** (scope (b) for them): not tried.
-- **§2d in practice**: the glue does not exist, and I did not check how many passes share state.
+- **§2d in practice**: measured on the oracle only (the `-W` table). I did not check, sub-pass by sub-pass, which late sub-passes
+  read another's state, nor run the port's `skippable_lints` on these files (the early group is not ported yet).
+- **The early group's exact size**: ≤ 14.6k counts the mixed directories `attrs`, `doc`, `functions`, `misc_early` whole.
+- **Whether a restart returns the swap files' space** on this host, and for how long the headroom lasts.
 - **ui_test's normalisations** were reproduced only as far as §2b's classifier; 33 rustfmt differences were not classified.
 - **Line counts for vendor crates** are from versions in cargo's lock where the root lock's differ slightly (`toml` 1.1.5 vs 1.1.0,
   `regex-syntax` 0.8.11 vs 0.8.8); and which parts are reached is estimated, not traced.
@@ -848,7 +967,7 @@ Kept in `$RUST_TS_DATA/tmp/plan-m8/`: `scripts/`, `bin/`, the `*.jsonl` and `*.t
 `port-build{,2}.{out,err}`, `oracle-build.err`, `tst-build.err`, cargo's tarball and the channel manifest (`dl/`). Removed: the build
 and test trees, the unpacked components, sources and `cargo-home`, the component tarballs.
 
-## 11. Changes in this revision (review plan-m8)
+## 11. Changes in the revisions (review plan-m8, re-check plan-m8-recheck)
 
 | Finding | Where |
 |---|---|
@@ -863,6 +982,15 @@ and test trees, the unpacked components, sources and `cargo-home`, the component
 | F9 `-j1` estimate, MiB, `rustc_interface` | §4b, §6 gate time, units throughout, §0 |
 | F10 serde through `serde::de` + codegen checked against `-Zunpretty=expanded` | D6 |
 | F11 D2 simplified; one explicit `--sysroot` | D2 |
+| N1 the pin's combined early/late passes; no glue; `-W` per `//~` lint restored (57 → 5 empty cases) | §0, §2a, §2c (early group, combined-pass files), §2d, D5, D14, §8 wave 42 |
+| N2 a lane-only switch reaching a gated suite | §2d (no switch exists), D18 (what any later switch must do) |
+| N3 the testsuite built once per side; the baked path checked by hash; 4.2 GiB | §4c, D9, §6 |
+| N4 D20's minimums stand; per-heavy-suite check; `cargo-build` first; a watchdog stop fails the gate; steps marked now / waits on host | §6 headroom, D20, D21, D22, §8 wave 41, §9 |
+| N5 `neverProtect` and the ENV status | §6, D9, D19, `harness-m8a` (§8 step 5) |
+| N6 codegen before the contracts it feeds | D5 (two batches), D21, §8 wave 41 step 2 |
+| N7 every dependency package assigned; (a′) now 360–550k | §1e, D1, §0 |
+| N8 the testsuite stays a report for M8a, revisited after `m8-measure` | §4c, §6, D9, §9 |
+| N9 units (MiB/GiB), the 143 files without `.stderr`, group names in attributes | header, §2b, D10, §2d point 4 |
 
 Critical files: src/tools/clippy/{src/driver.rs, clippy_lints/src/lib.rs, clippy_lints/src/methods/mod.rs, clippy_utils/src/{lib.rs,
 diagnostics.rs, sym.rs}, clippy_config/src/{conf.rs, de.rs}, tests/compile-test.rs}, src/tools/rustfmt/src/{lib.rs, config/mod.rs,
