@@ -3017,7 +3017,6 @@ tests/ui/threads-sendsync/tls-init-on-init.rs
 tests/ui/threads-sendsync/tls-try-with.rs
 tests/ui/threads-sendsync/trivial-message.rs
 tests/ui/threads-sendsync/unwind-resource.rs
-tests/ui/threads-sendsync/yield1.rs
 tests/ui/threads-sendsync/yield2.rs
 tests/ui/tool-attributes/tool_lints-rpass.rs
 tests/ui/traits/alias/basic.rs

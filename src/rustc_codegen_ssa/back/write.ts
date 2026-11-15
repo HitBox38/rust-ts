@@ -28,7 +28,7 @@
 //   `start_executing_work` builds it). `#[derive(Encodable, Decodable)]` on `EmitObj`, `BitcodeSection`, `ModuleConfig`
 //   and `CodegenContext` is not written (no rlink of these).
 // - Incremental compilation is out of scope (plan-m7 D11): the paths that only `-C incremental` reaches stop
-//   `unported(..)` where they need rustc_incremental or `link_or_copy` (rustc_fs_util, not ported).
+//   `unported(..)` where they need rustc_incremental (rustc_fs_util's `link_or_copy` is ported, lane rg-fix-a).
 // - `VerboseTimingGuard`s are the rustc_session stand-in's (they print nothing; `-Z time-passes` stops in the stand-in).
 //   `generic_activity_with_arg` is the stand-in's `generic_activity` (both are `TimingGuard::none()` with no
 //   self-profiler).
@@ -1135,11 +1135,11 @@ function execute_copy_from_cache_work_item(
   const _dcx = dcx_.handle();
 
   // PORT: a `CachedModuleCodegen` exists only with `-C incremental` (its `source` is a `WorkProduct`, never constructed:
-  // traits/write.ts). The rest of the body copies its saved files back with `link_or_copy` (rustc_fs_util, not
-  // ported) and builds the `CompiledModule`; it needs `module.source.saved_files`, `split_dwarf_path` and
+  // traits/write.ts). The rest of the body copies its saved files back with `link_or_copy` (rustc_fs_util, ported)
+  // and builds the `CompiledModule`; it needs `module.source.saved_files`, `split_dwarf_path` and
   // `temp_path_for_cgu` / `temp_path_ext_for_cgu`, and emits `NoSavedObjectFile` when the object is missing.
   return unported(
-    `rustc_codegen_ssa::back::write::execute_copy_from_cache_work_item (${module.name}: rustc_fs_util link_or_copy, WorkProduct saved_files; -C incremental, plan-m7 D11)`,
+    `rustc_codegen_ssa::back::write::execute_copy_from_cache_work_item (${module.name}: WorkProduct saved_files; -C incremental, plan-m7 D11)`,
   );
 }
 
@@ -2385,7 +2385,7 @@ export function submit_post_lto_module_to_llvm<W extends WriteBackendTypes>(coor
 export function submit_pre_lto_module_to_llvm<W extends WriteBackendTypes>(tcx: TyCtxt, coordinator: Coordinator<W>, module: CachedModuleCodegen): void {
   const filename = pre_lto_bitcode_filename(module.name);
   // PORT: the rest copies the pre-LTO bitcode between the incremental session directories (rustc_incremental
-  // `in_old_incr_comp_dir_sess` / `in_incr_comp_dir_sess`, rustc_fs_util `link_or_copy`, not ported), emits
+  // `in_old_incr_comp_dir_sess` / `in_incr_comp_dir_sess`, not ported; rustc_fs_util `link_or_copy` is), emits
   // `CopyPathBuf` on failure, and sends `Message::AddImportOnlyModule { bitcode_path, work_product: module.source }`.
   // A `CguReuse::PreLto` exists only with `-C incremental` (plan-m7 D11).
   void tcx;

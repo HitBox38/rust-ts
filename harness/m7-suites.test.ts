@@ -271,8 +271,9 @@ console.log(JSON.stringify({
   expect(j.optsLibtest).toEqual(["--expect", "run-fail", "--should-fail", "--libtest"]);
   // F1: the program-output mask is the native suites' alone; their unstable cases are listed, each with a diagnosed reason.
   expect(j.masked).toEqual([true, true, true, false, false]);
-  expect(j.unstableLists).toEqual({ "run-pass-native": 18, "run-fail-native": 7 });
-  expect(j.unstableHooked).toEqual([18, 7]);
+  // 19: `yield1.rs` added at integ-w60 (w40r-audit N2, w40s-audit N1; decision recorded).
+  expect(j.unstableLists).toEqual({ "run-pass-native": 19, "run-fail-native": 7 });
+  expect(j.unstableHooked).toEqual([19, 7]);
   // N3: the harness-caused case left; N2: the link variables in the key.
   expect(j.harnessSkips).toEqual(["tests/ui/process-termination/process-termination-blocking-io.rs"]);
   expect(j.linkEnv).toEqual(["SDKROOT", "DEVELOPER_DIR", "LIBRARY_PATH"]);

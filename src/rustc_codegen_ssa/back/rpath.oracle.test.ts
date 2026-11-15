@@ -63,5 +63,5 @@ for (const [tuple, is_like_darwin, linker_is_gnu] of [
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 120_000); // explicit: Bun's 5 s default was hit under load (review fixers-60 N1)
 }

@@ -2666,6 +2666,7 @@ export const NATIVE_UNSTABLE: Record<string, Record<string, string>> = {
     "tests/ui/threads-sendsync/task-comm-14.rs": INTERLEAVING("the senders' numbers come out"),
     "tests/ui/threads-sendsync/task-comm-3.rs": INTERLEAVING("`Starting`, `Sending Message` and `Ending` come out"),
     "tests/ui/threads-sendsync/yield.rs": `${INTERLEAVING("the two threads' numbers come out")}; rare on this host: seen once (review harness-m7b), then stable in 3 oracle runs (lane harness-m7b) and 6 (review harness-m7b-recheck), but \`main\` prints \`1 2 3\` while a spawned thread prints \`4 5 6\`, with only \`yield_now\` between them, a real race`,
+    "tests/ui/threads-sendsync/yield1.rs": `${INTERLEAVING("\`1\` (main) and \`2\` (the spawned thread) come out")}; never seen to flip on this host, but \`main\` prints \`1\` while the spawned thread prints \`2\`, with only \`yield_now\` before the join, the same race as yield.rs (w40r-audit N2, w40s-audit N1: the gate re-runs only timeouts alone, so a flip would count as a loss; withdrawn from the baseline by root at integ-w60, decision recorded)`,
     "tests/ui/runtime/rt-explody-panic-payloads.rs": TID_ELSEWHERE("inside a child's stderr that the program prints with `{:?}` (`stderr: \"\\nthread 'main' (<tid>) panicked ...`)"),
     "tests/ui/runtime/running-with-no-runtime.rs": TID_ELSEWHERE("inside a child's stderr that the program prints with `{:?}` (`Ok(\"\\nthread '<unnamed>' (<tid>) panicked ...`)"),
   },
