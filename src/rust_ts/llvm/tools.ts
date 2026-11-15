@@ -22,7 +22,7 @@
 // failed is kept under `$RUST_TS_DATA/tmp/llir/` and the compiler panics (exit 101) with the tool's first error line.
 //
 // Not ported code (PORTING §5c): markers name the wrapper each function stands for.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { LLVM_TOOLS_PINNED, type LlvmTool, llvmBinDir, sha256File } from "../../../scripts/lib/llvm-tools.ts";
 import { stdout_write_all } from "../../std/io.ts";
@@ -723,12 +723,45 @@ export function LLVMRustModuleCost(M: Module): bigint {
 
 /** A module flag named `EnableSplitLTOUnit` in a module's text (`!<n> = !{i32 <behavior>, !"EnableSplitLTOUnit", ...}`). */
 const SPLIT_LTO_UNIT_FLAG = /^!\d+ = !\{i32 \d+, !"EnableSplitLTOUnit", /m;
+/** A module flag named `ThinLTO` in a module's text. */
+const THIN_LTO_FLAG = /^!\d+ = !\{i32 \d+, !"ThinLTO", /m;
+/** The `!llvm.module.flags` line of a module's text, and a numbered metadata definition. */
+const MODULE_FLAGS_LINE = /^!llvm\.module\.flags = !\{(.*)\}$/m;
+const METADATA_DEF = /^!(\d+) = /gm;
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:661 forceFullLTOSummary
+/** The module's text with a `ThinLTO` module flag of 0 (`Module::Error`, 1), unless it has one already (lane ir-fix-b).
+ *  `M->addModuleFlag` appends the flag node to `!llvm.module.flags`: in the text, a new metadata node (numbered after the highest,
+ *  the parser renumbers them all) and its reference last in that line. */
+export function forceFullLTOSummary(text: string): string {
+  // This function may be called twice, such as if you call it with `-C lto=fat --emit=llvm-bc`, so exit early if if we've already
+  // set up the module to emit full LTO summaries. (`assert(Const->getZExtValue() == 0)`: an assertion, off in the oracle's build.)
+  if (THIN_LTO_FLAG.test(text)) return text;
+  const flags = MODULE_FLAGS_LINE.exec(text);
+  // PORT: a module without module flags would get a new `!llvm.module.flags` at the end of its named metadata; rustc gives every
+  // module flags (context.rs), so that case is a stop rather than text placed by guess.
+  if (flags === null) return unported("llir: forceFullLTOSummary of a module without !llvm.module.flags");
+  let next = 0;
+  for (const m of text.matchAll(METADATA_DEF)) next = Math.max(next, Number(m[1]) + 1);
+  const line = `!llvm.module.flags = !{${flags[1] === "" ? "" : `${flags[1]}, `}!${next}}`;
+  const body = text.slice(0, flags.index) + line + text.slice(flags.index + flags[0].length);
+  return `${body}${body.endsWith("\n") ? "" : "\n"}!${next} = !{i32 1, !"ThinLTO", i32 0}\n`;
+}
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1523 LLVMRustModuleSerialize
 export function LLVMRustModuleSerialize(M: Module, is_thin: boolean): LLVMRustBuffer {
   if (!is_thin) {
-    // `forceFullLTOSummary(M)` adds a `ThinLTO` module flag to the module itself, which its text cannot be given here.
-    return unported("llir: LLVMRustModuleSerialize for fat LTO (forceFullLTOSummary, BitcodeWriterPass with a summary)");
+    // #if LLVM_VERSION_GE(23, 0): `MPM.addPass(AssignGUIDPass())`; then `forceFullLTOSummary(unwrap(M))` (it runs while the pipeline is
+    // built, before `MPM.run`, so the flag is in the module the pass sees) and `BitcodeWriterPass(OS, false, /*EmitSummaryIndex=*/true)`.
+    // Both change the module itself, so its text becomes the flagged text after `assign-guid` (lane ir-fix-b).
+    const guid = run_pinned_tool_or_ice("opt", ["-passes=assign-guid", "-S", "-o", "-", "-"], bytesOf(forceFullLTOSummary(module_text(M))), M.moduleID);
+    set_module_text(M, bstrOf(guid));
+    // `BitcodeWriterPass` with a summary index: opt's bitcode output with `--module-summary` (`EmitSummaryIndex`), and the use-list
+    // order off as rustc passes it (`-preserve-bc-uselistorder=false`, as the ThinLTO case below). `assign-guid` again is a no-op.
+    // The summary's module path is opt's `<stdin>`, not the module's identifier: the only reader of this buffer is fat LTO's linker
+    // (lto.rs:296, `LLVMRustLinkerAdd`), which reads the module and not the summary.
+    const bc = run_pinned_tool_or_ice("opt", ["--module-summary", "-preserve-bc-uselistorder=false", "-passes=assign-guid", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
+    return new LLVMRustBuffer(bc);
   }
   // opt `--thinlto-bc` always adds an `EnableSplitLTOUnit` module flag (below). rustc writes one itself under `-Zsplit-lto-unit` or
   // CFI (context.rs:297-303); a second flag of that name breaks the module, and opt aborts. So such a module stops by name, before any
@@ -786,4 +819,288 @@ export function LLVMWriteBitcodeToFile(M: Module, Path: string | undefined): num
   const bc = run_pinned_tool_or_ice("llvm-as", ["-preserve-bc-uselistorder=false", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
   writeFileSync(Path, bc);
   return 0;
+}
+
+// ---- fat LTO: the linker and the restriction pass (lane ir-fix-b) ---------------------------------------------------------
+
+/** `RustLinker` (Linker.cpp): `Linker L(M)` over the destination module. The model keeps the sources' bytes and links them all with
+ *  `llvm-link` at `LLVMRustLinkerFree` (see there). */
+export class RustLinker {
+  /** Copies of the bitcode `LLVMRustLinkerAdd` was given, in order. */
+  readonly sources: Uint8Array[] = [];
+  freed = false;
+  constructor(readonly Dst: Module) {}
+}
+
+function liveLinker(L: RustLinker): RustLinker {
+  if (L.freed) panic("llir: a RustLinker used after LLVMRustLinkerFree");
+  return L;
+}
+
+/** The `source_filename` line of a module's text, if it has one (AsmWriter prints it only when the name is not empty). */
+const SOURCE_FILENAME_LINE = /^source_filename = .*$/m;
+
+/** A global variable line or a function (its comment lines, then a `declare` line or a `define` line up to its closing `}`) of a
+ *  module's text, by the name AsmWriter prints for it (`@name` or `@"name"`, without the `@`), as its lines. */
+interface TextChunk {
+  readonly name: string;
+  readonly lines: readonly string[];
+}
+
+/** A module's text cut where AsmWriter's `printModule` (AsmWriter.cpp:3121-3194) puts its global variables and its functions: the
+ *  lines before the globals, the globals (one line each, contiguous), the blank lines between, the functions (one blank line before
+ *  each), and the rest. Undefined when the text has a shape this does not cut exactly: an alias or ifunc, an unnamed global or
+ *  function (printed by number, which an order change would renumber), or anything unexpected between the pieces. */
+interface CutText {
+  readonly before: readonly string[];
+  readonly globals: TextChunk[];
+  readonly between: readonly string[];
+  readonly functions: TextChunk[];
+  readonly after: readonly string[];
+}
+
+const GLOBAL_NAME = /^@("(?:[^"\\]|\\.)*"|[-a-zA-Z$._0-9]+) = /;
+const FUNCTION_NAME = / @("(?:[^"\\]|\\.)*"|[-a-zA-Z$._0-9]+)\(/;
+
+/** Whether a function starts at `lines[i]`: a `define` or `declare` line, after any `; ` comment lines (`; Function Attrs: ...`). */
+function functionStartsAt(lines: readonly string[], i: number): boolean {
+  while (i < lines.length && lines[i]!.startsWith("; ")) i++;
+  return i < lines.length && (lines[i]!.startsWith("define ") || lines[i]!.startsWith("declare "));
+}
+
+export function cutModuleText(text: string): CutText | undefined {
+  const lines = text.split("\n");
+  let i = 0;
+  while (i < lines.length && !lines[i]!.startsWith("@") && !functionStartsAt(lines, i)) i++;
+  const before = lines.slice(0, i);
+  const globals: TextChunk[] = [];
+  for (; i < lines.length && lines[i]!.startsWith("@"); i++) {
+    const line = lines[i]!;
+    const m = GLOBAL_NAME.exec(line);
+    if (m === null || /^\d+$/.test(m[1]!)) return undefined;
+    // `@name = <keywords> global|constant ...`: the first of these words after the keywords says what it is.
+    const kind = line.slice(m[0].length).split(" ").find((w) => w === "global" || w === "constant" || w === "alias" || w === "ifunc");
+    if (kind !== "global" && kind !== "constant") return undefined;
+    globals.push({ name: m[1]!, lines: [line] });
+  }
+  const betweenStart = i;
+  if (globals.length > 0) while (i < lines.length && lines[i] === "") i++;
+  const between = lines.slice(betweenStart, i);
+  const functions: TextChunk[] = [];
+  while (functionStartsAt(lines, i)) {
+    const start = i;
+    while (lines[i]!.startsWith("; ")) i++;
+    const head = lines[i]!;
+    const m = FUNCTION_NAME.exec(head);
+    if (m === null || /^\d+$/.test(m[1]!)) return undefined;
+    if (head.startsWith("define ")) {
+      if (!head.endsWith("{")) return undefined;
+      while (i < lines.length && lines[i] !== "}") i++;
+      if (i === lines.length) return undefined;
+    }
+    i++;
+    functions.push({ name: m[1]!, lines: lines.slice(start, i) });
+    // AsmWriter prints a newline before each function.
+    if (lines[i] === "" && functionStartsAt(lines, i + 1)) i++;
+    else break;
+  }
+  // Anything else that looks like a global or a function past this point is a shape not cut here.
+  const after = lines.slice(i);
+  if (after.some((l) => l.startsWith("@") || l.startsWith("define ") || l.startsWith("declare "))) return undefined;
+  return { before, globals, between, functions, after };
+}
+
+export function joinModuleText(c: CutText): string {
+  const functions = c.functions.flatMap((f, k) => (k === 0 ? f.lines : ["", ...f.lines]));
+  return [...c.before, ...c.globals.flatMap((g) => g.lines), ...c.between, ...functions, ...c.after].join("\n");
+}
+
+/**
+ * `out` (a list of the linked module's globals or functions, in llvm-link's order) with its leading run from the destination put in
+ * the destination's own order (`dst`), given the order the destination's values had after llvm-link's first link alone (`c0`).
+ * Undefined if the run cannot be found: `c0` must hold exactly `dst`'s names.
+ *
+ * Why this is rustc's order (IRMover.cpp, `IRLinker::run` and `linkGlobalValueProto`): a link never moves a value of the module it
+ * links into except (a) a function or global it replaces (`RAUWWorklist`: the old one is erased, the new one created at the end) and
+ * (b) a global variable the source refers to or defines, which it moves to the end in the source's order (IRMover.cpp:1584). So after
+ * the sources, the destination's untouched values keep their relative order, ahead of everything the links created or moved, and
+ * what follows them depends only on the sources and on the set of names in the module, not on its order. rustc starts from the
+ * destination's order; llvm-link from the first link's (`c0`). So `out` is `c0` less the touched values, then the same tail; the
+ * touched ones are where `c0` and `out` first part, read greedily (a value of `c0` that is not next in `out` was touched, since the
+ * untouched ones come first and in `c0`'s order).
+ */
+/** The name of `keepAllLine`'s global (`[-a-zA-Z$._0-9]` needs no quotes), and its line in llvm-link's output. */
+const KEEP_NAME = "rust_ts.fat_lto.keep";
+const KEEP_LINE = /^@rust_ts\.fat_lto\.keep = .*\n?/m;
+
+/**
+ * A global variable that refers to every function and global variable of the destination (`@rust_ts.fat_lto.keep = global [N x ptr]
+ * [ptr @a, ...]`), for llvm-link's first link (`LLVMRustLinkerFree`): an external definition is always linked, and so is everything
+ * its initializer refers to, so no local, `linkonce` or `available_externally` definition and no declaration is left out
+ * (`ModuleLinker::linkIfNeeded`). Left out of it, as the verifier rejects them there or the `ptr` type does not hold them: intrinsics
+ * and the `llvm.*` globals (whose address cannot be taken that way; the globals are appending, so always linked) and values in another address space (a thread-local global is accepted, checked). Such a
+ * value can still be left out of the link, and then `restoreDestinationOrder` finds `c0` short and the order stays llvm-link's.
+ */
+function keepAllLine(dst: CutText): string | undefined {
+  const refs: string[] = [];
+  for (const g of dst.globals) {
+    const line = g.lines[0]!;
+    const words = line.slice(line.indexOf(" = ") + 3).split(" ");
+    const keywords = words.slice(0, words.findIndex((w) => w === "global" || w === "constant"));
+    // `llvm.used`, `llvm.compiler.used`, `llvm.global_ctors`, ...: the verifier allows no other use of them, and as appending globals
+    // they are always linked.
+    if (g.name.startsWith("llvm.") || keywords.some((w) => w.startsWith("addrspace("))) continue;
+    refs.push(`ptr @${g.name}`);
+  }
+  for (const f of dst.functions) {
+    const head = f.lines.find((l) => l.startsWith("define ") || l.startsWith("declare "))!;
+    if (f.name.startsWith("llvm.") || head.slice(0, head.indexOf(` @${f.name}(`)).includes("addrspace(")) continue;
+    refs.push(`ptr @${f.name}`);
+  }
+  if (refs.length === 0 || dst.globals.some((g) => g.name === KEEP_NAME)) return undefined;
+  return `@${KEEP_NAME} = global [${refs.length} x ptr] [${refs.join(", ")}]`;
+}
+
+/** A named metadata line (`!name = !{...}`; not a numbered node, `!<n> = ...`). */
+const NAMED_MD_LINE = /^!([^\s\d][^\s]*) = !\{/;
+
+/**
+ * The linked module's text with its named metadata in rustc's order: the destination's, in the destination's order, then the others
+ * in llvm-link's. A link never moves a named metadata node of the module it links into, and appends new ones in the order it creates
+ * them (`linkNamedMDNodes`, IRMover.cpp:1128), so only llvm-link's first link puts the destination's in another order: it skips
+ * `!llvm.module.flags` there and creates it last (`linkModuleFlagsMetadata`). Undefined if a destination node is missing or the lines are
+ * not one block, as AsmWriter prints them.
+ */
+export function restoreNamedMetadataOrder(dstText: string, text: string): string | undefined {
+  const names = (ls: readonly string[]): string[] => ls.flatMap((l) => NAMED_MD_LINE.exec(l)?.[1] ?? []);
+  const dstNames = names(dstText.split("\n"));
+  const lines = text.split("\n");
+  const idx = lines.flatMap((l, i) => (NAMED_MD_LINE.test(l) ? [i] : []));
+  if (idx.some((v, k) => v !== idx[0]! + k)) return undefined;
+  const byName = new Map(idx.map((i) => [NAMED_MD_LINE.exec(lines[i]!)![1]!, lines[i]!]));
+  if (!dstNames.every((n) => byName.has(n))) return undefined;
+  const dstSet = new Set(dstNames);
+  const block = [...dstNames.map((n) => byName.get(n)!), ...idx.map((i) => lines[i]!).filter((l) => !dstSet.has(NAMED_MD_LINE.exec(l)![1]!))];
+  lines.splice(idx[0] ?? 0, idx.length, ...block);
+  return lines.join("\n");
+}
+
+export function restoreDestinationOrder(dst: readonly TextChunk[], c0: readonly TextChunk[], out: readonly TextChunk[]): TextChunk[] | undefined {
+  const dstNames = new Set(dst.map((x) => x.name));
+  if (dstNames.size !== dst.length || c0.length !== dst.length || !c0.every((x) => dstNames.has(x.name))) return undefined;
+  let i = 0;
+  for (let j = 0; j < c0.length; j++) if (i < out.length && out[i]!.name === c0[j]!.name) i++;
+  const untouched = new Map(out.slice(0, i).map((x) => [x.name, x]));
+  return [...dst.flatMap((x) => untouched.get(x.name) ?? []), ...out.slice(i)];
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/Linker.cpp:17 LLVMRustLinkerNew
+export function LLVMRustLinkerNew(DstRef: Module): RustLinker {
+  return new RustLinker(DstRef);
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/Linker.cpp:23 LLVMRustLinkerFree
+/**
+ * `delete L`. In the model this is where the link happens: every source `LLVMRustLinkerAdd` took is linked into the destination
+ * module, in order, by one `llvm-link` run, and the result becomes the module's text. lto.rs calls it right after the last
+ * `LLVMRustLinkerAdd` (lto.rs:313-327), and reads the module only after it.
+ *
+ * PORT: `llvm-link` is the pinned tool of the same LLVM build, and each of its inputs goes through the same `Linker::linkInModule`
+ * (llvm-link.cpp:450, `Flags::None` for every input) in order. It differs from rustc's in-process link in how the destination gets
+ * in: llvm-link links every input, the destination's text first, into a new empty module (`Composite`, llvm-link.cpp:480). That first
+ * link is not the identity:
+ * - values land in the order IRMover creates them (a function's body maps its callees as it goes), not the destination's; global
+ *   variables other than appending ones are moved back to source order (IRMover.cpp:1584). Where the destination's own order can be
+ *   derived exactly, it is put back (`restoreDestinationOrder`, from a second llvm-link run of the destination alone);
+ * - the destination's local, `linkonce` and `available_externally` definitions that nothing refers to, and its unused declarations,
+ *   would not be linked (`ModuleLinker::linkIfNeeded`, LinkModules.cpp:380-385): the destination's input carries one more global that
+ *   refers to them all (`keepAllLine`), whose line is taken out of the result. Where that cannot hold one (an intrinsic, another
+ *   address space), or the text has an alias, an ifunc or an unnamed global or function (`cutModuleText`), the order is llvm-link's;
+ * - named metadata: `!llvm.module.flags` comes last; put back (`restoreNamedMetadataOrder`);
+ * - **isomorphic named struct types of the destination are merged** (`IdentifiedStructTypeSet::findNonOpaque`: the first link maps
+ *   the destination's types as a source's, so `%"alloc::alloc::Global" = type {}` and `%"core::marker::PhantomData<..>" = type {}`
+ *   become one, where rustc's destination keeps both). This cannot be undone from the text; it changes type names only;
+ * - the module's `source_filename` is `llvm-link`: put back below from the destination's text, as IRMover never changes it.
+ * Code that runs is the same: nothing reachable is dropped and no definition changes. Where the order is llvm-link's or dead
+ * definitions are missing, it shows in `--emit=llvm-ir` text (ir-host) as a DIFF, never as a MATCH; the native suites see the
+ * program's behaviour.
+ * Other differences avoided: llvm-link enables the debug-info type map (`enableDebugTypeODRUniquing`), which rustc's codegen context
+ * does not, so `-disable-debug-info-type-map`; llvm-link's warnings (data layout or triple mismatch, which rustc's diagnostic handler
+ * would print) stop by name, as does any failure, kept for ir-diff (D16: the bytes are the port's own or the rlibs').
+ */
+export function LLVMRustLinkerFree(L: RustLinker): void {
+  liveLinker(L).freed = true;
+  if (L.sources.length === 0) return;
+  const M = L.Dst;
+  const dstText = module_text(M);
+  const dir = join(llvm_tmp_dir(), `link-${KEPT++}`);
+  mkdirSync(dir, { recursive: true });
+  const dst = cutModuleText(dstText);
+  // The destination with one more global, which refers to every function and global of it (`keepAllLine`), so that llvm-link's first
+  // link keeps them all, as rustc's destination does (header); the line is taken out of the result.
+  const keep = dst === undefined ? undefined : keepAllLine(dst);
+  const files = [join(dir, "dst.ll")];
+  writeFileSync(files[0]!, bytesOf(keep === undefined ? dstText : `${dstText}${dstText.endsWith("\n") ? "" : "\n"}${keep}\n`));
+  L.sources.forEach((bc, i) => {
+    const f = join(dir, `src${i}.bc`);
+    writeFileSync(f, bc);
+    files.push(f);
+  });
+  const where = `$RUST_TS_DATA/tmp/llir/${process.pid}/${dir.slice(dir.lastIndexOf("/") + 1)}`;
+  const link = (inputs: readonly string[]): string => {
+    const r = run_pinned_tool("llvm-link", [...cl_args(), "-disable-debug-info-type-map", "-S", "-o", "-", ...inputs]);
+    if (r.status !== 0) panic(`llir: llvm-link failed on ${where} (${r.signal === undefined ? `exit ${r.status}` : `signal ${r.signal}`}): ${firstErrorLine(r.stderr)}`);
+    if (r.stderr.trim() !== "") return unported(`llir: LLVMRustLinkerAdd with a linker diagnostic (rustc's diagnostic handler would print it): ${firstLine(r.stderr)} (${where})`);
+    return bstrOf(r.stdout);
+  };
+  const linked = link(files);
+  const unkept = (t: string): string => (keep === undefined ? t : t.replace(KEEP_LINE, ""));
+  let text = unkept(linked);
+  // The destination's order, where it can be put back exactly (`restoreDestinationOrder`); else llvm-link's (header).
+  const out = cutModuleText(text);
+  const c0 = out !== undefined && dst !== undefined ? cutModuleText(unkept(link([files[0]!]))) : undefined;
+  if (out !== undefined && dst !== undefined && c0 !== undefined) {
+    const globals = restoreDestinationOrder(dst.globals, c0.globals, out.globals);
+    const functions = restoreDestinationOrder(dst.functions, c0.functions, out.functions);
+    if (globals !== undefined && functions !== undefined) text = joinModuleText({ ...out, globals, functions });
+  }
+  text = restoreNamedMetadataOrder(dstText, text) ?? text;
+  // AsmWriter numbers metadata in the order it prints it (named metadata first), so a moved line leaves numbers that a print of the
+  // module would not: print it again (opt with no passes: the parser and AsmWriter, as llvm-link's own output).
+  if (text !== unkept(linked)) text = bstrOf(run_pinned_tool_or_ice("opt", [...cl_args(), "-S", "-o", "-", "-"], bytesOf(text), M.moduleID));
+  const src = SOURCE_FILENAME_LINE.exec(dstText);
+  text = text.replace(SOURCE_FILENAME_LINE, src === null ? "" : src[0]);
+  set_module_text(M, text);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/Linker.cpp:25 LLVMRustLinkerAdd
+/** `MemoryBuffer::getMemBufferCopy` of the bytes, kept for `LLVMRustLinkerFree` (which links them). PORT: rustc parses them here
+ *  (`getLazyBitcodeModule`) and returns false with the error on a parse failure; the bytes are the port's own buffers or the
+ *  rlibs' bitcode, so a failure is the port's bug, and `llvm-link` reports it at the link (D16). */
+export function LLVMRustLinkerAdd(L: RustLinker, BC: PtrLenStr | undefined, Len: number): boolean {
+  const bytes = typeof BC === "string" ? bytesOf(BC) : (BC ?? new Uint8Array(0));
+  liveLinker(L).sources.push(bytes.slice(0, Len));
+  return true;
+}
+
+/** GlobPattern's special characters (`\`, `*`, `?`, `[`, `]`, `{`, `}`, `,`), each escaped so that a symbol's pattern matches only itself. */
+const GLOB_SPECIAL = /[\\*?[\]{},]/g;
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1180 LLVMRustRunRestrictionPass
+/**
+ * `internalizeModule(*unwrap(M), PreserveFunctions)`, where `PreserveFunctions` keeps a global value whose name is one of `Symbols`.
+ * opt's `internalize` pass runs the same `InternalizePass::internalizeModule` (Internalize.cpp:275) with `PreserveAPIList` as its
+ * `MustPreserveGV`: a name that matches one of the glob patterns of `-internalize-public-api-file`, one per line (Internalize.cpp:83).
+ * Each symbol is written as the pattern that matches only itself (GlobPattern's special characters escaped with `\`), so the two
+ * keep the same set. A name with a line break cannot be one line of that file: it stops.
+ */
+export function LLVMRustRunRestrictionPass(M: Module, Symbols: readonly string[], Len: number): void {
+  const syms = Symbols.slice(0, Len);
+  if (syms.some((s) => s.includes("\n") || s.includes("\r"))) return unported("llir: LLVMRustRunRestrictionPass with a symbol name holding a line break");
+  const file = join(llvm_tmp_dir(), `restriction-${KEPT++}.txt`);
+  writeFileSync(file, Buffer.from(syms.map((s) => `${s.replace(GLOB_SPECIAL, "\\$&")}\n`).join(""), "utf8"));
+  const out = run_pinned_tool_or_ice("opt", [...cl_args(), "-passes=internalize", `-internalize-public-api-file=${file}`, "-S", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
+  set_module_text(M, bstrOf(out));
+  rmSync(file, { force: true });
 }

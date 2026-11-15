@@ -21,6 +21,7 @@ import { parseScript, replay } from "./replay.ts";
 import {
   assert_model_current,
   canonical_extra_passes,
+  forceFullLTOSummary,
   is_tool_text,
   llc_target_flags,
   llvm_tmp_dir,
@@ -446,6 +447,29 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     set_module_text(T, `; ModuleID = 'x'\n@s = constant [8 x i8] c"define \\0A"\n\n; define void @no()\ndefine void @f() !dbg !3 {\n  #dbg_declare(ptr null, !4, !DIExpression(), !5)\n  ret void\n}\n\ndeclare !dbg !6 void @g()\n\ndeclare void @h()\n`);
     expect(L.LLVMRustModuleCost(T)).toBe(3n);
     expect(L.LLVMRustModuleCost(L.LLVMModuleCreateWithNameInContext("empty", new Context()))).toBe(0n);
+  });
+
+  test("forceFullLTOSummary: a ThinLTO flag of 0, last in !llvm.module.flags, once (lane ir-fix-b)", () => {
+    const t = `define void @f() {\n  ret void\n}\n\n!llvm.module.flags = !{!0, !1}\n\n!0 = !{i32 7, !"PIC Level", i32 2}\n!1 = !{i32 2, !"Dwarf Version", i32 4}\n`;
+    const forced = forceFullLTOSummary(t);
+    expect(forced).toContain("!llvm.module.flags = !{!0, !1, !2}\n");
+    expect(forced.endsWith('!2 = !{i32 1, !"ThinLTO", i32 0}\n')).toBe(true);
+    expect(forceFullLTOSummary(forced)).toBe(forced);
+    // What opt makes of it: the flag is the module's last.
+    const out = new TextDecoder().decode(run_pinned_tool_or_ice("opt", ["-S", "-o", "-", "-"], new TextEncoder().encode(forced), "t"));
+    expect(out).toMatch(/!llvm\.module\.flags = !\{!0, !1, !2\}\n[^]*!2 = !\{i32 1, !"ThinLTO", i32 0\}/);
+    expect(() => forceFullLTOSummary("define void @f() {\n  ret void\n}\n")).toThrow(Unported);
+  });
+
+  test("LLVMRustRunRestrictionPass keeps exactly the listed names, glob characters included (lane ir-fix-b)", () => {
+    const M = L.LLVMModuleCreateWithNameInContext("r", new Context());
+    const names = ["keep", "a*b", "axb", "x{y,z}", "xy", "p[q]\\r", "pq", "drop"];
+    const def = (n: string) => `define void @"${n}"() {\n  ret void\n}\n`;
+    set_module_text(M, `; ModuleID = 'r'\n${names.map(def).join("\n")}`);
+    L.LLVMRustRunRestrictionPass(M, ["keep", "a*b", "x{y,z}", "p[q]\\r"], 4);
+    const linkage = new Map([...module_text(M).matchAll(/^define (internal )?void @"?([^"(]+)"?\(/gm)].map((m) => [m[2]!, m[1] === undefined ? "external" : "internal"]));
+    expect(Object.fromEntries(linkage)).toEqual({ keep: "external", "a*b": "external", axb: "internal", "x{y,z}": "external", xy: "internal", "p[q]\\\\r": "external", pq: "internal", drop: "internal" });
+    expect(() => L.LLVMRustRunRestrictionPass(M, ["a\nb"], 1)).toThrow(Unported);
   });
 
   test("N5: a model read after a tool rewrote the module stops", () => {

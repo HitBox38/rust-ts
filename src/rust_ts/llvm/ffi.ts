@@ -14,7 +14,7 @@ export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Conte
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 287 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 291 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -286,6 +286,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustPrintModule",
   "LLVMRustSetLLVMOptions",
   "LLVMRustSetNormalizedTarget",
+  "LLVMRustRunRestrictionPass",
   "LLVMRustSetDataLayoutFromTargetMachine",
   "LLVMRustPositionBuilderPastAllocas",
   "LLVMRustPositionBuilderAtStart",
@@ -299,6 +300,9 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustModuleCost",
   "LLVMRustModuleSerialize",
   "LLVMRustParseBitcodeForLTO",
+  "LLVMRustLinkerNew",
+  "LLVMRustLinkerAdd",
+  "LLVMRustLinkerFree",
   "LLVMRustContextGetDiagnosticHandler",
   "LLVMRustContextSetDiagnosticHandler",
   "LLVMRustContextConfigureDiagnosticHandler",
@@ -1311,7 +1315,7 @@ export const LLVMRustPrintPasses: () => void = stub("LLVMRustPrintPasses");
 export const LLVMRustSetNormalizedTarget: (M: Module, triple: string | undefined) => void = bind("LLVMRustSetNormalizedTarget", impl0.LLVMRustSetNormalizedTarget);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2487 LLVMRustRunRestrictionPass
-export const LLVMRustRunRestrictionPass: (M: Module, syms: readonly string[], len: number) => void = stub("LLVMRustRunRestrictionPass");
+export const LLVMRustRunRestrictionPass: (M: Module, syms: readonly string[], len: number) => void = bind("LLVMRustRunRestrictionPass", impl4.LLVMRustRunRestrictionPass);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2489 LLVMRustWriteTwineToString
 export const LLVMRustWriteTwineToString: (T: Twine, s: RustString) => void = stub("LLVMRustWriteTwineToString");
@@ -1395,13 +1399,13 @@ export const LLVMRustFreeThinLTOData: (Data: ThinLTOData) => void = stub("LLVMRu
 export const LLVMRustParseBitcodeForLTO: (Context: Context, Data: Uint8Array | undefined, len: number, Identifier: string | undefined) => Module | undefined = bind("LLVMRustParseBitcodeForLTO", impl4.LLVMRustParseBitcodeForLTO);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2568 LLVMRustLinkerNew
-export const LLVMRustLinkerNew: (M: Module) => Linker = stub("LLVMRustLinkerNew");
+export const LLVMRustLinkerNew: (M: Module) => Linker = bind("LLVMRustLinkerNew", impl4.LLVMRustLinkerNew);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2569 LLVMRustLinkerAdd
-export const LLVMRustLinkerAdd: (linker: Linker, bytecode: PtrLenStr | undefined, bytecode_len: number) => boolean = stub("LLVMRustLinkerAdd");
+export const LLVMRustLinkerAdd: (linker: Linker, bytecode: PtrLenStr | undefined, bytecode_len: number) => boolean = bind("LLVMRustLinkerAdd", impl4.LLVMRustLinkerAdd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2574 LLVMRustLinkerFree
-export const LLVMRustLinkerFree: (linker: Linker) => void = stub("LLVMRustLinkerFree");
+export const LLVMRustLinkerFree: (linker: Linker) => void = bind("LLVMRustLinkerFree", impl4.LLVMRustLinkerFree);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2575 LLVMRustComputeLTOCacheKey
 export const LLVMRustComputeLTOCacheKey: (key_out: RustString, mod_id: string | undefined, data: ThinLTOData) => void = stub("LLVMRustComputeLTOCacheKey");
