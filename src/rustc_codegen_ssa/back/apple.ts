@@ -303,6 +303,7 @@ export function stdout_to_path(stdout: Uint8Array): string {
   if (stdout.length > 0 && stdout[stdout.length - 1] === 0x0a) {
     stdout = stdout.subarray(0, stdout.length - 1);
   }
-  // PORT: `OsString::from_vec` → `PathBuf`; paths are `string`s here, and the bytes are read as UTF-8 (lossy).
-  return new TextDecoder().decode(stdout);
+  // PORT: `OsString::from_vec` → `PathBuf`; paths are `string`s here, and the bytes are read as UTF-8 (lossy). `ignoreBOM`
+  // keeps a leading U+FEFF in the path, as `from_vec` keeps the bytes as they are (review fixers-59 N2).
+  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(stdout);
 }

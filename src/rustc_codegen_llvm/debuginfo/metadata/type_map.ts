@@ -13,6 +13,8 @@
 // - `AdtStackPopGuard` (a `Drop` guard) is a class whose `drop()` runs in a `finally` at the end of
 //   `build_type_with_children`, where upstream drops `_adt_stack_pop_guard`.
 // - The `members`/`generics` closures return arrays (`SmallVec`); `(size, align): (Size, Align)` is a `[Size, Align]`.
+// - In `build_type_with_children`, `let members = members(..)` and `let generics = generics(..)` are `members_` and
+//   `generics_`: TS cannot redeclare a parameter in the function's own scope.
 // - `assert_eq!(.., None)` on `Option<&DIType>` compares with `undefined`.
 import type { Align, Size } from "../../../rustc_abi/lib.ts";
 import { VariantIdx } from "../../../rustc_abi/layout.ts";
@@ -81,7 +83,7 @@ export type UniqueTypeId =
   /// The ID of the artificial type we create for VTables.
   | { readonly $: "VTableTy"; readonly _0: Ty; readonly _1: ExistentialTraitRef | undefined; readonly _2: HiddenZst };
 
-const UniqueTypeId__discriminant = { Ty: 0, VariantPart: 1, VariantStructType: 2, VariantStructTypeCppLikeWrapper: 3, VTableTy: 4 } as const;
+const UniqueTypeId_discriminant = { Ty: 0, VariantPart: 1, VariantStructType: 2, VariantStructTypeCppLikeWrapper: 3, VTableTy: 4 } as const;
 
 /** The derived `PartialEq`/`Hash` of `UniqueTypeId` (header). */
 export function key_UniqueTypeId(self: UniqueTypeId): string {
@@ -118,7 +120,7 @@ export const debug_UniqueTypeId: Debug<UniqueTypeId> = (self, f) => {
 
 /** The derived `StableHash` of `UniqueTypeId` (header). */
 function stable_hash_UniqueTypeId(self: UniqueTypeId, hcx: StableHashCtxt, hasher: StableHasher): void {
-  stable_hash_Discriminant(UniqueTypeId__discriminant[self.$], hcx, hasher);
+  stable_hash_Discriminant(UniqueTypeId_discriminant[self.$], hcx, hasher);
   switch (self.$) {
     case "Ty":
     case "VariantPart":

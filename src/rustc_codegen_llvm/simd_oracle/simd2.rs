@@ -1,7 +1,7 @@
 // The second oracle crate of simd_intrinsic.test.ts (lane cg-intrinsic-b): one `#[no_mangle]` function per arm of
 // `generic_simd_intrinsic` (intrinsic.rs:2047) that lane cg-intrinsic-b ported and the IR model can declare (and per element
 // kind or cast style where the arm branches on it), over the same minimal `#![no_core]` as simd.rs. The arms whose `llvm.*`
-// intrinsic the model does not declare yet are in simd_model.rs.
+// intrinsic the model declared only from lane ir-fix-b are in simd_model.rs, one `--cfg` per arm.
 #![feature(no_core, lang_items, intrinsics, rustc_attrs, auto_traits, repr_simd)]
 #![allow(internal_features, incomplete_features, non_camel_case_types)]
 #![no_core]

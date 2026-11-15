@@ -161,6 +161,11 @@ fn take<T>(t: T) -> u32 {
 pub fn vtable(p: &Point) -> &dyn Shape {
     p
 }
+// A vtable for a `dyn` with no principal trait: `UniqueTypeId::VTableTy(_, None)`, `<u32 as _>::{vtable_type}`.
+#[no_mangle]
+pub fn no_principal(x: &u32) -> &dyn Sync {
+    x
+}
 #[no_mangle]
 pub fn global() -> &'static Point {
     &GLOBAL

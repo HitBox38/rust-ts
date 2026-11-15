@@ -4,8 +4,9 @@
 //   let l = Note; assert_matches!(l, Error | Warning(_));
 //   assert_eq!(Note, Level::Bug);
 //   assert_eq!(1usize + 2, 0);
+//   let n = 5; assert_eq!(1usize + 2, 0, "n={n}, m={}", 6);   (fixers-60)
 import { expect, test } from "bun:test";
-import { assert_eq, assert_matches, panicking, while_unwinding } from "./panic.ts";
+import { assert_eq, assert_eq_args, assert_matches, panicking, while_unwinding } from "./panic.ts";
 
 test("assert_eq / assert_matches texts (oracle)", () => {
   const id = (s: string): string => s;
@@ -16,6 +17,18 @@ test("assert_eq / assert_matches texts (oracle)", () => {
   expect(() => assert_eq(1 + 2, 0, String)).toThrow("assertion `left == right` failed\n  left: 3\n right: 0");
   assert_eq(2, 2, String);
   assert_matches("Error", true, "Error | Warning(_)", id);
+});
+
+test("assert_eq with a message: core's text (oracle)", () => {
+  let formatted = 0;
+  const args = (): string => {
+    formatted += 1;
+    return `n=${5}, m=${6}`;
+  };
+  expect(() => assert_eq_args(1 + 2, 0, String, args)).toThrow("assertion `left == right` failed: n=5, m=6\n  left: 3\n right: 0");
+  assert_eq_args(2, 2, String, args);
+  // The message is formatted only on failure.
+  expect(formatted).toBe(1);
 });
 
 test("panicking is true only inside while_unwinding", () => {

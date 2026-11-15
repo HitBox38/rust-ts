@@ -1135,7 +1135,10 @@ export function LLVMRustLinkerNew(DstRef: Module): RustLinker {
  * - values land in the order IRMover creates them (a function's body maps its callees as it goes), not the destination's; global
  *   variables other than appending ones are moved back to source order (IRMover.cpp:1584). The destination's order is put back when
  *   the values the sources touch can be told by name (`touchedBySources`) and llvm-link's result agrees (`restoreDestinationOrder`);
- *   otherwise the order stays llvm-link's;
+ *   otherwise the order stays llvm-link's. On a target with comdats, `touchedBySources` over-predicts one case: a destination
+ *   declaration whose source definition is in a comdat that `ComdatsChosen` takes from the destination is not replaced
+ *   (LinkModules.cpp:387-392), but counts as touched; a DIFF at most, and not reachable from the darwin host (review
+ *   ir-fix-b-recheck note 4);
  * - the destination's local, `linkonce` and `available_externally` definitions that nothing refers to, and its unused declarations,
  *   would not be linked (`ModuleLinker::linkIfNeeded`, LinkModules.cpp:380-385): the destination's input carries one more global that
  *   refers to them all (`keepAllLine`), whose line is taken out of the result. Where that cannot hold one (an intrinsic, another
@@ -1152,6 +1155,11 @@ export function LLVMRustLinkerNew(DstRef: Module): RustLinker {
  * - a source local renamed on a name clash gets its `.N` suffix from the module's `ValueSymbolTable` counter (`LastUnique`), which
  *   starts at 0 in llvm-link's new module, where rustc's destination keeps the count of its codegen and pre-link passes: a suffix
  *   can differ (review N4), as a DIFF;
+ * - likewise a source named struct type that no destination type absorbs: rustc parses each source into the destination's own
+ *   `LLVMContext`, which still holds the types of its codegen and earlier parses (those the module no longer uses too) and the
+ *   counter `NamedStructTypesUniqueID` (Type.cpp:659-671); llvm-link's context holds only the destination's text. A name that
+ *   collides with such a type gets a `.N` suffix in rustc and none in llvm-link, and suffix numbers can differ: a DIFF only (review
+ *   ir-fix-b-recheck note 2, from reading the source, not reproduced);
  * - the module's `source_filename` is `llvm-link`: put back below from the destination's text, as IRMover never changes it.
  * Code that runs is the same: nothing reachable is dropped and no definition changes. Where the order is llvm-link's, dead
  * definitions are missing or a suffix differs, it shows in `--emit=llvm-ir` text (ir-host) as a DIFF, never as a MATCH; the native

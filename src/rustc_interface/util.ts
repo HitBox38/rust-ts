@@ -364,7 +364,8 @@ export class DummyCodegenBackend implements CodegenBackend {
 // struct DummyArchiveBuilderBuilder;
 // PORT: `create_dll_import_lib` overrides the provided method through the interface's optional member (back/archive.ts);
 // `link_rlib` reaches it on Windows targets through `create_raw_dylib_dll_import_libs` (link.rs:685, raw_dylib.rs:101).
-const DummyArchiveBuilderBuilder: ArchiveBuilderBuilder = {
+// PORT: exported (upstream's is private) only so util.test.ts can run the override (review fixers-59 N1).
+export const DummyArchiveBuilderBuilder: ArchiveBuilderBuilder = {
   // rustc: compiler/rustc_interface/src/util.rs:492 new_archive_builder
   new_archive_builder(sess) {
     return ArArchiveBuilderBuilder.new_archive_builder(sess);

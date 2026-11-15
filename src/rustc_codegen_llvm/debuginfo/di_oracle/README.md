@@ -37,5 +37,13 @@ RUSTC_ICE=0 rustc +nightly-2026-10-11 $C --target x86_64-unknown-linux-gnu --cra
 RUSTC_ICE=0 rustc +nightly-2026-10-11 $C --target x86_64-pc-windows-msvc --crate-type lib -Cdebuginfo=2 -o x86_64-pc-windows-msvc.types-g2.ll types.rs
 ```
 
+Lane fixers-60 (review cg-di-b N5) added to types.rs `no_principal`, a vtable for `&dyn Sync` (a `dyn` with no principal trait:
+`UniqueTypeId::VTableTy(_, None)`, named `<u32 as _>::{vtable_type}`), re-made the three files above, and added
+`x86_64-unknown-linux-gnu.types-g2-lines.ll` (types.rs, `-Cdebuginfo=2 -Zdebug-info-type-line-numbers`: the types' `line:`):
+
+```
+RUSTC_ICE=0 rustc +nightly-2026-10-11 $C --target x86_64-unknown-linux-gnu --crate-type lib -Cdebuginfo=2 -Zdebug-info-type-line-numbers -o x86_64-unknown-linux-gnu.types-g2-lines.ll types.rs
+```
+
 (here `C` without its `--target`, which each command gives.) (zsh; in bash expand the array as `"${C[@]}"`.) With the pinned
-toolchain present, the test re-makes all six the same way (into a scratch directory) and requires them unchanged.
+toolchain present, the test re-makes all seven the same way (into a scratch directory) and requires them unchanged.

@@ -14,7 +14,7 @@ Branch `t3/port-inline-global-asm` (from `2bf7435a`; no merges). Commits at the 
     (InlineAsm.cpp, already pinned).
   - `core.ts`'s `LLVMRustInlineAsmVerify` now returns `verify(..) === undefined`. That function and one import line are the only
     edits to `core.ts`.
-  - The permissive stand-in (D10) is gone. On all 66 fixture strings the model gives the pinned LLVM's answer and message.
+  - The permissive stand-in (D10) is gone. On all 65 fixture strings the model gives the pinned LLVM's answer and message.
 - **Module-level asm is modelled in the same new file but not wired.** This is what `global_asm!` and naked functions need:
   - `GlobalAsmProperties`, `GlobalAsmFragment` and `appendModuleInlineAsm`, from Module.h/Module.cpp (pinned);
   - `LLVMRustAppendModuleInlineAsm` (RustWrapper.cpp:661), the LLVM ≥ 23 branch;
@@ -51,7 +51,7 @@ Branch `t3/port-inline-global-asm` (from `2bf7435a`; no merges). Commits at the 
     diff 0 apart from `;` comment lines, including the `module asm(target_cpu: "...")` block. Not committed, as the wiring is not
     on this branch.
 - **`InlineAsm::verify` unit tests:** `src/rust_ts/llvm/inline_asm.test.ts`.
-  - The fixture is 66 rows (constraint string, return and parameter types) with what the pinned `llvm-as`
+  - The fixture is 65 rows (constraint string, return and parameter types) with what the pinned `llvm-as`
     (nightly-2026-10-11's llvm-tools) says about `call <ret> asm sideeffect "", "<constraints>"(<params>)`.
   - LLParser runs `InlineAsm::verify` and prints its message. Rows that LLParser accepted but the IR verifier then rejected
     (`!i` outside `callbr`, a missing `elementtype`) count as "verify passed".
@@ -102,9 +102,10 @@ Branch `t3/port-inline-global-asm` (from `2bf7435a`; no merges). Commits at the 
    - `LLVMCloneModule` does not copy the side table. No caller needs it today.
    - I did not regenerate ffi.ts on this branch: it is unchanged.
 2. **`LLVMRustGetMangledName`** (RustWrapper.cpp:1662) is the next stop:
-   - `global_asm!` with `sym` or a pointer `const`: `cfg.rs`, `global_asm_escape.rs`;
-   - `mangled_name`, for naked functions: the 5 gate cases that stopped at `cg-asm: ... mangled_name` now stop here.
-   - It needs `Mangler::getNameWithPrefix`. **LLVM file to pin: `llvm/lib/IR/Mangler.cpp`** (`bun scripts/llvm-src.ts add
+   - `global_asm!` with `sym` or a pointer `const`: `x86_64/global_asm_escape.rs`;
+   - `mangled_name` (asm.rs:527), for naked functions: the 5 gate cases that stopped at `cg-asm: ... mangled_name` now stop
+     here, and `cfg.rs`'s revisions, through `naked_asm!` (cfg.rs has no `global_asm!`);
+   - Both routes need `Mangler::getNameWithPrefix`. **LLVM file to pin: `llvm/lib/IR/Mangler.cpp`** (`bun scripts/llvm-src.ts add
      llvm/lib/IR/Mangler.cpp`; this lane may not edit `harness/`).
 3. **`LLVMBuildCallBr`** (asm goto, `label` operands): `label-operand.rs#aarch64` (a gate case), `#x86_64` and
    `x86_64/goto.rs`. It needs a `callbr` instruction in the model: `IRBuilder::CreateCallBr`, its successors, and AsmWriter's
