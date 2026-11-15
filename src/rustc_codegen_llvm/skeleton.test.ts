@@ -112,8 +112,9 @@ describe("stubs name their fill lane", () => {
     // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); ir-fix-a (wave 40r) ported `generic_simd_intrinsic`'s
     // reached arms, and cg-intrinsic-b (wave 40s) the rest: no arm stops by lane (simd_intrinsic.test.ts).
     // cg-di-a (wave 40p) ported debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs whole, and metadata.rs's fns a
-    // compile without `-g` reaches; the rest of metadata.rs stays a typed stop (wave 44, plan-m7 D9).
-    stops(() => debuginfo_metadata.type_di_node(cx, undefined as never), /^cg-di-a: .*\/debuginfo\/metadata\.rs type_di_node$/);
+    // compile without `-g` reaches; cg-di-b (wave 40s) ported the rest of debuginfo/ (metadata.rs, metadata/type_map.rs,
+    // metadata/enums/*). Its only stops are `impl Hash`/`impl Debug for llvm::Metadata`, which hash or print a pointer.
+    stops(() => debuginfo_metadata.debug_Metadata(undefined as never), /^cg-di-b: .*\/debuginfo\/metadata\.rs Debug for llvm::Metadata/);
   });
 });
 
@@ -122,12 +123,11 @@ describe("stub counts per lane", () => {
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
     // "cg-asm": 0 (entry dropped): cg-register (wave 40q) ported `inline_asm_call` (asm.rs:536), cg-asm (wave 40s) the rest.
-    // 21 cg-contract left; cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs (`build_global_var_di_node`,
-    // `apply_vcall_visibility_metadata`, `create_vtable_di_node`). Left: the 9 metadata.rs fns that debuginfo/mod.rs and those
-    // three call past their `-g` checks (wave 44, plan-m7 D9).
-    "cg-di-a": 9,
-    // cg-di-a: `TypeMap::default` (metadata/type_map.rs), in `CodegenUnitDebugContext::new` (wave 44).
-    "cg-di-b": 1,
+    // "cg-di-a": 0 (entry dropped): cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs; cg-di-b (wave 40s)
+    // ported the 9 metadata.rs fns left.
+    // cg-di-b (wave 40s) ported `TypeMap::default` and the rest of debuginfo/. Left: `impl Hash` and `impl Debug for
+    // llvm::Metadata` (metadata.rs:54, :60), which hash or print a pointer address; neither is reached but by an ICE message.
+    "cg-di-b": 2,
     // cg-lto-diag (wave 40p) ported back/lto.rs, diagnostics.rs's hand impls and llvm/diagnostic.rs whole: no stub of its own is
     // left.
     // cg-write (wave 40o) ported back/write.rs, llvm_util.rs, back/owned_*, back/profiling.rs and back/archive.rs whole: no stub
