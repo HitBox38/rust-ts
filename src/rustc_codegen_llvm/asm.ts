@@ -45,6 +45,7 @@ import * as llvm from "./llvm/mod.ts";
 import * as attributes from "./attributes.ts";
 import * as llvm_util from "./llvm_util.ts";
 import { assert, panic, unported, unreachable, unwrap } from "../std/panic.ts";
+import { debug_int } from "../std/fmt.ts";
 import { expect_result, unwrap_result } from "../std/result.ts";
 import { utf8, utf8_len } from "../std/str.ts";
 import { Builder } from "./builder.ts";
@@ -211,7 +212,7 @@ Builder.prototype.codegen_inline_asm = function (
           case "Ptr": {
             const [prov] = value._0.prov_and_relative_offset();
             const global_alloc = this.cx_.tcx.global_alloc(CtfeProvenance.alloc_id(prov));
-            const llval = unwrap_result(this.cx_.alloc_to_backend(global_alloc, false, undefined));
+            const llval = unwrap_result(this.cx_.alloc_to_backend(global_alloc, false, undefined), debug_int);
             inputs.push(llval);
             op_idx.set(idx, constraints.length);
             constraints.push("s");
@@ -527,7 +528,7 @@ CodegenCx.prototype.codegen_global_asm = function (
               case "Ptr": {
                 const [prov, offset] = value._0.prov_and_relative_offset();
                 const global_alloc = this.tcx.global_alloc(CtfeProvenance.alloc_id(prov));
-                const llval = unwrap_result(this.alloc_to_backend(global_alloc, true, undefined));
+                const llval = unwrap_result(this.alloc_to_backend(global_alloc, true, undefined), debug_int);
 
                 this.add_compiler_used_global(llval);
                 const symbol = expect_result(

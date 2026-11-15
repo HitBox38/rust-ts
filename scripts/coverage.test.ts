@@ -41,12 +41,16 @@ describe("llvm-wrapper", () => {
     expect(out.at(-1)).toMatch(/^\d+\/11 ported$/);
   });
   test("--missing on a wrapper file lists C++ fns", () => {
-    expect(cov("--missing", "compiler/rustc_llvm/llvm-wrapper/Linker.cpp")).toEqual([
-      "compiler/rustc_llvm/llvm-wrapper/Linker.cpp:14 RustLinker",
-      "compiler/rustc_llvm/llvm-wrapper/Linker.cpp:17 LLVMRustLinkerNew",
-      "compiler/rustc_llvm/llvm-wrapper/Linker.cpp:23 LLVMRustLinkerFree",
-      "compiler/rustc_llvm/llvm-wrapper/Linker.cpp:25 LLVMRustLinkerAdd",
-      "0/4 ported",
+    // A wrapper file with nothing ported yet (Linker.cpp was until lane ir-fix-b; root at integ-w59).
+    expect(cov("--missing", "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp")).toEqual([
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:24 isArchiveSymbol",
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:43 getSymbolicFile",
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:66 LLVMRustGetSymbols",
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:106 withBufferAsSymbolicFile",
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:129 LLVMRustIs64BitSymbolicFile",
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:134 LLVMRustIsECObject",
+      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:160 LLVMRustIsAnyArm64Coff",
+      "0/7 ported",
     ]);
   });
 });
