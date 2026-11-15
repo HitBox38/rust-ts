@@ -1,4 +1,5 @@
 tests/ui/abi/abi-sysv64-arg-passing.rs
+tests/ui/abi/abi-sysv64-register-usage.rs
 tests/ui/abi/anon-extern-mod.rs
 tests/ui/abi/c-stack-as-value.rs
 tests/ui/abi/c-stack-returning-int64.rs
@@ -38,10 +39,13 @@ tests/ui/abi/rust-preserve-none-cc.rs
 tests/ui/abi/rust-tail-cc.rs#x64
 tests/ui/abi/segfault-no-out-of-stack.rs
 tests/ui/abi/stack-probes.rs#x64
+tests/ui/abi/stack-protector.rs#no-ssp
+tests/ui/abi/stack-protector.rs#ssp
 tests/ui/abi/statics/static-mut-foreign.rs
 tests/ui/abi/struct-enums/struct-return.rs
 tests/ui/abi/union/union-c-interop.rs
 tests/ui/abi/variadic-ffi.rs
+tests/ui/alloc-error/alloc-error-backtrace.rs
 tests/ui/alloc-error/default-alloc-error-hook.rs
 tests/ui/allocator/alloc-shrink-oob-read.rs
 tests/ui/allocator/dyn-compatible.rs
@@ -110,6 +114,13 @@ tests/ui/array-slice-vec/vec-repeat-with-cast.rs
 tests/ui/array-slice-vec/vec-tail-matching.rs
 tests/ui/array-slice-vec/vector-no-ann-2.rs
 tests/ui/array-slice-vec/vector-slice-matching-8498.rs
+tests/ui/asm/empty_global_asm.rs
+tests/ui/asm/may_unwind.rs
+tests/ui/asm/simple_global_asm.rs
+tests/ui/asm/x86_64/const.rs
+tests/ui/asm/x86_64/may_unwind.rs
+tests/ui/asm/x86_64/multiple-clobber-abi.rs
+tests/ui/asm/x86_64/sym.rs
 tests/ui/associated-consts/assoc-const-in-array-initializer.rs
 tests/ui/associated-consts/assoc-const-in-array-size.rs
 tests/ui/associated-consts/assoc-const-in-static-array-size.rs
@@ -234,6 +245,7 @@ tests/ui/async-await/for-await.rs
 tests/ui/async-await/future-sizes/future-as-arg.rs
 tests/ui/async-await/in-trait/async-default-fn-overridden.rs
 tests/ui/async-await/interior-with-const-generic-expr.rs
+tests/ui/async-await/issue-60709.rs
 tests/ui/async-await/issue-73137.rs
 tests/ui/async-await/issues/issue-54752-async-block.rs
 tests/ui/async-await/issues/issue-55809.rs
@@ -277,6 +289,9 @@ tests/ui/autoref-autoderef/autoderef-vec-box-fn-36786.rs
 tests/ui/autoref-autoderef/autoderef-vec-to-slice-by-value.rs
 tests/ui/autoref-autoderef/autoref-intermediate-types-issue-3585.rs
 tests/ui/autoref-autoderef/deref-chain-method-calls-13264.rs
+tests/ui/backtrace/backtrace.rs
+tests/ui/backtrace/sigbus-on-apple-missing-dwarf-backtrace.rs
+tests/ui/backtrace/std-backtrace.rs
 tests/ui/backtrace/synchronized-panic-handler.rs
 tests/ui/bench/issue-32062.rs
 tests/ui/binding/bind-field-short-with-modifiers.rs
@@ -308,6 +323,7 @@ tests/ui/binding/irrefutable-slice-patterns.rs
 tests/ui/binding/let-assignability.rs
 tests/ui/binding/let-destruct-ref.rs
 tests/ui/binding/let-var-hygiene.rs
+tests/ui/binding/match-arm-statics.rs
 tests/ui/binding/match-beginning-vert.rs
 tests/ui/binding/match-borrowed_str.rs
 tests/ui/binding/match-bot-2.rs
@@ -570,6 +586,7 @@ tests/ui/closures/closure-upvar-trait-caching.rs
 tests/ui/closures/closure-with-fixed-size-array-param.rs
 tests/ui/closures/closure_no_cap_coerce_many_run_pass.rs
 tests/ui/closures/closure_no_cap_coerce_many_unsafe_1.rs
+tests/ui/closures/debug-info-for-closure-capture.rs
 tests/ui/closures/destructure-newtype-closure.rs
 tests/ui/closures/drop-glue-for-closure-with-captures.rs
 tests/ui/closures/explicit-return-in-closure-and-outer-fn.rs
@@ -608,6 +625,7 @@ tests/ui/codegen/alias-uninit-value.rs
 tests/ui/codegen/arm-collect-into-vec-codegen-regression.rs
 tests/ui/codegen/assign-expr-unit-type.rs
 tests/ui/codegen/bitvec-to-bools-opt-miscompile.rs
+tests/ui/codegen/bool-negation-with-debug-info.rs
 tests/ui/codegen/box-deref-segfault-misopt.rs
 tests/ui/codegen/box-str-drop-glue.rs
 tests/ui/codegen/cfguard-run.rs
@@ -641,6 +659,8 @@ tests/ui/codegen/issue-28950.rs
 tests/ui/codegen/issue-55976.rs
 tests/ui/codegen/issue-63787.rs
 tests/ui/codegen/issue-79865-llvm-miscompile.rs
+tests/ui/codegen/issue-82833-slice-miscompile.rs
+tests/ui/codegen/issue-82859-slice-miscompile.rs
 tests/ui/codegen/llvm-miscompile-metadata-invalidation-36023.rs
 tests/ui/codegen/match-enum-range-metadata-misopt.rs
 tests/ui/codegen/matrix-row-swap-54462.rs
@@ -708,6 +728,7 @@ tests/ui/command/command-pre-exec.rs
 tests/ui/command/command-setgroups.rs
 tests/ui/command/command-uid-gid.rs
 tests/ui/command/issue-10626.rs
+tests/ui/compile-flags/run-pass/repeated-debug-opt-flags.rs
 tests/ui/compiletest-self-test/normalize-with-revision.rs#a
 tests/ui/compiletest-self-test/normalize-with-revision.rs#b
 tests/ui/compiletest-self-test/trim-env-name.rs#set
@@ -918,6 +939,7 @@ tests/ui/consts/const-typeid-of-rpass.rs
 tests/ui/consts/const-unit-struct.rs
 tests/ui/consts/const-unsafe-fn.rs
 tests/ui/consts/const-variant-count.rs
+tests/ui/consts/const-vec-of-fns.rs
 tests/ui/consts/const-vec-syntax.rs
 tests/ui/consts/const-vecs-and-slices.rs
 tests/ui/consts/const_constructor/const-construct-call.rs
@@ -1070,6 +1092,7 @@ tests/ui/coroutine/gen_fn_iter.rs
 tests/ui/coroutine/issue-44197.rs
 tests/ui/coroutine/issue-52398.rs
 tests/ui/coroutine/issue-57084.rs
+tests/ui/coroutine/issue-58888.rs
 tests/ui/coroutine/issue-69039.rs
 tests/ui/coroutine/issue-93161.rs
 tests/ui/coroutine/iterator-count.rs
@@ -1101,6 +1124,8 @@ tests/ui/coroutine/uninhabited-field.rs
 tests/ui/coroutine/yield-in-args-rev.rs
 tests/ui/coroutine/yield-in-initializer.rs
 tests/ui/coroutine/yield-subtype.rs
+tests/ui/debuginfo/impl-copy-function-debuginfo-58463.rs
+tests/ui/debuginfo/issue-105386-debuginfo-ub.rs
 tests/ui/delegation/default-functions.rs
 tests/ui/delegation/explicit-paths-in-traits-pass.rs
 tests/ui/delegation/explicit-paths-pass.rs
@@ -1282,6 +1307,7 @@ tests/ui/dst/dst-struct.rs
 tests/ui/dst/dst-trait.rs
 tests/ui/dst/match-dst-struct.rs
 tests/ui/dst/reborrow-mut-dyn-trait-field.rs
+tests/ui/dst/trait-impl-on-tuple-with-unsized-tail.rs
 tests/ui/dst/unsized-str-mutability.rs
 tests/ui/dyn-compatibility/metasized.rs
 tests/ui/dyn-compatibility/pointeesized.rs
@@ -1818,6 +1844,7 @@ tests/ui/lint/must_not_suspend/handled.rs
 tests/ui/lint/must_not_suspend/mutex-guard-dropped-before-await.rs
 tests/ui/lint/must_not_suspend/warn.rs
 tests/ui/lint/overflowing-literals-valid.rs
+tests/ui/lint/static-mut-refs.rs#e2021
 tests/ui/lint/test-allow-dead-extern-static-no-warning.rs
 tests/ui/lint/unused/for-loop-no-spurious-unused-variable-lint.rs
 tests/ui/lint/unused/ignored-allow-unused_variables.rs
@@ -1840,6 +1867,8 @@ tests/ui/loop-match/valid-patterns.rs
 tests/ui/loops/issue-1974.rs
 tests/ui/loops/loop-with-label-9047.rs
 tests/ui/loops/unreachable-while-loop-5741.rs
+tests/ui/lto/fat-lto.rs
+tests/ui/lto/lto-many-codegen-units.rs
 tests/ui/macros/assert-eq-macro-success.rs
 tests/ui/macros/assert-eq-macro-unsized.rs
 tests/ui/macros/assert-format-lazy.rs
@@ -1935,6 +1964,7 @@ tests/ui/macros/type-macros-hlist.rs
 tests/ui/macros/typeck-macro-interaction-issue-8852.rs
 tests/ui/marker_trait_attr/overlap-doesnt-conflict-with-specialization.rs
 tests/ui/marker_trait_attr/overlap-permitted-for-annotated-marker-traits.rs
+tests/ui/match/closure-in-match-guard.rs
 tests/ui/match/guard-arm-and-or-arm.rs
 tests/ui/match/guard-pattern-ordering-14865.rs
 tests/ui/match/guards.rs
@@ -2017,6 +2047,7 @@ tests/ui/mir/alignment/packed.rs
 tests/ui/mir/alignment/place_without_read.rs
 tests/ui/mir/clone-canonicalization-miscompile-132353.rs#debug
 tests/ui/mir/clone-canonicalization-miscompile-132353.rs#release
+tests/ui/mir/debug-ref-undef.rs
 tests/ui/mir/dont-use-operand-as-place-for-zst.rs
 tests/ui/mir/dyn_metadata_sroa.rs
 tests/ui/mir/enum/convert_non_integer_niche_ok.rs
@@ -2051,6 +2082,7 @@ tests/ui/mir/mir-inlining/ice-issue-77306-1.rs
 tests/ui/mir/mir-inlining/ice-issue-77306-2.rs
 tests/ui/mir/mir-inlining/ice-issue-77564.rs
 tests/ui/mir/mir-inlining/no-trait-method-issue-40473.rs
+tests/ui/mir/mir-inlining/var-debuginfo-issue-67586.rs
 tests/ui/mir/mir-typeck-normalize-fn-sig.rs
 tests/ui/mir/mir_adt_construction.rs
 tests/ui/mir/mir_ascription_coercion.rs
@@ -2314,6 +2346,7 @@ tests/ui/parser/generics-rangle-eq-15043.rs
 tests/ui/parser/integer-literal-method-call-underscore.rs
 tests/ui/parser/issues/issue-17718-parse-const.rs
 tests/ui/parser/issues/issue-21475.rs
+tests/ui/parser/issues/issue-48508.rs
 tests/ui/parser/issues/issue-65846-rollback-gating-failing-matcher.rs
 tests/ui/parser/issues/issue-7222.rs
 tests/ui/parser/macro/statement-boundaries.rs
@@ -2667,6 +2700,7 @@ tests/ui/rfcs/rfc-2497-if-let-chains/then-else-blocks.rs
 tests/ui/rfcs/rfc-3348-c-string-literals/basic.rs
 tests/ui/rfcs/rfc-3348-c-string-literals/non-ascii.rs
 tests/ui/runtime/atomic-print.rs
+tests/ui/runtime/backtrace-debuginfo.rs
 tests/ui/runtime/deep_recursion.rs
 tests/ui/runtime/out-of-stack.rs
 tests/ui/runtime/rt-explody-panic-payloads.rs
@@ -2730,21 +2764,39 @@ tests/ui/share-trait/share-trait-mpsc-sync-sender.rs
 tests/ui/share-trait/share-trait-rc.rs
 tests/ui/simd/array-type.rs
 tests/ui/simd/generics.rs
+tests/ui/simd/intrinsic/float-math-pass.rs
 tests/ui/simd/intrinsic/float-minmax-pass.rs
+tests/ui/simd/intrinsic/generic-arithmetic-pass.rs
+tests/ui/simd/intrinsic/generic-arithmetic-saturating-pass.rs
+tests/ui/simd/intrinsic/generic-as.rs
 tests/ui/simd/intrinsic/generic-bitmask-pass.rs
+tests/ui/simd/intrinsic/generic-bswap-byte.rs
+tests/ui/simd/intrinsic/generic-cast-pass.rs
+tests/ui/simd/intrinsic/generic-cast-pointer-width.rs
 tests/ui/simd/intrinsic/generic-comparison-pass.rs
 tests/ui/simd/intrinsic/generic-elements-pass.rs
+tests/ui/simd/intrinsic/generic-gather-scatter-pass.rs
+tests/ui/simd/intrinsic/generic-reduction-pass.rs
+tests/ui/simd/intrinsic/generic-select-pass.rs
 tests/ui/simd/intrinsic/inlining-issue67557-ice.rs
 tests/ui/simd/intrinsic/inlining-issue67557.rs
+tests/ui/simd/intrinsic/ptr-cast.rs
 tests/ui/simd/intrinsic/splat.rs
 tests/ui/simd/issue-105439.rs
 tests/ui/simd/issue-17170.rs
 tests/ui/simd/issue-32947.rs
+tests/ui/simd/issue-39720.rs
+tests/ui/simd/issue-85915-simd-ptrs.rs
+tests/ui/simd/issue-89193.rs
+tests/ui/simd/libm_std_can_float.rs
+tests/ui/simd/masked-load-store.rs
 tests/ui/simd/monomorphize-shuffle-index.rs#generic_with_fn
 tests/ui/simd/monomorphize-shuffle-index.rs#old
 tests/ui/simd/repr_packed.rs
 tests/ui/simd/shuffle.rs#noopt
 tests/ui/simd/shuffle.rs#opt
+tests/ui/simd/simd-bitmask-notpow2.rs
+tests/ui/simd/simd-bitmask.rs
 tests/ui/simd/size-align.rs
 tests/ui/simd/target-feature-mixup.rs
 tests/ui/simd/type-generic-monomorphisation-extern-nonnull-ptr.rs
@@ -2802,6 +2854,7 @@ tests/ui/statics/issue-17233.rs
 tests/ui/statics/issue-17718-static-unsafe-interior.rs
 tests/ui/statics/static-function-pointer.rs
 tests/ui/statics/static-impl.rs
+tests/ui/statics/static-lazy-init-with-arena-set.rs
 tests/ui/statics/static-method-in-trait-with-tps-intracrate.rs
 tests/ui/statics/static-methods-in-traits.rs
 tests/ui/statics/static-methods-in-traits2.rs
@@ -3114,6 +3167,7 @@ tests/ui/traits/issue-23825.rs
 tests/ui/traits/issue-24010.rs#current
 tests/ui/traits/issue-24010.rs#next
 tests/ui/traits/issue-26339.rs
+tests/ui/traits/issue-33096.rs
 tests/ui/traits/issue-3683.rs
 tests/ui/traits/issue-38033.rs
 tests/ui/traits/issue-3979-generics.rs
@@ -3298,6 +3352,7 @@ tests/ui/unboxed-closures/unboxed-closures-simple.rs
 tests/ui/unboxed-closures/unboxed-closures-single-word-env.rs
 tests/ui/unboxed-closures/unboxed-closures-static-call-fn-once.rs
 tests/ui/unboxed-closures/unboxed-closures-sugar-object.rs
+tests/ui/unboxed-closures/unboxed-closures-unique-type-id.rs
 tests/ui/unboxed-closures/unboxed-closures-zero-args.rs
 tests/ui/underscore-lifetime/basic-underscore-lifetime-elision.rs
 tests/ui/uniform-paths/basic-nested.rs
@@ -3306,6 +3361,7 @@ tests/ui/uniform-paths/macros-nested.rs
 tests/ui/uniform-paths/macros.rs
 tests/ui/uniform-paths/same-crate.rs
 tests/ui/uninhabited/uninhabited-transparent-return-abi.rs
+tests/ui/uninhabited/uninhabited-type-layout-computation-88150.rs
 tests/ui/uninhabited/uninhabited-unreachable-warning-149571.rs
 tests/ui/union/union-align.rs
 tests/ui/union/union-backcomp.rs

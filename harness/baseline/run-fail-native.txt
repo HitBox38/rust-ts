@@ -146,6 +146,7 @@ tests/ui/panics/location-detail-panic-no-column.rs
 tests/ui/panics/location-detail-panic-no-file.rs
 tests/ui/panics/location-detail-panic-no-line.rs
 tests/ui/panics/location-detail-panic-no-location-info.rs
+tests/ui/panics/location-detail-unwrap-multiline.rs
 tests/ui/panics/location-detail-unwrap-no-file.rs
 tests/ui/panics/main-panic.rs
 tests/ui/panics/panic-arg.rs
