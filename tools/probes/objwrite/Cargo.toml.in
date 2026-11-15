@@ -1,0 +1,21 @@
+# Template: scripts/probes.ts substitutes @SRC@ and builds this in $RUST_TS_DATA/probes.
+#
+# A rustc-dev probe (lane harness-w40s; review vendor-object-write N2): links the oracle toolchain's own copy of the
+# `object` crate (0.39.1, the one rustc_codegen_ssa writes objects with, built with `write`), through
+# `#![feature(rustc_private)]` + `extern crate rustc_driver` + `extern crate object`. No registry dependency, so the
+# writer is the oracle's own code, not a rebuild of the same version.
+[package]
+name = "objwrite"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-ts]
+rustc_dev = true
+sysroot_extern = ["object"]
+
+[[bin]]
+name = "objwrite"
+path = "@SRC@/main.rs"
+
+[workspace]

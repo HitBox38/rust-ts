@@ -83,6 +83,7 @@ import { verifyMiriOracle } from "./lib/miri.ts";
 import { ORACLE_RETRY_FACTOR, oracleSysroot, rustcDriverHash, verifyOraclePin } from "./lib/oracle.ts";
 import { SPLITTERS, compareSections, splitHashes, type SplitHashes, type SplitOutput } from "./lib/split.ts";
 import { isRustcDevProbe } from "./probes.ts";
+import { GROUPS } from "./criteria.ts";
 import { prepareSubject, subjectBinPaths, type SubjectRecord } from "./lib/subject-bin.ts";
 
 export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT" | "UNSTABLE";
@@ -971,14 +972,17 @@ export interface RunOptions {
 
 /**
  * A suite's milestone-completion criterion over this run (`Suite.criterion`; plan-m6 A9): MATCH over every case but
- * the ORACLE_TIMEOUT ones. Report only: it is never a status and never fails a run or the gate (the protected set
- * still only grows); on a `--sample` / `--filter` run it describes that subset only.
+ * the ORACLE_TIMEOUT ones, and but the UNSTABLE ones too where scripts/criteria.ts leaves them out of that suite's
+ * milestone figure (`criterionExcludesUnstable`). Report only: it is never a status and never fails a run or the gate
+ * (the protected set still only grows); on a `--sample` / `--filter` run it describes that subset only.
  */
 export interface CriterionResult {
   match: number;
-  /** Cases minus ORACLE_TIMEOUT. */
+  /** Cases minus ORACLE_TIMEOUT (and minus UNSTABLE, when `unstable` is set). */
   of: number;
   oracleTimeouts: number;
+  /** UNSTABLE cases left out of `of`; only on a suite whose criterion excludes them (absent otherwise, so M6's summaries are as before). */
+  unstable?: number;
   /** MATCH / `of`, in percent (0 when `of` is 0). */
   percent: number;
   /** The criterion's percent. */
@@ -987,10 +991,28 @@ export interface CriterionResult {
   what: string;
 }
 
-export function criterionOf(c: NonNullable<Suite["criterion"]>, counts: Record<Status, number>, total: number): CriterionResult {
-  const of = total - counts.ORACLE_TIMEOUT;
+/**
+ * Whether suite `suite`'s criterion leaves UNSTABLE cases out of its denominator: exactly when scripts/criteria.ts does for a
+ * milestone group naming it (`excludeUnstable`: plan-m7 §6, the M7 figures; decision 2026-11-14 harness-m7b F2), so this
+ * report and criteria.ts agree (review harness-m7b-recheck note 3). M6's groups count UNSTABLE, and so does this for them.
+ */
+export function criterionExcludesUnstable(suite: string): boolean {
+  return GROUPS.some((g) => g.excludeUnstable === true && !g.allCases && g.suites.includes(suite));
+}
+
+export function criterionOf(c: NonNullable<Suite["criterion"]>, counts: Record<Status, number>, total: number, excludeUnstable = false): CriterionResult {
+  const of = total - counts.ORACLE_TIMEOUT - (excludeUnstable ? counts.UNSTABLE : 0);
   const percent = of ? (100 * counts.MATCH) / of : 0;
-  return { match: counts.MATCH, of, oracleTimeouts: counts.ORACLE_TIMEOUT, percent: Math.round(percent * 100) / 100, target: c.percent, met: of > 0 && percent >= c.percent, what: c.what };
+  return {
+    match: counts.MATCH,
+    of,
+    oracleTimeouts: counts.ORACLE_TIMEOUT,
+    ...(excludeUnstable ? { unstable: counts.UNSTABLE } : {}),
+    percent: Math.round(percent * 100) / 100,
+    target: c.percent,
+    met: of > 0 && percent >= c.percent,
+    what: c.what,
+  };
 }
 
 /** How long a case's lock can be held: both sides with the oracle's retry, twice over. Past it a lock is a leftover (scripts/lib/case-lock.ts). */
@@ -1262,7 +1284,7 @@ export async function difftest(
     ...(s.irTier ? { irTier: s.irTier } : {}),
     subject,
   };
-  const criterion = s.criterion ? criterionOf(s.criterion, counts, results.length) : undefined;
+  const criterion = s.criterion ? criterionOf(s.criterion, counts, results.length, criterionExcludesUnstable(s.name)) : undefined;
   if (criterion) Object.assign(summary, { criterion });
   writeFileSync(join(dir, `${s.name}.summary.json`), JSON.stringify(summary, null, 2));
   return {
@@ -1320,7 +1342,7 @@ if (import.meta.main) {
   }
   if (criterion) {
     console.log(
-      `criterion (report only): MATCH ${criterion.match}/${criterion.of} = ${criterion.percent}% (ORACLE_TIMEOUT excluded: ${criterion.oracleTimeouts}) vs >= ${criterion.target}%: ${criterion.met ? "met" : "not met"} (${criterion.what})${a.sample || a.filter ? " [sample/filter run]" : ""}`,
+      `criterion (report only): MATCH ${criterion.match}/${criterion.of} = ${criterion.percent}% (ORACLE_TIMEOUT excluded: ${criterion.oracleTimeouts}${criterion.unstable === undefined ? "" : `, UNSTABLE excluded: ${criterion.unstable}`}) vs >= ${criterion.target}%: ${criterion.met ? "met" : "not met"} (${criterion.what})${a.sample || a.filter ? " [sample/filter run]" : ""}`,
     );
   }
   if (blessed) console.log(`blessed (report only): ${BLESSED_STATUSES.map((st) => `${st}=${blessed[st]}`).join(" ")} (per case: ${a.suite}.blessed.jsonl)`);

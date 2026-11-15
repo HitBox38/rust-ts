@@ -150,8 +150,9 @@ export interface Suite {
   caseLock?(c: Case): string;
   /**
    * A milestone-completion criterion over the suite's cases (plan-m6 A9): MATCH over every case but the ORACLE_TIMEOUT
-   * ones must reach `percent`. Report only (difftest prints it and records it in `<suite>.summary.json`): never a
-   * status, never a gate failure; the protected set still only grows.
+   * ones must reach `percent`; for a suite of an M7 group the UNSTABLE ones are left out too, as scripts/criteria.ts
+   * does (plan-m7 §6; scripts/difftest.ts `criterionExcludesUnstable`). Report only (difftest prints it and records it in
+   * `<suite>.summary.json`): never a status, never a gate failure; the protected set still only grows.
    */
   criterion?: { percent: number; what: string };
 }
@@ -2285,6 +2286,18 @@ SUITES.push(
 //   the oracle's side runs it twice and an unequal pair is UNSTABLE. A case's `args` are the wrapper's run options, `--`, then the compiler
 //   argv (`nativeCmd`), so the oracle cache key covers both; `nativeOracleKey` adds the wrapper, the masks it uses, the oracle rustc build and
 //   the host tools that change a program (`cc`, `ld`, the SDK and the OS build).
+//   Two limits of the wrapper, noted here rather than in its header, as `nativeOracleKey` hashes the whole of native-run.ts and a comment
+//   there would re-key every native case (lane harness-w40s):
+//   - **Only the program's two runs are compared, not the compile** (review harness-m7b-recheck note 2): each invocation compiles once, so
+//     a compiler output that changes from one compile to the next is not seen, and difftest caches the first as if it were stable. Seen:
+//     `RUSTC_LOG=info` logs the link line with its random `rustc<XXXXXX>` temp directory (`attributes/log-backtrace.rs`,
+//     `rustc-env/def-path-hash-ice-157238.rs`). `bun scripts/oracle-self.ts --suite <suite>` runs whole oracle invocations twice and finds
+//     such a case; it is then listed in `NATIVE_UNSTABLE` with its reason, as those two are. Until it is, it shows as a DIFF that comes and
+//     goes. Compiling twice in the wrapper would double every oracle compile, so it does not.
+//   - **The `HOME` sweep (`killEscaped`) cannot see a process running a platform binary** (`/bin/sh`, `/bin/sleep`, `/usr/bin/perl`, ...):
+//     macOS's `ps -E` shows no environment for those (macOS 26.7.1; review harness-m7b-recheck note 5). So a descendant that leaves the
+//     program's process group (`setsid()`) and execs one survives the run, still sandboxed, as does one that clears or changes its
+//     environment (the header says that much). No run-mode test at the pin calls `setsid`, `setpgid`, `process_group` or `daemon`.
 //   The run-pass and run-fail cases are `hostRunCorpus`'s, with compiletest's run rules: `run-flags`, `exec-env`, `unset-exec-env`, the dylib
 //   path, the cwd, and for the verdict line `error-pattern`, `regex-error-pattern` and `check-stdout`. Bootstrap's `-Lnative=<test helpers>`,
 //   which every other suite drops, is put back here, after `-Crpath` and its `-Cdebuginfo=0` as bootstrap orders its flags: `rust_test_helpers` is
@@ -2555,17 +2568,21 @@ export function evalCfg(pred: string, cfg: ReadonlySet<string>): boolean | undef
     return undefined;
   }
 }
-/** The predicates of the `#[cfg(...)]` attributes in `attrs` (outer attributes only; `cfg_attr` does not gate an item). */
-function cfgAttrs(attrs: string): string[] {
+/**
+ * The predicates of the `#[cfg(...)]` attributes in `attrs` (outer attributes only; `cfg_attr` does not gate an item). `clean` is the same
+ * text through `blankRustNoise`: the attributes and their parentheses are found there, so a commented-out `#[cfg(..)]` (a line or block comment) is no
+ * gate, and each predicate is read from `attrs` at the same offsets, where its string values are intact (review harness-m7b-recheck note 4).
+ */
+function cfgAttrs(attrs: string, clean: string): string[] {
   const out: string[] = [];
   const re = /#\s*\[\s*cfg\s*\(/g;
-  for (let m = re.exec(attrs); m; m = re.exec(attrs)) {
+  for (let m = re.exec(clean); m; m = re.exec(clean)) {
     let depth = 1;
     let j = m.index + m[0].length;
     const start = j;
-    while (j < attrs.length && depth > 0) {
-      if (attrs[j] === "(") depth++;
-      else if (attrs[j] === ")") depth--;
+    while (j < clean.length && depth > 0) {
+      if (clean[j] === "(") depth++;
+      else if (clean[j] === ")") depth--;
       j++;
     }
     if (depth === 0) out.push(attrs.slice(start, j - 1));
@@ -2580,14 +2597,14 @@ function cfgAttrs(attrs: string): string[] {
  */
 export function libcLoadedOn(text: string, cfg: ReadonlySet<string>): boolean {
   const clean = blankRustNoise(text);
-  /** The attribute text of the item or block opening at `at`: back to the previous `;`, `{` or `}`. */
-  const attrsBefore = (at: number): string => {
+  /** The cfg predicates on the item or block opening at `at`: its attribute text runs back to the previous `;`, `{` or `}`. */
+  const gatesBefore = (at: number): string[] => {
     let j = at - 1;
     while (j >= 0 && !";{}".includes(clean[j]!)) j--;
-    return text.slice(j + 1, at);
+    return cfgAttrs(text.slice(j + 1, at), clean.slice(j + 1, at));
   };
   for (const m of clean.matchAll(EXTERN_CRATE_LIBC)) {
-    const gates = [...cfgAttrs(attrsBefore(m.index!))];
+    const gates = [...gatesBefore(m.index!)];
     // Each enclosing `{`, innermost first.
     let depth = 0;
     for (let j = m.index! - 1; j >= 0; j--) {
@@ -2595,7 +2612,7 @@ export function libcLoadedOn(text: string, cfg: ReadonlySet<string>): boolean {
       if (ch === "}") depth++;
       else if (ch === "{") {
         if (depth > 0) depth--;
-        else gates.push(...cfgAttrs(attrsBefore(j)));
+        else gates.push(...gatesBefore(j));
       }
     }
     if (gates.every((g) => evalCfg(g, cfg) !== false)) return true;
@@ -2648,7 +2665,7 @@ export const NATIVE_UNSTABLE: Record<string, Record<string, string>> = {
     "tests/ui/threads-sendsync/spawn-fn.rs": INTERLEAVING("the spawned threads' and the parent's lines come out"),
     "tests/ui/threads-sendsync/task-comm-14.rs": INTERLEAVING("the senders' numbers come out"),
     "tests/ui/threads-sendsync/task-comm-3.rs": INTERLEAVING("`Starting`, `Sending Message` and `Ending` come out"),
-    "tests/ui/threads-sendsync/yield.rs": INTERLEAVING("the two threads' numbers come out"),
+    "tests/ui/threads-sendsync/yield.rs": `${INTERLEAVING("the two threads' numbers come out")}; rare on this host: seen once (review harness-m7b), then stable in 3 oracle runs (lane harness-m7b) and 6 (review harness-m7b-recheck), but \`main\` prints \`1 2 3\` while a spawned thread prints \`4 5 6\`, with only \`yield_now\` between them, a real race`,
     "tests/ui/runtime/rt-explody-panic-payloads.rs": TID_ELSEWHERE("inside a child's stderr that the program prints with `{:?}` (`stderr: \"\\nthread 'main' (<tid>) panicked ...`)"),
     "tests/ui/runtime/running-with-no-runtime.rs": TID_ELSEWHERE("inside a child's stderr that the program prints with `{:?}` (`Ok(\"\\nthread '<unnamed>' (<tid>) panicked ...`)"),
   },

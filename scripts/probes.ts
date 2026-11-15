@@ -30,6 +30,13 @@
 //                                  unix, an rpath to `<sysroot>/lib` (librustc_driver, libLLVM).
 //                                  Its oracle cache key also covers the sysroot (difftest:
 //                                  rustcDriverHash).
+//   sysroot_extern = ["crate", ...] (rustc-dev probes only) pin each named crate with `--extern` to
+//                                  the compiler's own copy in the sysroot: the one `.rmeta` with no
+//                                  `.rlib` beside it (compiler crates are shipped as metadata, their
+//                                  code is in librustc_driver; std's dependencies are `.rlib`s). For a
+//                                  crate both have, as `object` 0.39.1: `extern crate` alone finds
+//                                  two candidates (E0464), and only the compiler's is built with
+//                                  `write` (lane harness-w40s, probe objwrite).
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, hash, parseArgs, requireUpstream, run } from "./lib/common.ts";
@@ -68,6 +75,9 @@ export const PROBE_FIXTURES: Record<string, ProbeFixture> = {
   mirimath: { fixture: "src/miri/math.oracle.txt", args: ["aarch64-apple-darwin"], host: "aarch64-apple-darwin" },
   miripaths: { fixture: "tools/probes/miripaths/paths.oracle.txt" },
   miriepoll: { fixture: "tools/probes/miriepoll/epoll.oracle.txt", miri: true },
+  // The oracle's object writer on tools/probes/objwrite/cases.txt; tools/probes/objwrite/objwrite.test.ts runs the port's
+  // writer on the same script (lane harness-w40s, review vendor-object-write N2).
+  objwrite: { fixture: "tools/probes/objwrite/objwrite.oracle.txt", args: [join(PROBES_SRC, "objwrite", "cases.txt")] },
 };
 
 /**
@@ -168,6 +178,8 @@ interface ProbeMeta {
   lockfile?: "upstream";
   /** Links the oracle toolchain's rustc-dev crates (see the header). */
   rustcDev: boolean;
+  /** Crates to pin to the compiler's copy in the sysroot (`sysroot_extern`, see the header). */
+  sysrootExtern: string[];
 }
 
 /**
@@ -182,7 +194,7 @@ const RUSTC_DEV_MANIFEST = {
   package: ["name", "version", "edition", "publish", "metadata"],
   bin: ["name", "path"],
   metadata: ["rust-ts"],
-  rustTs: ["rustc_dev", "env"],
+  rustTs: ["rustc_dev", "env", "sysroot_extern"],
 };
 /**
  * Build variables a rustc-dev probe's `env` may set (compared case-insensitively, as Windows does).
@@ -242,6 +254,11 @@ export function probeMeta(name: string): ProbeMeta {
   if (meta.lockfile !== undefined && meta.lockfile !== "upstream") die(`probe ${name}: metadata lockfile must be "upstream"`);
   if (meta.rustc_dev !== undefined && typeof meta.rustc_dev !== "boolean") die(`probe ${name}: metadata rustc_dev must be a boolean`);
   const rustcDev = meta.rustc_dev === true;
+  const sysrootExtern = meta.sysroot_extern ?? [];
+  if (!Array.isArray(sysrootExtern) || !sysrootExtern.every((c) => typeof c === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(c))) {
+    die(`probe ${name}: metadata sysroot_extern must be an array of crate names`);
+  }
+  if (sysrootExtern.length && !rustcDev) die(`probe ${name}: metadata sysroot_extern needs rustc_dev = true`);
   if (rustcDev) {
     const bad = rustcDevManifestViolations(toml);
     if (bad.length) die(`probe ${name}: a rustc_dev probe's manifest may not have ${bad.join(", ")} (allowed: see RUSTC_DEV_MANIFEST in scripts/probes.ts)`);
@@ -249,12 +266,30 @@ export function probeMeta(name: string): ProbeMeta {
     const notAllowed = Object.keys(env).filter((k) => !allowed.has(k.toUpperCase()));
     if (notAllowed.length) die(`probe ${name}: a rustc_dev probe's env may not set ${notAllowed.join(", ")} (allowed: ${RUSTC_DEV_ALLOWED_ENV.join(", ") || "none"})`);
   }
-  return { env, lockfile: meta.lockfile as ProbeMeta["lockfile"], rustcDev };
+  return { env, lockfile: meta.lockfile as ProbeMeta["lockfile"], rustcDev, sysrootExtern: sysrootExtern as string[] };
 }
 
 /** Is a probe a rustc-dev probe (`rustc_dev = true`)? `false` for unknown names. */
 export function isRustcDevProbe(name: string): boolean {
   return existsSync(join(PROBES_SRC, name, "Cargo.toml.in")) && probeMeta(name).rustcDev;
+}
+
+/**
+ * The file of the compiler's own copy of sysroot crate `krate` among `files` (the names in `<sysroot>/lib/rustlib/<host>/lib`):
+ * the only `lib<krate>-<hash>.rmeta` with no `lib<krate>-<hash>.rlib` beside it (see `sysroot_extern` in the header), or an
+ * error saying what was found instead (exported for tests).
+ */
+export function compilerCrateFile(krate: string, files: readonly string[]): { file: string } | { error: string } {
+  const re = new RegExp(`^lib${krate}-([0-9a-f]+)\\.(rlib|rmeta)$`);
+  const kinds = new Map<string, Set<string>>();
+  for (const f of files) {
+    const m = re.exec(f);
+    if (m) kinds.set(m[1]!, (kinds.get(m[1]!) ?? new Set()).add(m[2]!));
+  }
+  const compiler = [...kinds].filter(([, k]) => k.has("rmeta") && !k.has("rlib")).map(([h]) => `lib${krate}-${h}.rmeta`).sort();
+  if (compiler.length === 1) return { file: compiler[0]! };
+  const seen = [...kinds.keys()].sort().map((h) => `lib${krate}-${h}.{${[...kinds.get(h)!].sort().join(",")}}`);
+  return { error: `${compiler.length ? "more than one" : "no"} metadata-only lib${krate}-*.rmeta in the sysroot (found: ${seen.join(", ") || "none"})` };
 }
 
 /**
@@ -273,12 +308,20 @@ function rustcDevEnv(name: string): Record<string, string> {
     die(`probe ${name} needs the rustc-dev component (no rustc_driver .rmeta/.rlib in ${rustlib}); run: rustup component add rustc-dev llvm-tools --toolchain ${PIN.toolchain}`);
   }
   const env: Record<string, string> = { RUSTC_BOOTSTRAP: "1" };
+  // `sysroot_extern`: `--extern <crate>=<the compiler's copy>` (see the header).
+  const flags: string[] = [];
+  for (const krate of probeMeta(name).sysrootExtern) {
+    const r = compilerCrateFile(krate, names);
+    if ("error" in r) die(`probe ${name}: sysroot_extern ${krate}: ${r.error}`);
+    flags.push("--extern", `${krate}=${join(rustlib, r.file)}`);
+  }
   // librustc_driver and libLLVM are dylibs in <sysroot>/lib; without an rpath the probe would only
   // run with DYLD_LIBRARY_PATH / LD_LIBRARY_PATH set. (Windows has no rpath: <sysroot>/bin must be
   // on PATH when the probe runs.)
   // CARGO_ENCODED_RUSTFLAGS (\x1f-separated) so a sysroot path with spaces stays one argument; it
   // also takes precedence over any RUSTFLAGS in the outer environment.
-  if (process.platform !== "win32") env.CARGO_ENCODED_RUSTFLAGS = ["-C", `link-arg=-Wl,-rpath,${join(sysroot, "lib")}`].join("\x1f");
+  if (process.platform !== "win32") flags.push("-C", `link-arg=-Wl,-rpath,${join(sysroot, "lib")}`);
+  if (flags.length) env.CARGO_ENCODED_RUSTFLAGS = flags.join("\x1f");
   return env;
 }
 
