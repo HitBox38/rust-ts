@@ -2,14 +2,53 @@
 //
 // PORT (lane locator): only `try_canonicalize` is ported (the crate locator and `CanonicalizedPath::new`
 // need it). Not ported (no markers): `fix_windows_verbatim_for_gcc` (:24/:51, Windows linker paths),
-// `link_or_copy` (:62), `path_to_c_string` (:88/:99) and `TempDirBuilder` (:113..; output files, M5+).
+// `path_to_c_string` (:88/:99) and `TempDirBuilder` (:113..; output files, M5+).
+// `link_or_copy` (:62) is ported by lane rg-fix-a: `EmitObj::Bitcode` (`-C linker-plugin-lto`, ripgrep's release-lto
+// profile) reaches it.
 // `PathBuf` is a UTF-8 string (PORTING section 5).
 import { win32 } from "node:path";
 import { current_dir_str } from "../std/env.ts";
-import { io_error_other, type IoResult } from "../std/io.ts";
-import { unreachable } from "../std/panic.ts";
+import { hard_link, remove_file } from "../std/fs.ts";
+import { IoError_kind, io_error_other, type IoError, type IoResult } from "../std/io.ts";
+import { unported, unreachable } from "../std/panic.ts";
 import { host_canonicalize, path_components, path_is_absolute, path_join } from "../std/path.ts";
 import { Err, Ok } from "../std/result.ts";
+
+/** `pub enum LinkOrCopy { Link, Copy }` */
+export type LinkOrCopy = "Link" | "Copy";
+export const LinkOrCopy = { Link: "Link", Copy: "Copy" } as const;
+
+/// Copies `p` into `q`, preferring to use hard-linking if possible.
+/// The result indicates which of the two operations has been performed.
+// rustc: compiler/rustc_fs_util/src/lib.rs:62 link_or_copy
+export function link_or_copy(p: string, q: string): IoResult<LinkOrCopy> {
+  // Creating a hard-link will fail if the destination path already exists. We could defensively
+  // call remove_file in this function, but that pessimizes callers who can avoid such calls.
+  // Incremental compilation calls this function a lot, and is able to avoid calls that
+  // would fail the first hard_link attempt.
+
+  let err: IoError;
+  const h = hard_link(p, q);
+  if (h.$ === "Ok") {
+    return Ok(LinkOrCopy.Link);
+  } else {
+    err = h._0;
+  }
+
+  if (IoError_kind(err) === "AlreadyExists") {
+    const r = remove_file(q);
+    if (r.$ === "Err") return r;
+    if (hard_link(p, q).$ === "Ok") {
+      return Ok(LinkOrCopy.Link);
+    }
+  }
+
+  // Hard linking failed, fall back to copying.
+  // `fs::copy(p, q).map(|_| LinkOrCopy::Copy)`
+  // PORT: src/std has no `std::fs::copy` yet (library/std/src/fs.rs `copy`, the macOS `fclonefileat`/`fcopyfile` path),
+  // and lanes do not edit src/std; this fallback is reached only when a hard link fails (another file system).
+  return unported("std::fs::copy (rustc_fs_util::link_or_copy's fallback after a failed hard link)");
+}
 
 // rustc: compiler/rustc_fs_util/src/lib.rs:104 try_canonicalize
 export function try_canonicalize(path: string): IoResult<string> {
