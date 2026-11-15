@@ -41,7 +41,7 @@ import type { CodegenCx } from "../../context.ts";
 import * as llvm from "../../llvm/mod.ts";
 import type { DIFlags, DIScope, DIType, Metadata } from "../../llvm/mod.ts";
 import { create_DIArray, DIB, debug_context } from "../utils.ts";
-import { type DefinitionLocation, UNKNOWN_LINE_NUMBER, unknown_file_metadata } from "../metadata.ts";
+import { type DefinitionLocation, debug_Metadata, UNKNOWN_LINE_NUMBER, unknown_file_metadata } from "../metadata.ts";
 import { utf8_len } from "../../../std/str.ts";
 
 // mod private {
@@ -354,8 +354,10 @@ export function build_type_with_children(
   members: (cx: CodegenCx, owner: DIType) => DIType[],
   generics: (cx: CodegenCx) => (DIType | undefined)[],
 ): DINodeCreationResult {
-  if (debug_context(cx).type_map.di_node_for_unique_id(stub_info.unique_type_id) !== undefined) {
-    bug(`assertion \`left == right\` failed\n  left: Some(..)\n right: None`);
+  const existing = debug_context(cx).type_map.di_node_for_unique_id(stub_info.unique_type_id);
+  if (existing !== undefined) {
+    // `assert_eq!(.., None)` fails; its message prints the `&DIType`, a pointer (metadata.rs `impl Debug for llvm::Metadata`)
+    debug_Metadata(existing);
   }
 
   let _adt_stack_pop_guard: AdtStackPopGuard | undefined = undefined;

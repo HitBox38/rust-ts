@@ -2,7 +2,6 @@
 // The CPP-like (MSVC/CodeView) debuginfo of enums and coroutines; `cpp_like_debuginfo(tcx)` selects it.
 //
 // PORT (cg-di-b):
-// - The module's long doc comment (`DW_TAG_union_type` layout, natvis) is upstream's; see the pinned file.
 // - `u64`/`u128` values are `bigint`. `x as u64` is `BigInt.asUintN(64, x)`; `assert_eq!(v, v as u64 as u128)` compares
 //   `v` with that.
 // - `enum DiscrKind` (local to `build_variant_struct_wrapper_type_di_node`'s closure) is a `$`-tagged union; the
@@ -81,7 +80,130 @@ const SINGLE_VARIANT_VIRTUAL_DISR: bigint = 0n;
 /// to the enum's discriminant values.
 /// It's roughly equivalent to the following C/C++ code:
 ///
-/// (See the pinned upstream file for the full listing and its explanation.)
+/// ```c
+/// union enum2$<{fully-qualified-name}> {
+///   struct Variant0 {
+///     struct {name-of-variant-0} {
+///        <variant 0 fields>
+///     } value;
+///
+///     static VariantNames NAME = {name-of-variant-0};
+///     static int_type DISCR_EXACT = {discriminant-of-variant-0};
+///   } variant0;
+///
+///   <other variant structs>
+///
+///   int_type tag;
+///
+///   enum VariantNames {
+///      <name-of-variant-0> = 0, // The numeric values are variant index,
+///      <name-of-variant-1> = 1, // not discriminant values.
+///      <name-of-variant-2> = 2,
+///      ...
+///   }
+/// }
+/// ```
+///
+/// As you can see, the type name is wrapped in `enum2$<_>`. This way we can
+/// have a single NatVis rule for handling all enums. The `2` in `enum2$<_>`
+/// is an encoding version tag, so that debuggers can decide to decode this
+/// differently than the previous `enum$<_>` encoding emitted by earlier
+/// compiler versions.
+///
+/// Niche-tag enums have one special variant, usually called the
+/// "untagged variant". This variant has a field that
+/// doubles as the tag of the enum. The variant is active when the value of
+/// that field is within a pre-defined range. Therefore the variant struct
+/// has a `DISCR_BEGIN` and `DISCR_END` field instead of `DISCR_EXACT` in
+/// that case. Both `DISCR_BEGIN` and `DISCR_END` are inclusive bounds.
+/// Note that these ranges can wrap around, so that `DISCR_END < DISCR_BEGIN`.
+///
+/// Single-variant enums don't actually have a tag field. In this case we
+/// emit a static tag field (that always has the value 0) so we can use the
+/// same representation (and NatVis).
+///
+/// For niche-layout enums it's possible to have a 128-bit tag. NatVis, VS, and
+/// WinDbg (the main targets for CPP-like debuginfo at the moment) don't support
+/// 128-bit integers, so all values involved get split into two 64-bit fields.
+/// Instead of the `tag` field, we generate two fields `tag128_lo` and `tag128_hi`,
+/// Instead of `DISCR_EXACT`, we generate `DISCR128_EXACT_LO` and `DISCR128_EXACT_HI`,
+/// and so on.
+///
+///
+/// The following pseudocode shows how to decode an enum value in a debugger:
+///
+/// ```text
+///
+/// fn find_active_variant(enum_value) -> (VariantName, VariantValue) {
+///     let is_128_bit = enum_value.has_field("tag128_lo");
+///
+///     if !is_128_bit {
+///         // Note: `tag` can be a static field for enums with only one
+///         //       inhabited variant.
+///         let tag = enum_value.field("tag").value;
+///
+///         // For each variant, check if it is a match. Only one of them will match,
+///         // so if we find it we can return it immediately.
+///         for variant_field in enum_value.fields().filter(|f| f.name.starts_with("variant")) {
+///             if variant_field.has_field("DISCR_EXACT") {
+///                 // This variant corresponds to a single tag value
+///                 if variant_field.field("DISCR_EXACT").value == tag {
+///                     return (variant_field.field("NAME"), variant_field.value);
+///                 }
+///             } else {
+///                 // This is a range variant
+///                 let begin = variant_field.field("DISCR_BEGIN");
+///                 let end = variant_field.field("DISCR_END");
+///
+///                 if is_in_range(tag, begin, end) {
+///                     return (variant_field.field("NAME"), variant_field.value);
+///                 }
+///             }
+///         }
+///     } else {
+///         // Basically the same as with smaller tags, we just have to
+///         // stitch the values together.
+///         let tag: u128 = (enum_value.field("tag128_lo").value as u128) |
+///                         (enum_value.field("tag128_hi").value as u128 << 64);
+///
+///         for variant_field in enum_value.fields().filter(|f| f.name.starts_with("variant")) {
+///             if variant_field.has_field("DISCR128_EXACT_LO") {
+///                 let discr_exact = (variant_field.field("DISCR128_EXACT_LO" as u128) |
+///                                   (variant_field.field("DISCR128_EXACT_HI") as u128 << 64);
+///
+///                 // This variant corresponds to a single tag value
+///                 if discr_exact.value == tag {
+///                     return (variant_field.field("NAME"), variant_field.value);
+///                 }
+///             } else {
+///                 // This is a range variant
+///                 let begin = (variant_field.field("DISCR128_BEGIN_LO").value as u128) |
+///                             (variant_field.field("DISCR128_BEGIN_HI").value as u128 << 64);
+///                 let end = (variant_field.field("DISCR128_END_LO").value as u128) |
+///                           (variant_field.field("DISCR128_END_HI").value as u128 << 64);
+///
+///                 if is_in_range(tag, begin, end) {
+///                     return (variant_field.field("NAME"), variant_field.value);
+///                 }
+///             }
+///         }
+///     }
+///
+///     // We should have found an active variant at this point.
+///     unreachable!();
+/// }
+///
+/// // Check if a value is within the given range
+/// // (where the range might wrap around the value space)
+/// fn is_in_range(value, start, end) -> bool {
+///     if start < end {
+///         value >= start && value <= end
+///     } else {
+///         value >= start || value <= end
+///     }
+/// }
+///
+/// ```
 // rustc: compiler/rustc_codegen_llvm/src/debuginfo/metadata/enums/cpp_like.rs:182 build_enum_type_di_node
 export function build_enum_type_di_node(cx: CodegenCx, unique_type_id: UniqueTypeId): DINodeCreationResult {
   const enum_type = UniqueTypeId.expect_ty(unique_type_id);
@@ -331,8 +453,10 @@ function variant_names_enum_base_type(cx: CodegenCx): Ty {
 }
 
 /// This function builds a DW_AT_enumeration_type that contains an entry for
-/// each variant. Note that this enumeration is just used for display variant
-/// names -- it is not the actual type of the tag field.
+/// each variant. Note that this has nothing to do with the discriminant. The
+/// numeric value of each enumerator corresponds to the variant index. The
+/// type is only used for efficiently encoding the name of each variant in
+/// debuginfo.
 // rustc: compiler/rustc_codegen_llvm/src/debuginfo/metadata/enums/cpp_like.rs:473 build_variant_names_type_di_node
 function build_variant_names_type_di_node(
   cx: CodegenCx,

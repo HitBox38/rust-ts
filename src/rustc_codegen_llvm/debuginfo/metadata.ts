@@ -115,6 +115,10 @@ export const NO_GENERICS = (_: CodegenCx): (DIType | undefined)[] => [];
 // mod enums;
 // mod type_map;
 
+/// Returns from the enclosing function if the type debuginfo node with the given
+/// unique ID can be found in the type map.
+// macro_rules! return_if_di_node_created_in_meantime: written out where it is used (header).
+
 /// Extract size and alignment from a TyAndLayout.
 // #[inline]
 // rustc: compiler/rustc_codegen_llvm/src/debuginfo/metadata.rs:92 size_and_align_of
@@ -1555,7 +1559,7 @@ export function apply_vcall_visibility_metadata(cx: CodegenCx, ty: Ty, trait_ref
   const vtable = find_vtable_behind_cast(vtable0);
   const trait_ref_self = ExistentialTraitRef.with_self_ty(trait_ref, as_interner(cx.tcx), ty);
   const trait_def_id = trait_ref_self.def_id;
-  const trait_vis = cx.tcx.visibility(trait_def_id) as Visibility<DefId>;
+  const trait_vis = cx.tcx.visibility(trait_def_id) as Visibility<ModId>;
 
   const cgus = CodegenUnits.as_usize(cx.sess().codegen_units());
   const single_cgu = cgus === 1;
