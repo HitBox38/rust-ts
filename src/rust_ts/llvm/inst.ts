@@ -55,6 +55,8 @@ import { type Printer, printCallingConv, printLLVMNameWithoutPrefix, printEscape
 export class BasicBlock extends BasicBlockBase {
   parentFn: Function | undefined;
   readonly insts: Inst[] = [];
+  /** `getTrailingDbgRecords()` (llir-di): debug records inserted at `end()` of a block with no instruction after them yet. */
+  trailingDbgRecords: DbgRecordHook[] | undefined;
   get parent(): Function | undefined {
     return this.parentFn;
   }
@@ -113,6 +115,29 @@ export class BasicBlock extends BasicBlockBase {
   }
 }
 
+// ---- debug records (llir-di) ---------------------------------------------------------------------------------------------
+
+/** A `DbgRecord` (di_builder.ts's `DbgVariableRecord`), as the body printer sees it: `printDbgRecord`'s text. */
+export interface DbgRecordHook {
+  printRecord(p: Printer): string;
+}
+
+/** `BasicBlock::getMarker(It)`'s records: an instruction's, or the block's trailing ones at `end()` (index `insts.length`). */
+function markerAt(bb: BasicBlock, at: number): DbgRecordHook[] | undefined {
+  return at === bb.insts.length ? bb.trailingDbgRecords : bb.insts[at]!.dbgRecords;
+}
+
+// llvm: llvm/lib/IR/BasicBlock.cpp:995 BasicBlock::insertDbgRecordBefore
+/** `insertDbgRecordBefore(DR, Where)`: `createMarker(Where)`, then `insertDbgRecord(DR, InsertAtHead)`. `at` is the index of
+ * `Where` (`insts.length` is `end()`, the trailing marker). */
+export function insertDbgRecordBefore(bb: BasicBlock, dr: DbgRecordHook, at: number, insertAtHead: boolean): void {
+  let m: DbgRecordHook[];
+  if (at === bb.insts.length) m = bb.trailingDbgRecords ??= [];
+  else m = bb.insts[at]!.dbgRecords ??= [];
+  if (insertAtHead) m.unshift(dr);
+  else m.push(dr);
+}
+
 // ---- operand bundles ---------------------------------------------------------------------------------------------------
 
 /** `OperandBundleDef`: a tag and its inputs (`LLVMCreateOperandBundle`). */
@@ -149,6 +174,10 @@ export class Inst extends Instruction {
   parent: BasicBlock | undefined;
   /** `getAllMetadata` other than `!dbg`: [kind, node], replaced by kind. */
   readonly metadata: [number, MDNode][] = [];
+  /** `DbgLoc` (llir-di): the `!dbg` attachment, a `DILocation`, kept apart from the other kinds as LLVM keeps it. */
+  debugLoc: MDNode | undefined;
+  /** `DebugMarker->StoredDbgRecords` (llir-di): the debug records printed before this instruction, in order. */
+  dbgRecords: DbgRecordHook[] | undefined;
   // OverflowingBinaryOperator / TruncInst, PossiblyExactOperator, PossiblyDisjointInst, PossiblyNonNegInst, ICmpInst samesign.
   nuw = false;
   nsw = false;
@@ -253,9 +282,12 @@ export class Inst extends Instruction {
 
   // llvm: llvm/lib/IR/Metadata.cpp:1751 Instruction::setMetadata
   setMetadata(kindID: number, node: MDNode | undefined): void {
-    if (node === undefined && this.metadata.length === 0) return;
+    if (node === undefined && this.metadata.length === 0 && this.debugLoc === undefined) return;
     // Handle 'dbg' as a special case since it is not stored in the hash table.
-    if (kindID === 0) return unported("llir: Instruction::setMetadata(MD_dbg) (DebugLoc, llir-di)");
+    if (kindID === 0) {
+      this.debugLoc = node;
+      return;
+    }
     // `Value::setMetadata`: erase the kind, then add the node.
     const i = this.metadata.findIndex(([k]) => k === kindID);
     if (node === undefined) {
@@ -266,6 +298,7 @@ export class Inst extends Instruction {
     else this.metadata.push([kindID, node]);
   }
   getMetadata(kindID: number): MDNode | undefined {
+    if (kindID === 0) return this.debugLoc;
     return this.metadata.find(([k]) => k === kindID)?.[1];
   }
 
@@ -273,12 +306,27 @@ export class Inst extends Instruction {
   eraseFromParent(): void {
     const bb = this.parent;
     if (bb !== undefined) {
+      this.handleMarkerRemoval(bb);
       bb.insts.splice(bb.insts.indexOf(this), 1);
       const st = bb.parentFn?.symTab;
       if (this.hasName() && st !== undefined) st.removeValueName(this.name);
     }
     this.parent = undefined;
     this.dropAllReferences();
+  }
+
+  // llvm: llvm/lib/IR/Instruction.cpp:105 Instruction::handleMarkerRemoval
+  /** `handleMarkerRemoval` / `DbgMarker::removeMarker` (DebugProgramInstruction.cpp:646), llir-di: an erased instruction's debug
+   * records go to the head of the next instruction's, or become the block's trailing records. */
+  handleMarkerRemoval(bb: BasicBlock): void {
+    const recs = this.dbgRecords;
+    this.dbgRecords = undefined;
+    if (recs === undefined || recs.length === 0) return;
+    const next = bb.insts.indexOf(this) + 1;
+    const nextMarker = markerAt(bb, next);
+    if (nextMarker !== undefined) nextMarker.unshift(...recs);
+    else if (next === bb.insts.length) bb.trailingDbgRecords = recs;
+    else bb.insts[next]!.dbgRecords = recs;
   }
 }
 
@@ -316,18 +364,56 @@ export function getShuffleMask(mask: Constant): number[] {
 
 // ---- the IR builder ----------------------------------------------------------------------------------------------------
 
+// llvm: llvm/lib/IR/Instruction.cpp:150 Instruction::insertBefore
+/** The debug-record half of `Instruction::insertBefore(BB, InsertPos)` (llir-di), after `I` is placed at index `at`: without the
+ * head bit, the records at the position (the next instruction's, or the block's trailing ones) move onto `I`
+ * (`adoptDbgRecords`, Instruction.cpp); a terminator then takes any trailing records left (`flushTerminatorDbgRecords`). */
+function insertedDbgRecords(bb: BasicBlock, I: Inst, at: number, headBit: boolean): void {
+  if (!headBit) {
+    const srcAt = at + 1;
+    const src = markerAt(bb, srcAt);
+    if (src !== undefined && src.length !== 0) {
+      // `adoptDbgRecords(BB, It, false)`: `I` is new, so it takes the records as they are.
+      I.dbgRecords = src;
+      if (srcAt === bb.insts.length) bb.trailingDbgRecords = undefined;
+      else bb.insts[srcAt]!.dbgRecords = undefined;
+    }
+  }
+  if (I.isTerminator()) flushTerminatorDbgRecords(bb);
+}
+
+// llvm: llvm/lib/IR/BasicBlock.cpp:659 BasicBlock::flushTerminatorDbgRecords
+function flushTerminatorDbgRecords(bb: BasicBlock): void {
+  // If there's no terminator, there's nothing to do.
+  const term = bb.insts[bb.insts.length - 1];
+  if (term === undefined || !term.isTerminator()) return;
+  // Are there any dangling DbgRecords?
+  const trailing = bb.trailingDbgRecords;
+  if (trailing === undefined) return;
+  // Transfer DbgRecords from the trailing position onto the terminator.
+  (term.dbgRecords ??= []).push(...trailing);
+  bb.trailingDbgRecords = undefined;
+}
+
 /** `IRBuilder<>` (ConstantFolder, IRBuilderDefaultInserter): an insertion block and point (`insertBefore`; undefined is
  * `BB->end()`). No debug location and no default FP math tag or fast-math flags (rustc sets none on a builder). */
 export class IRBuilder {
   block: BasicBlock | undefined;
   insertBefore: Inst | undefined;
+  /** The insertion iterator's head bit (llir-di): set, a new instruction goes before the debug records at the point. */
+  headBit = false;
+  /** `StoredDL` (llir-di): the `DILocation` given to each instruction the builder inserts, or undefined. */
+  storedDL: MDNode | undefined;
   constructor(readonly context: Context) {}
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:197 SetInsertPoint
-  /** `SetInsertPoint(BB, IP)`, IP as an index into the block (`insts.length` is `end()`). */
-  setInsertPoint(bb: BasicBlock, ip: number): void {
+  /** `SetInsertPoint(BB, IP)`, IP as an index into the block (`insts.length` is `end()`) with its head bit. A point that is an
+   * instruction takes that instruction's debug location (`SetCurrentDebugLocation(IP->getStableDebugLoc())`). */
+  setInsertPoint(bb: BasicBlock, ip: number, headBit = false): void {
     this.block = bb;
     this.insertBefore = bb.insts[ip];
+    this.headBit = ip === bb.insts.length ? false : headBit;
+    if (ip !== bb.insts.length) this.storedDL = bb.insts[ip]!.debugLoc;
   }
 
   // llvm: llvm/include/llvm/IR/IRBuilder.h:146 Insert
@@ -339,8 +425,11 @@ export class IRBuilder {
       v.parent = this.block;
       const at = this.insertBefore === undefined ? this.block.insts.length : this.block.insts.indexOf(this.insertBefore);
       this.block.insts.splice(at, 0, v);
+      insertedDbgRecords(this.block, v, at, this.headBit);
     }
     v.setName(name);
+    // `SetInstDebugLocation(I)`: `I->setDebugLoc(StoredDL.orElse(I->getDebugLoc()))` (llir-di).
+    if (this.storedDL !== undefined) v.debugLoc = this.storedDL;
     return v;
   }
 
@@ -889,8 +978,8 @@ function printInstruction(I: Inst, p: Printer): string {
     else if (I.mask.every((e) => e === -1)) o += "poison";
     else o += `<${I.mask.map((e) => `i32 ${e === -1 ? "poison" : e}`).join(", ")}>`;
   }
-  // `getAllMetadata` (sorted by kind), then `printMetadataAttachments(InstMD, ", ")`.
-  o += p.attachments(I.metadata, ", ", I.context);
+  // `getAllMetadata` (the `!dbg` location first, then the others sorted by kind), then `printMetadataAttachments(InstMD, ", ")`.
+  o += p.attachments(I.debugLoc === undefined ? I.metadata : [[0, I.debugLoc], ...I.metadata], ", ", I.context);
   return o;
 }
 
@@ -942,7 +1031,11 @@ function printBasicBlock(bb: BasicBlock, p: Printer, first: boolean): string {
   else if (!bb.isEntryBlock()) o += `\n${p.localOperand!(bb).slice(1)}:`;
   // PORT: the `; preds = ...` comment is left out; the normal form drops it (plan-m7 §1b).
   if (o !== "") o += "\n";
-  for (const I of bb.insts) o += `${printInstruction(I, p)}\n`;
+  for (const I of bb.insts) {
+    // `printDbgRecordLine` for each record on the instruction (llir-di).
+    if (I.dbgRecords !== undefined) for (const dr of I.dbgRecords) o += `    ${dr.printRecord(p)}\n`;
+    o += `${printInstruction(I, p)}\n`;
+  }
   return o;
 }
 

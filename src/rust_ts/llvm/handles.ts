@@ -27,8 +27,7 @@ export type OperandBundle = OperandBundleDef;
 declare const opaque: unique symbol;
 type Opaque<N extends string> = { readonly [opaque]: N };
 
-export type DbgRecord = Opaque<"DbgRecord">;
-export type DIBuilder = Opaque<"DIBuilder">;
+export type { DbgVariableRecord as DbgRecord, DIBuilder } from "./di_builder.ts";
 export type { MCSubtargetInfo, TargetMachine } from "./target.ts";
 export type Twine = Opaque<"Twine">;
 export type DiagnosticInfo = Opaque<"DiagnosticInfo">;

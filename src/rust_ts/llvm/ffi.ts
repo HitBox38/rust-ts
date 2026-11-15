@@ -9,12 +9,13 @@ import * as impl1 from "./build.ts";
 import * as impl2 from "./intrinsics.ts";
 import * as impl3 from "./target.ts";
 import * as impl4 from "./tools.ts";
+import * as impl5 from "./di_builder.ts";
 
 export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Context, DIArray, DIBasicType, DIBuilder, DICompositeType, DIDerivedType, DIDescriptor, DIFile, DILexicalBlock, DILocation, DIScope, DISubprogram, DITemplateTypeParameter, DIType, DIVariable, DbgRecord, DiagnosticHandler, DiagnosticInfo, Linker, MCSubtargetInfo, Metadata, Module, OperandBundle, RustString, SMDiagnostic, TargetMachine, ThinLTOData, Twine, Type, Value } from "./handles.ts";
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 286 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 324 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -237,6 +238,32 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMDisposeOperandBundle",
   "LLVMBuildCallWithOperandBundles",
   "LLVMBuildInvokeWithOperandBundles",
+  "LLVMCreateDIBuilder",
+  "LLVMDisposeDIBuilder",
+  "LLVMDIBuilderFinalize",
+  "LLVMDIBuilderCreateNameSpace",
+  "LLVMDIBuilderCreateLexicalBlock",
+  "LLVMDIBuilderCreateLexicalBlockFile",
+  "LLVMDIBuilderCreateDebugLocation",
+  "LLVMDIBuilderCreateSubroutineType",
+  "LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision",
+  "LLVMDIBuilderCreateUnionType",
+  "LLVMDIBuilderCreateArrayType",
+  "LLVMDIBuilderCreateBasicType",
+  "LLVMDIBuilderCreatePointerType",
+  "LLVMDIBuilderCreateStructType",
+  "LLVMDIBuilderCreateMemberType",
+  "LLVMDIBuilderCreateStaticMemberType",
+  "LLVMDIBuilderCreateQualifiedType",
+  "LLVMDIBuilderCreateTypedef",
+  "LLVMDIBuilderGetOrCreateSubrange",
+  "LLVMDIBuilderGetOrCreateArray",
+  "LLVMDIBuilderCreateExpression",
+  "LLVMDIBuilderCreateGlobalVariableExpression",
+  "LLVMDIBuilderInsertDeclareRecordAtEnd",
+  "LLVMDIBuilderInsertDbgValueRecordAtEnd",
+  "LLVMDIBuilderCreateAutoVariable",
+  "LLVMDIBuilderCreateParameterVariable",
   "LLVMRustInstallErrorHandlers",
   "LLVMRustDisableSystemDialogsOnCrash",
   "LLVMRustIsNonGVFunctionPointerTy",
@@ -275,6 +302,18 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustVersionMajor",
   "LLVMRustAddModuleFlagU32",
   "LLVMRustAddModuleFlagString",
+  "LLVMRustDIBuilderCreateCompileUnit",
+  "LLVMRustDIBuilderCreateFile",
+  "LLVMRustDIBuilderCreateFunction",
+  "LLVMRustDIBuilderCreateMethod",
+  "LLVMRustDIBuilderCreateVariantMemberType",
+  "LLVMRustDIBuilderCreateEnumerationType",
+  "LLVMRustDIBuilderCreateVariantPart",
+  "LLVMRustDIBuilderCreateTemplateTypeParameter",
+  "LLVMRustDICompositeTypeReplaceArrays",
+  "LLVMRustDIGetOrCreateSubrange",
+  "LLVMRustDICreateVectorType",
+  "LLVMRustDILocationCloneWithBaseDiscriminator",
   "LLVMRustWriteTypeToString",
   "LLVMRustWriteValueToString",
   "LLVMRustCreateTargetMachine",
@@ -983,82 +1022,82 @@ export const LLVMBuildInvokeWithOperandBundles: (B: Builder, Ty: Type, Fn: Value
 export const LLVMBuildCallBr: (B: Builder, Ty: Type, Fn: Value, DefaultDest: BasicBlock, IndirectDests: readonly BasicBlock[], NumIndirectDests: number, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = stub("LLVMBuildCallBr");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1736 LLVMCreateDIBuilder
-export const LLVMCreateDIBuilder: (M: Module) => DIBuilder | undefined = stub("LLVMCreateDIBuilder");
+export const LLVMCreateDIBuilder: (M: Module) => DIBuilder | undefined = bind("LLVMCreateDIBuilder", impl5.LLVMCreateDIBuilder);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1737 LLVMDisposeDIBuilder
-export const LLVMDisposeDIBuilder: (Builder: DIBuilder) => void = stub("LLVMDisposeDIBuilder");
+export const LLVMDisposeDIBuilder: (Builder: DIBuilder) => void = bind("LLVMDisposeDIBuilder", impl5.LLVMDisposeDIBuilder);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1739 LLVMDIBuilderFinalize
-export const LLVMDIBuilderFinalize: (Builder: DIBuilder) => void = stub("LLVMDIBuilderFinalize");
+export const LLVMDIBuilderFinalize: (Builder: DIBuilder) => void = bind("LLVMDIBuilderFinalize", impl5.LLVMDIBuilderFinalize);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1741 LLVMDIBuilderCreateNameSpace
-export const LLVMDIBuilderCreateNameSpace: (Builder: DIBuilder, ParentScope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, ExportSymbols: Bool) => Metadata = stub("LLVMDIBuilderCreateNameSpace");
+export const LLVMDIBuilderCreateNameSpace: (Builder: DIBuilder, ParentScope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, ExportSymbols: Bool) => Metadata = bind("LLVMDIBuilderCreateNameSpace", impl5.LLVMDIBuilderCreateNameSpace);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1749 LLVMDIBuilderCreateLexicalBlock
-export const LLVMDIBuilderCreateLexicalBlock: (Builder: DIBuilder, Scope: Metadata, File: Metadata, Line: number, Column: number) => Metadata = stub("LLVMDIBuilderCreateLexicalBlock");
+export const LLVMDIBuilderCreateLexicalBlock: (Builder: DIBuilder, Scope: Metadata, File: Metadata, Line: number, Column: number) => Metadata = bind("LLVMDIBuilderCreateLexicalBlock", impl5.LLVMDIBuilderCreateLexicalBlock);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1757 LLVMDIBuilderCreateLexicalBlockFile
-export const LLVMDIBuilderCreateLexicalBlockFile: (Builder: DIBuilder, Scope: Metadata, File: Metadata, Discriminator: number) => Metadata = stub("LLVMDIBuilderCreateLexicalBlockFile");
+export const LLVMDIBuilderCreateLexicalBlockFile: (Builder: DIBuilder, Scope: Metadata, File: Metadata, Discriminator: number) => Metadata = bind("LLVMDIBuilderCreateLexicalBlockFile", impl5.LLVMDIBuilderCreateLexicalBlockFile);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1764 LLVMDIBuilderCreateDebugLocation
-export const LLVMDIBuilderCreateDebugLocation: (Ctx: Context, Line: number, Column: number, Scope: Metadata, InlinedAt: Metadata | undefined) => Metadata = stub("LLVMDIBuilderCreateDebugLocation");
+export const LLVMDIBuilderCreateDebugLocation: (Ctx: Context, Line: number, Column: number, Scope: Metadata, InlinedAt: Metadata | undefined) => Metadata = bind("LLVMDIBuilderCreateDebugLocation", impl5.LLVMDIBuilderCreateDebugLocation);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1772 LLVMDIBuilderCreateSubroutineType
-export const LLVMDIBuilderCreateSubroutineType: (Builder: DIBuilder, File: Metadata | undefined, ParameterTypes: readonly (Metadata | undefined)[], NumParameterTypes: number, Flags: DIFlags) => Metadata = stub("LLVMDIBuilderCreateSubroutineType");
+export const LLVMDIBuilderCreateSubroutineType: (Builder: DIBuilder, File: Metadata | undefined, ParameterTypes: readonly (Metadata | undefined)[], NumParameterTypes: number, Flags: DIFlags) => Metadata = bind("LLVMDIBuilderCreateSubroutineType", impl5.LLVMDIBuilderCreateSubroutineType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1780 LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision
-export const LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision: (Builder: DIBuilder, Name: PtrLenStr | undefined, NameLen: number, SizeInBits: bigint, Words: readonly bigint[], IsUnsigned: Bool) => Metadata = stub("LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision");
+export const LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision: (Builder: DIBuilder, Name: PtrLenStr | undefined, NameLen: number, SizeInBits: bigint, Words: readonly bigint[], IsUnsigned: Bool) => Metadata = bind("LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision", impl5.LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1789 LLVMDIBuilderCreateUnionType
-export const LLVMDIBuilderCreateUnionType: (Builder: DIBuilder, Scope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNumber: number, SizeInBits: bigint, AlignInBits: number, Flags: DIFlags, Elements: readonly (Metadata | undefined)[], NumElements: number, RunTimeLang: number, UniqueId: PtrLenStr | undefined, UniqueIdLen: number) => Metadata = stub("LLVMDIBuilderCreateUnionType");
+export const LLVMDIBuilderCreateUnionType: (Builder: DIBuilder, Scope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNumber: number, SizeInBits: bigint, AlignInBits: number, Flags: DIFlags, Elements: readonly (Metadata | undefined)[], NumElements: number, RunTimeLang: number, UniqueId: PtrLenStr | undefined, UniqueIdLen: number) => Metadata = bind("LLVMDIBuilderCreateUnionType", impl5.LLVMDIBuilderCreateUnionType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1806 LLVMDIBuilderCreateArrayType
-export const LLVMDIBuilderCreateArrayType: (Builder: DIBuilder, Size: bigint, Align: number, Ty: Metadata, Subscripts: readonly Metadata[], NumSubscripts: number) => Metadata = stub("LLVMDIBuilderCreateArrayType");
+export const LLVMDIBuilderCreateArrayType: (Builder: DIBuilder, Size: bigint, Align: number, Ty: Metadata, Subscripts: readonly Metadata[], NumSubscripts: number) => Metadata = bind("LLVMDIBuilderCreateArrayType", impl5.LLVMDIBuilderCreateArrayType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1815 LLVMDIBuilderCreateBasicType
-export const LLVMDIBuilderCreateBasicType: (Builder: DIBuilder, Name: PtrLenStr | undefined, NameLen: number, SizeInBits: bigint, Encoding: number, Flags: DIFlags) => Metadata = stub("LLVMDIBuilderCreateBasicType");
+export const LLVMDIBuilderCreateBasicType: (Builder: DIBuilder, Name: PtrLenStr | undefined, NameLen: number, SizeInBits: bigint, Encoding: number, Flags: DIFlags) => Metadata = bind("LLVMDIBuilderCreateBasicType", impl5.LLVMDIBuilderCreateBasicType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1824 LLVMDIBuilderCreatePointerType
-export const LLVMDIBuilderCreatePointerType: (Builder: DIBuilder, PointeeTy: Metadata, SizeInBits: bigint, AlignInBits: number, AddressSpace: number, Name: PtrLenStr | undefined, NameLen: number) => Metadata = stub("LLVMDIBuilderCreatePointerType");
+export const LLVMDIBuilderCreatePointerType: (Builder: DIBuilder, PointeeTy: Metadata, SizeInBits: bigint, AlignInBits: number, AddressSpace: number, Name: PtrLenStr | undefined, NameLen: number) => Metadata = bind("LLVMDIBuilderCreatePointerType", impl5.LLVMDIBuilderCreatePointerType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1834 LLVMDIBuilderCreateStructType
-export const LLVMDIBuilderCreateStructType: (Builder: DIBuilder, Scope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNumber: number, SizeInBits: bigint, AlignInBits: number, Flags: DIFlags, DerivedFrom: Metadata | undefined, Elements: readonly (Metadata | undefined)[], NumElements: number, RunTimeLang: number, VTableHolder: Metadata | undefined, UniqueId: PtrLenStr | undefined, UniqueIdLen: number) => Metadata = stub("LLVMDIBuilderCreateStructType");
+export const LLVMDIBuilderCreateStructType: (Builder: DIBuilder, Scope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNumber: number, SizeInBits: bigint, AlignInBits: number, Flags: DIFlags, DerivedFrom: Metadata | undefined, Elements: readonly (Metadata | undefined)[], NumElements: number, RunTimeLang: number, VTableHolder: Metadata | undefined, UniqueId: PtrLenStr | undefined, UniqueIdLen: number) => Metadata = bind("LLVMDIBuilderCreateStructType", impl5.LLVMDIBuilderCreateStructType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1853 LLVMDIBuilderCreateMemberType
-export const LLVMDIBuilderCreateMemberType: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNo: number, SizeInBits: bigint, AlignInBits: number, OffsetInBits: bigint, Flags: DIFlags, Ty: Metadata) => Metadata = stub("LLVMDIBuilderCreateMemberType");
+export const LLVMDIBuilderCreateMemberType: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNo: number, SizeInBits: bigint, AlignInBits: number, OffsetInBits: bigint, Flags: DIFlags, Ty: Metadata) => Metadata = bind("LLVMDIBuilderCreateMemberType", impl5.LLVMDIBuilderCreateMemberType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1867 LLVMDIBuilderCreateStaticMemberType
-export const LLVMDIBuilderCreateStaticMemberType: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNumber: number, Type: Metadata, Flags: DIFlags, ConstantVal: Value | undefined, AlignInBits: number) => Metadata = stub("LLVMDIBuilderCreateStaticMemberType");
+export const LLVMDIBuilderCreateStaticMemberType: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNumber: number, Type: Metadata, Flags: DIFlags, ConstantVal: Value | undefined, AlignInBits: number) => Metadata = bind("LLVMDIBuilderCreateStaticMemberType", impl5.LLVMDIBuilderCreateStaticMemberType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1882 LLVMDIBuilderCreateQualifiedType
-export const LLVMDIBuilderCreateQualifiedType: (Builder: DIBuilder, Tag: number, Type: Metadata) => Metadata = stub("LLVMDIBuilderCreateQualifiedType");
+export const LLVMDIBuilderCreateQualifiedType: (Builder: DIBuilder, Tag: number, Type: Metadata) => Metadata = bind("LLVMDIBuilderCreateQualifiedType", impl5.LLVMDIBuilderCreateQualifiedType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1888 LLVMDIBuilderCreateTypedef
-export const LLVMDIBuilderCreateTypedef: (Builder: DIBuilder, Type: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNo: number, Scope: Metadata | undefined, AlignInBits: number) => Metadata = stub("LLVMDIBuilderCreateTypedef");
+export const LLVMDIBuilderCreateTypedef: (Builder: DIBuilder, Type: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNo: number, Scope: Metadata | undefined, AlignInBits: number) => Metadata = bind("LLVMDIBuilderCreateTypedef", impl5.LLVMDIBuilderCreateTypedef);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1899 LLVMDIBuilderGetOrCreateSubrange
-export const LLVMDIBuilderGetOrCreateSubrange: (Builder: DIBuilder, LowerBound: bigint, Count: bigint) => Metadata = stub("LLVMDIBuilderGetOrCreateSubrange");
+export const LLVMDIBuilderGetOrCreateSubrange: (Builder: DIBuilder, LowerBound: bigint, Count: bigint) => Metadata = bind("LLVMDIBuilderGetOrCreateSubrange", impl5.LLVMDIBuilderGetOrCreateSubrange);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1905 LLVMDIBuilderGetOrCreateArray
-export const LLVMDIBuilderGetOrCreateArray: (Builder: DIBuilder, Data: readonly (Metadata | undefined)[], NumElements: number) => Metadata = stub("LLVMDIBuilderGetOrCreateArray");
+export const LLVMDIBuilderGetOrCreateArray: (Builder: DIBuilder, Data: readonly (Metadata | undefined)[], NumElements: number) => Metadata = bind("LLVMDIBuilderGetOrCreateArray", impl5.LLVMDIBuilderGetOrCreateArray);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1911 LLVMDIBuilderCreateExpression
-export const LLVMDIBuilderCreateExpression: (Builder: DIBuilder, Addr: readonly bigint[], Length: number) => Metadata = stub("LLVMDIBuilderCreateExpression");
+export const LLVMDIBuilderCreateExpression: (Builder: DIBuilder, Addr: readonly bigint[], Length: number) => Metadata = bind("LLVMDIBuilderCreateExpression", impl5.LLVMDIBuilderCreateExpression);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1917 LLVMDIBuilderCreateGlobalVariableExpression
-export const LLVMDIBuilderCreateGlobalVariableExpression: (Builder: DIBuilder, Scope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, Linkage: PtrLenStr | undefined, LinkLen: number, File: Metadata, LineNo: number, Ty: Metadata, LocalToUnit: Bool, Expr: Metadata, Decl: Metadata | undefined, AlignInBits: number) => Metadata = stub("LLVMDIBuilderCreateGlobalVariableExpression");
+export const LLVMDIBuilderCreateGlobalVariableExpression: (Builder: DIBuilder, Scope: Metadata | undefined, Name: PtrLenStr | undefined, NameLen: number, Linkage: PtrLenStr | undefined, LinkLen: number, File: Metadata, LineNo: number, Ty: Metadata, LocalToUnit: Bool, Expr: Metadata, Decl: Metadata | undefined, AlignInBits: number) => Metadata = bind("LLVMDIBuilderCreateGlobalVariableExpression", impl5.LLVMDIBuilderCreateGlobalVariableExpression);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1933 LLVMDIBuilderInsertDeclareRecordAtEnd
-export const LLVMDIBuilderInsertDeclareRecordAtEnd: (Builder: DIBuilder, Storage: Value, VarInfo: Metadata, Expr: Metadata, DebugLoc: Metadata, Block: BasicBlock) => DbgRecord = stub("LLVMDIBuilderInsertDeclareRecordAtEnd");
+export const LLVMDIBuilderInsertDeclareRecordAtEnd: (Builder: DIBuilder, Storage: Value, VarInfo: Metadata, Expr: Metadata, DebugLoc: Metadata, Block: BasicBlock) => DbgRecord = bind("LLVMDIBuilderInsertDeclareRecordAtEnd", impl5.LLVMDIBuilderInsertDeclareRecordAtEnd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1942 LLVMDIBuilderInsertDbgValueRecordAtEnd
-export const LLVMDIBuilderInsertDbgValueRecordAtEnd: (Builder: DIBuilder, Val: Value, VarInfo: Metadata, Expr: Metadata, DebugLoc: Metadata, Block: BasicBlock) => DbgRecord = stub("LLVMDIBuilderInsertDbgValueRecordAtEnd");
+export const LLVMDIBuilderInsertDbgValueRecordAtEnd: (Builder: DIBuilder, Val: Value, VarInfo: Metadata, Expr: Metadata, DebugLoc: Metadata, Block: BasicBlock) => DbgRecord = bind("LLVMDIBuilderInsertDbgValueRecordAtEnd", impl5.LLVMDIBuilderInsertDbgValueRecordAtEnd);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1951 LLVMDIBuilderCreateAutoVariable
-export const LLVMDIBuilderCreateAutoVariable: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNo: number, Ty: Metadata, AlwaysPreserve: Bool, Flags: DIFlags, AlignInBits: number) => Metadata = stub("LLVMDIBuilderCreateAutoVariable");
+export const LLVMDIBuilderCreateAutoVariable: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, File: Metadata, LineNo: number, Ty: Metadata, AlwaysPreserve: Bool, Flags: DIFlags, AlignInBits: number) => Metadata = bind("LLVMDIBuilderCreateAutoVariable", impl5.LLVMDIBuilderCreateAutoVariable);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1964 LLVMDIBuilderCreateParameterVariable
-export const LLVMDIBuilderCreateParameterVariable: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, ArgNo: number, File: Metadata, LineNo: number, Ty: Metadata, AlwaysPreserve: Bool, Flags: DIFlags) => Metadata = stub("LLVMDIBuilderCreateParameterVariable");
+export const LLVMDIBuilderCreateParameterVariable: (Builder: DIBuilder, Scope: Metadata, Name: PtrLenStr | undefined, NameLen: number, ArgNo: number, File: Metadata, LineNo: number, Ty: Metadata, AlwaysPreserve: Bool, Flags: DIFlags) => Metadata = bind("LLVMDIBuilderCreateParameterVariable", impl5.LLVMDIBuilderCreateParameterVariable);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1980 LLVMRustInstallErrorHandlers
 export const LLVMRustInstallErrorHandlers: () => void = bind("LLVMRustInstallErrorHandlers", impl3.LLVMRustInstallErrorHandlers);
@@ -1223,40 +1262,40 @@ export const LLVMRustAddModuleFlagU32: (M: Module, MergeBehavior: ModuleFlagMerg
 export const LLVMRustAddModuleFlagString: (M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr | undefined, NameLen: number, Value: PtrLenStr | undefined, ValueLen: number) => void = bind("LLVMRustAddModuleFlagString", impl0.LLVMRustAddModuleFlagString);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2213 LLVMRustDIBuilderCreateCompileUnit
-export const LLVMRustDIBuilderCreateCompileUnit: (Builder: DIBuilder, Lang: number, File: DIFile, Producer: PtrLenStr | undefined, ProducerLen: number, isOptimized: boolean, Flags: string | undefined, RuntimeVer: number, SplitName: PtrLenStr | undefined, SplitNameLen: number, kind: DebugEmissionKind, DWOId: bigint, SplitDebugInlining: boolean, DebugNameTableKind: DebugNameTableKind) => DIDescriptor = stub("LLVMRustDIBuilderCreateCompileUnit");
+export const LLVMRustDIBuilderCreateCompileUnit: (Builder: DIBuilder, Lang: number, File: DIFile, Producer: PtrLenStr | undefined, ProducerLen: number, isOptimized: boolean, Flags: string | undefined, RuntimeVer: number, SplitName: PtrLenStr | undefined, SplitNameLen: number, kind: DebugEmissionKind, DWOId: bigint, SplitDebugInlining: boolean, DebugNameTableKind: DebugNameTableKind) => DIDescriptor = bind("LLVMRustDIBuilderCreateCompileUnit", impl5.LLVMRustDIBuilderCreateCompileUnit);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2232 LLVMRustDIBuilderCreateFile
-export const LLVMRustDIBuilderCreateFile: (Builder: DIBuilder, Filename: PtrLenStr | undefined, FilenameLen: number, Directory: PtrLenStr | undefined, DirectoryLen: number, CSKind: ChecksumKind, Checksum: PtrLenStr | undefined, ChecksumLen: number, Source: PtrLenStr | undefined, SourceLen: number) => DIFile = stub("LLVMRustDIBuilderCreateFile");
+export const LLVMRustDIBuilderCreateFile: (Builder: DIBuilder, Filename: PtrLenStr | undefined, FilenameLen: number, Directory: PtrLenStr | undefined, DirectoryLen: number, CSKind: ChecksumKind, Checksum: PtrLenStr | undefined, ChecksumLen: number, Source: PtrLenStr | undefined, SourceLen: number) => DIFile = bind("LLVMRustDIBuilderCreateFile", impl5.LLVMRustDIBuilderCreateFile);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2247 LLVMRustDIBuilderCreateFunction
-export const LLVMRustDIBuilderCreateFunction: (Builder: DIBuilder, Scope: DIDescriptor, Name: PtrLenStr | undefined, NameLen: number, LinkageName: PtrLenStr | undefined, LinkageNameLen: number, File: DIFile, LineNo: number, Ty: DIType, ScopeLine: number, Flags: DIFlags, SPFlags: DISPFlags, MaybeFn: Value | undefined, TParam: DIArray, Decl: DIDescriptor | undefined) => DISubprogram = stub("LLVMRustDIBuilderCreateFunction");
+export const LLVMRustDIBuilderCreateFunction: (Builder: DIBuilder, Scope: DIDescriptor, Name: PtrLenStr | undefined, NameLen: number, LinkageName: PtrLenStr | undefined, LinkageNameLen: number, File: DIFile, LineNo: number, Ty: DIType, ScopeLine: number, Flags: DIFlags, SPFlags: DISPFlags, MaybeFn: Value | undefined, TParam: DIArray, Decl: DIDescriptor | undefined) => DISubprogram = bind("LLVMRustDIBuilderCreateFunction", impl5.LLVMRustDIBuilderCreateFunction);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2266 LLVMRustDIBuilderCreateMethod
-export const LLVMRustDIBuilderCreateMethod: (Builder: DIBuilder, Scope: DIDescriptor, Name: PtrLenStr | undefined, NameLen: number, LinkageName: PtrLenStr | undefined, LinkageNameLen: number, File: DIFile, LineNo: number, Ty: DIType, Flags: DIFlags, SPFlags: DISPFlags, TParam: DIArray) => DISubprogram = stub("LLVMRustDIBuilderCreateMethod");
+export const LLVMRustDIBuilderCreateMethod: (Builder: DIBuilder, Scope: DIDescriptor, Name: PtrLenStr | undefined, NameLen: number, LinkageName: PtrLenStr | undefined, LinkageNameLen: number, File: DIFile, LineNo: number, Ty: DIType, Flags: DIFlags, SPFlags: DISPFlags, TParam: DIArray) => DISubprogram = bind("LLVMRustDIBuilderCreateMethod", impl5.LLVMRustDIBuilderCreateMethod);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2282 LLVMRustDIBuilderCreateVariantMemberType
-export const LLVMRustDIBuilderCreateVariantMemberType: (Builder: DIBuilder, Scope: DIScope, Name: PtrLenStr | undefined, NameLen: number, File: DIFile, LineNumber: number, SizeInBits: bigint, AlignInBits: number, OffsetInBits: bigint, Discriminant: Value | undefined, Flags: DIFlags, Ty: DIType) => DIType = stub("LLVMRustDIBuilderCreateVariantMemberType");
+export const LLVMRustDIBuilderCreateVariantMemberType: (Builder: DIBuilder, Scope: DIScope, Name: PtrLenStr | undefined, NameLen: number, File: DIFile, LineNumber: number, SizeInBits: bigint, AlignInBits: number, OffsetInBits: bigint, Discriminant: Value | undefined, Flags: DIFlags, Ty: DIType) => DIType = bind("LLVMRustDIBuilderCreateVariantMemberType", impl5.LLVMRustDIBuilderCreateVariantMemberType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2298 LLVMRustDIBuilderCreateEnumerationType
-export const LLVMRustDIBuilderCreateEnumerationType: (Builder: DIBuilder, Scope: DIScope, Name: PtrLenStr | undefined, NameLen: number, File: DIFile, LineNumber: number, SizeInBits: bigint, AlignInBits: number, Elements: DIArray, ClassType: DIType, IsScoped: boolean) => DIType = stub("LLVMRustDIBuilderCreateEnumerationType");
+export const LLVMRustDIBuilderCreateEnumerationType: (Builder: DIBuilder, Scope: DIScope, Name: PtrLenStr | undefined, NameLen: number, File: DIFile, LineNumber: number, SizeInBits: bigint, AlignInBits: number, Elements: DIArray, ClassType: DIType, IsScoped: boolean) => DIType = bind("LLVMRustDIBuilderCreateEnumerationType", impl5.LLVMRustDIBuilderCreateEnumerationType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2313 LLVMRustDIBuilderCreateVariantPart
-export const LLVMRustDIBuilderCreateVariantPart: (Builder: DIBuilder, Scope: DIScope, Name: PtrLenStr | undefined, NameLen: number, File: DIFile, LineNo: number, SizeInBits: bigint, AlignInBits: number, Flags: DIFlags, Discriminator: DIDerivedType | undefined, Elements: DIArray, UniqueId: PtrLenStr | undefined, UniqueIdLen: number) => DIDerivedType = stub("LLVMRustDIBuilderCreateVariantPart");
+export const LLVMRustDIBuilderCreateVariantPart: (Builder: DIBuilder, Scope: DIScope, Name: PtrLenStr | undefined, NameLen: number, File: DIFile, LineNo: number, SizeInBits: bigint, AlignInBits: number, Flags: DIFlags, Discriminator: DIDerivedType | undefined, Elements: DIArray, UniqueId: PtrLenStr | undefined, UniqueIdLen: number) => DIDerivedType = bind("LLVMRustDIBuilderCreateVariantPart", impl5.LLVMRustDIBuilderCreateVariantPart);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2330 LLVMRustDIBuilderCreateTemplateTypeParameter
-export const LLVMRustDIBuilderCreateTemplateTypeParameter: (Builder: DIBuilder, Scope: DIScope | undefined, Name: PtrLenStr | undefined, NameLen: number, Ty: DIType) => DITemplateTypeParameter = stub("LLVMRustDIBuilderCreateTemplateTypeParameter");
+export const LLVMRustDIBuilderCreateTemplateTypeParameter: (Builder: DIBuilder, Scope: DIScope | undefined, Name: PtrLenStr | undefined, NameLen: number, Ty: DIType) => DITemplateTypeParameter = bind("LLVMRustDIBuilderCreateTemplateTypeParameter", impl5.LLVMRustDIBuilderCreateTemplateTypeParameter);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2340 LLVMRustDICompositeTypeReplaceArrays
-export const LLVMRustDICompositeTypeReplaceArrays: (Builder: DIBuilder, CompositeType: DIType, Elements: DIArray | undefined, Params: DIArray | undefined) => void = stub("LLVMRustDICompositeTypeReplaceArrays");
+export const LLVMRustDICompositeTypeReplaceArrays: (Builder: DIBuilder, CompositeType: DIType, Elements: DIArray | undefined, Params: DIArray | undefined) => void = bind("LLVMRustDICompositeTypeReplaceArrays", impl5.LLVMRustDICompositeTypeReplaceArrays);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2349 LLVMRustDIGetOrCreateSubrange
-export const LLVMRustDIGetOrCreateSubrange: (Builder: DIBuilder, CountNode: Metadata | undefined, LB: Metadata, UB: Metadata, Stride: Metadata | undefined) => Metadata = stub("LLVMRustDIGetOrCreateSubrange");
+export const LLVMRustDIGetOrCreateSubrange: (Builder: DIBuilder, CountNode: Metadata | undefined, LB: Metadata, UB: Metadata, Stride: Metadata | undefined) => Metadata = bind("LLVMRustDIGetOrCreateSubrange", impl5.LLVMRustDIGetOrCreateSubrange);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2359 LLVMRustDICreateVectorType
-export const LLVMRustDICreateVectorType: (Builder: DIBuilder, Size: bigint, AlignInBits: number, Type: DIType, Subscripts: DIArray, BitStride: Metadata | undefined) => Metadata = stub("LLVMRustDICreateVectorType");
+export const LLVMRustDICreateVectorType: (Builder: DIBuilder, Size: bigint, AlignInBits: number, Type: DIType, Subscripts: DIArray, BitStride: Metadata | undefined) => Metadata = bind("LLVMRustDICreateVectorType", impl5.LLVMRustDICreateVectorType);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2369 LLVMRustDILocationCloneWithBaseDiscriminator
-export const LLVMRustDILocationCloneWithBaseDiscriminator: (Location: DILocation, BD: number) => DILocation | undefined = stub("LLVMRustDILocationCloneWithBaseDiscriminator");
+export const LLVMRustDILocationCloneWithBaseDiscriminator: (Location: DILocation, BD: number) => DILocation | undefined = bind("LLVMRustDILocationCloneWithBaseDiscriminator", impl5.LLVMRustDILocationCloneWithBaseDiscriminator);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2374 LLVMRustWriteTypeToString
 export const LLVMRustWriteTypeToString: (Type: Type, s: RustString) => void = bind("LLVMRustWriteTypeToString", impl0.LLVMRustWriteTypeToString);

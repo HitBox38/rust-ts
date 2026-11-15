@@ -243,7 +243,9 @@ export class Printer {
   constructor(readonly module: Module | undefined) {
     if (module === undefined) return;
     // `SlotTracker::processModule`: unnamed globals, then unnamed aliases, then metadata of named metadata, then unnamed
-    // functions, each numbered in module order.
+    // functions, each numbered in module order. A function's own metadata is numbered when the function is printed
+    // (`incorporateFunction` → `processFunctionMetadata`, AsmWriter.cpp:1143 and :4164): its attachments, then its body's, as
+    // `function()` prints them (llir-di).
     for (const gv of module.globals) {
       if (!gv.hasName()) this.globalSlots.set(gv, this.globalSlots.size);
       for (const [, n] of gv.metadata) this.mdSlot(n);
@@ -252,12 +254,13 @@ export class Printer {
     for (const nodes of module.namedMetadata.values()) for (const n of nodes) this.mdSlot(n);
     for (const f of module.functions) {
       if (!f.hasName()) this.globalSlots.set(f, this.globalSlots.size);
-      for (const [, n] of f.metadata) this.mdSlot(n);
     }
   }
 
   /** `CreateMetadataSlot`: a node, then the nodes among its operands. */
   mdSlot(n: MDNode): number {
+    // Don't make slots for DIExpressions. We just print them inline everywhere (llir-di).
+    if (n.printsInline()) return -1;
     let s = this.mdSlots.get(n);
     if (s !== undefined) return s;
     s = this.mdOrder.length;
@@ -443,14 +446,17 @@ export class Printer {
   metadataOperand(md: Metadata | undefined): string {
     if (md === undefined) return "null";
     if (md instanceof MDString) return `!"${printEscapedString(md.str)}"`;
-    if (md instanceof MDNode) return `!${this.mdSlot(md)}`;
+    // `writeAsOperandInternal`: a DIExpression is written inline (llir-di).
+    if (md instanceof MDNode) return md.printsInline() ? md.writeSpecialized((m) => this.metadataOperand(m))! : `!${this.mdSlot(md)}`;
     if (md instanceof ValueAsMetadata) return this.operand(md.value, true);
     return unported(`llir: printing ${md.constructor.name}`);
   }
 
   // llvm: llvm/lib/IR/AsmWriter.cpp:1870 writeMDTuple
   mdTuple(n: MDNode): string {
-    return `${n.distinct ? "distinct " : ""}!{${n.ops.map((o) => this.metadataOperand(o)).join(", ")}}`;
+    // `writeMDNodeBodyInternal`: a specialized node's `write<CLASS>` (llir-di's di_nodes.ts), else `writeMDTuple`.
+    const body = n.writeSpecialized((m) => this.metadataOperand(m)) ?? `!{${n.ops.map((o) => this.metadataOperand(o)).join(", ")}}`;
+    return `${n.distinct ? "distinct " : ""}${body}`;
   }
 
   /** `printMetadataIdentifier`: a metadata name, with `\XX` escapes where it is not `[-a-zA-Z$._][-a-zA-Z$._0-9]*`. */
@@ -539,7 +545,9 @@ export class Printer {
   // llvm: llvm/lib/IR/AsmWriter.cpp:4139 AssemblyWriter::printFunction
   function(f: Function): string {
     const decl = f.isDeclaration();
-    // `Machine.incorporateFunction(F)` before the header: unnamed arguments print as their slots.
+    // `Machine.incorporateFunction(F)` before the header: `processFunctionMetadata` numbers the function's attachments
+    // (`getAllMetadata`'s order, by kind) before its body's (llir-di); unnamed arguments print as their slots.
+    for (const [, n] of [...f.metadata].sort((a, b) => a[0] - b[0])) this.mdSlot(n);
     const prev = this.localOperand;
     if (!decl && functionSlots !== undefined) this.localOperand = functionSlots(f);
     try {
