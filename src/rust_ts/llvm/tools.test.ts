@@ -404,15 +404,16 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect(module_text(M)).not.toContain("!guid");
   });
 
-  test("R1 end to end: rustc-ts with -Zsplit-lto-unit -Clinker-plugin-lto --emit=llvm-bc exits 70 with the stop's text", () => {
+  test("R1 end to end: rustc-ts with -Zsplit-lto-unit -Clinker-plugin-lto --emit=llvm-bc exits 70 with the stop's text", async () => {
     // The reviewer's case through the driver (review llir-tools-recheck-2 note 2). Before wave 40q the driver stopped at
     // `codegen_crate`; codegen now forwards to the ported backend, which reaches write.rs's `ModuleBuffer::new`. The pinned
     // rustc takes the same command (exit 0); the port stops by name instead of handing opt a module it would abort on.
-    const run = (sub: string, extra: string[]): { status: number | null; stderr: string; dir: string } => {
+    const run = (sub: string, extra: string[], rustc?: string): { status: number | null; stderr: string; dir: string } => {
       const dir = join(llvm_tmp_dir(), sub);
       mkdirSync(dir, { recursive: true });
       const args = [join(HERE, "opt.rs"), "--sysroot", oracle_sysroot(), "--target", X86, "-Copt-level=2", "-Ccodegen-units=1", ...extra, "-Clinker-plugin-lto", "--emit=llvm-bc,llvm-ir", "--out-dir", "."];
-      const r = Bun.spawnSync([process.execPath, join(import.meta.dir, "..", "main.ts"), ...args], { cwd: dir, env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, stdout: "pipe", stderr: "pipe" });
+      const cmd = rustc === undefined ? [process.execPath, join(import.meta.dir, "..", "main.ts")] : [rustc];
+      const r = Bun.spawnSync([...cmd, ...args], { cwd: dir, env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, stdout: "pipe", stderr: "pipe" });
       return { status: r.exitCode, stderr: r.stderr.toString(), dir };
     };
     const split = run("driver-split-lto-unit", ["-Zsplit-lto-unit"]);
@@ -425,6 +426,13 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     const plain = run("driver-no-split-lto-unit", []);
     expect([plain.status, plain.stderr]).toEqual([0, ""]);
     expect(existsSync(join(plain.dir, "opt.bc"))).toBe(true);
+    // The `opt.ll` the same command writes is the pinned rustc's at N1 (review fixers-58 N2). `opt.bc` is not compared: it differs
+    // from the oracle's by opt's extra `EnableSplitLTOUnit` 0 flag (llir-tools handoff PORT 8), which F4 pins at the wrapper level.
+    const theirs = run("driver-no-split-lto-unit-oracle", [], join(oracle_sysroot(), "bin", "rustc"));
+    expect([theirs.status, theirs.stderr]).toEqual([0, ""]);
+    expect(await normalForm(new Uint8Array(readFileSync(join(plain.dir, "opt.ll"))), "N1", bin())).toEqual(
+      await normalForm(new Uint8Array(readFileSync(join(theirs.dir, "opt.ll"))), "N1", bin()),
+    );
   }, 60_000);
 
   test("N5: a model read after a tool rewrote the module stops", () => {
