@@ -11,6 +11,9 @@
 //                                           `ORACLE` table of src/miri/shims/os_str.test.ts, checked below)
 //   miriepoll  (tools/probes/miriepoll)  -> tools/probes/miriepoll/epoll.oracle.txt (lane harness-w38; a program the Miri
 //                                           oracle runs from source: needs `bun scripts/miri.ts setup`, not a build)
+//   objwrite   (tools/probes/objwrite)   -> tools/probes/objwrite/objwrite.oracle.txt (lane harness-w40s; the oracle's own
+//                                           object writer on tools/probes/objwrite/cases.txt, which
+//                                           tools/probes/objwrite/objwrite.test.ts compares with the port's)
 // A binary built from other sources than this tree's fails its test (scripts/probes.ts `probeStaleness`; review
 // harness-w38 L3). Without a built probe its test is a visible skip; RUST_TS_REQUIRE_PROBES=1 (the gate) makes that a failure. The
 // literal probeBinary("<name>") calls let the gate's unit-test pre-check (scripts/probes.ts `oracleTestProbes`) see
@@ -33,6 +36,7 @@ const PROBES: [string, string | undefined][] = [
   ["mirimath", probeBinary("mirimath")],
   ["miripaths", probeBinary("miripaths")],
   ["miriepoll", undefined],
+  ["objwrite", probeBinary("objwrite")],
 ];
 const HOST = process.env.RUST_TS_HOST_TUPLE;
 
