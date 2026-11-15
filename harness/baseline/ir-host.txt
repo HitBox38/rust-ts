@@ -115,6 +115,7 @@ tests/ui/asm/aarch64/llvm-58384.rs
 tests/ui/asm/aarch64/may_unwind.rs
 tests/ui/asm/aarch64/type-f16.rs
 tests/ui/asm/empty_global_asm.rs
+tests/ui/asm/label-operand.rs#aarch64
 tests/ui/asm/may_unwind.rs
 tests/ui/asm/simple_global_asm.rs
 tests/ui/associated-consts/assoc-const-in-array-initializer.rs

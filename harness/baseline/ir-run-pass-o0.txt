@@ -4,6 +4,7 @@ tests/ui/abi/anon-extern-mod.rs
 tests/ui/abi/c-stack-as-value.rs
 tests/ui/abi/c-stack-returning-int64.rs
 tests/ui/abi/cabi-int-widening.rs
+tests/ui/abi/custom.rs
 tests/ui/abi/extern/extern-call-deep.rs
 tests/ui/abi/extern/extern-call-deep2.rs
 tests/ui/abi/extern/extern-call-direct.rs
@@ -114,10 +115,15 @@ tests/ui/array-slice-vec/vec-repeat-with-cast.rs
 tests/ui/array-slice-vec/vec-tail-matching.rs
 tests/ui/array-slice-vec/vector-no-ann-2.rs
 tests/ui/array-slice-vec/vector-slice-matching-8498.rs
+tests/ui/asm/cfg.rs#reva
+tests/ui/asm/cfg.rs#revb
 tests/ui/asm/empty_global_asm.rs
+tests/ui/asm/label-operand.rs#x86_64
 tests/ui/asm/may_unwind.rs
 tests/ui/asm/simple_global_asm.rs
 tests/ui/asm/x86_64/const.rs
+tests/ui/asm/x86_64/global_asm_escape.rs
+tests/ui/asm/x86_64/goto.rs
 tests/ui/asm/x86_64/may_unwind.rs
 tests/ui/asm/x86_64/multiple-clobber-abi.rs
 tests/ui/asm/x86_64/sym.rs
@@ -493,7 +499,9 @@ tests/ui/builtin-superkinds/builtin-superkinds-capabilities.rs
 tests/ui/builtin-superkinds/builtin-superkinds-phantom-typaram.rs
 tests/ui/c-variadic/copy.rs
 tests/ui/c-variadic/inherent-method.rs
+tests/ui/c-variadic/naked.rs
 tests/ui/c-variadic/roundtrip.rs
+tests/ui/c-variadic/same-program-multiple-abis-x86_64.rs
 tests/ui/c-variadic/trait-method.rs
 tests/ui/c-variadic/valid.rs
 tests/ui/cast/as-cast-unifies-raw-pointer-and-fn-type.rs
