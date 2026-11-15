@@ -63,6 +63,8 @@ const CASES: [string, Case, string][] = [
   ["CpuRequired", { offload: [], need_explicit_cpu: true, target_cpu: undefined, unsupported_cpus: [] }, "fatal"],
   ["CpuUnsupported", { offload: [], need_explicit_cpu: true, target_cpu: "pentium", unsupported_cpus: ["i386", "pentium"] }, "fatal"],
   ["-Zoffload", { offload: [{ $: "Host" }], need_explicit_cpu: true, target_cpu: undefined, unsupported_cpus: [] }, "unported -Zoffload"],
+  // The offload check's `Device` arm (review fixers-58 N1): with only the `Host` case, a copy dropping it still passed.
+  ["-Zoffload Device", { offload: [{ $: "Device" }], need_explicit_cpu: true, target_cpu: undefined, unsupported_cpus: [] }, "unported -Zoffload"],
 ];
 
 describe("mono_collection_head is the ported codegen_crate's head (llvm_backend.rs:336, base.rs:723-739)", () => {
