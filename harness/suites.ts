@@ -2286,6 +2286,18 @@ SUITES.push(
 //   the oracle's side runs it twice and an unequal pair is UNSTABLE. A case's `args` are the wrapper's run options, `--`, then the compiler
 //   argv (`nativeCmd`), so the oracle cache key covers both; `nativeOracleKey` adds the wrapper, the masks it uses, the oracle rustc build and
 //   the host tools that change a program (`cc`, `ld`, the SDK and the OS build).
+//   Two limits of the wrapper, noted here rather than in its header, as `nativeOracleKey` hashes the whole of native-run.ts and a comment
+//   there would re-key every native case (lane harness-w40s):
+//   - **Only the program's two runs are compared, not the compile** (review harness-m7b-recheck note 2): each invocation compiles once, so
+//     a compiler output that changes from one compile to the next is not seen, and difftest caches the first as if it were stable. Seen:
+//     `RUSTC_LOG=info` logs the link line with its random `rustc<XXXXXX>` temp directory (`attributes/log-backtrace.rs`,
+//     `rustc-env/def-path-hash-ice-157238.rs`). `bun scripts/oracle-self.ts --suite <suite>` runs whole oracle invocations twice and finds
+//     such a case; it is then listed in `NATIVE_UNSTABLE` with its reason, as those two are. Until it is, it shows as a DIFF that comes and
+//     goes. Compiling twice in the wrapper would double every oracle compile, so it does not.
+//   - **The `HOME` sweep (`killEscaped`) cannot see a process running a platform binary** (`/bin/sh`, `/bin/sleep`, `/usr/bin/perl`, ...):
+//     macOS's `ps -E` shows no environment for those (macOS 26.7.1; review harness-m7b-recheck note 5). So a descendant that leaves the
+//     program's process group (`setsid()`) and execs one survives the run, still sandboxed, as does one that clears or changes its
+//     environment (the header says that much). No run-mode test at the pin calls `setsid`, `setpgid`, `process_group` or `daemon`.
 //   The run-pass and run-fail cases are `hostRunCorpus`'s, with compiletest's run rules: `run-flags`, `exec-env`, `unset-exec-env`, the dylib
 //   path, the cwd, and for the verdict line `error-pattern`, `regex-error-pattern` and `check-stdout`. Bootstrap's `-Lnative=<test helpers>`,
 //   which every other suite drops, is put back here, after `-Crpath` and its `-Cdebuginfo=0` as bootstrap orders its flags: `rust_test_helpers` is

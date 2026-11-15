@@ -25,9 +25,7 @@
 //     and `sandbox-exec`): **no network** (`(deny network*)`, localhost included) and no file writes outside `<case dir>` and
 //     `/dev`. In its own process group (`perl`'s `setpgrp`, then `exec`), so a timeout kills what it started too, and that group is
 //     killed after it ends; then every process left with this case's `HOME` in its environment (`killEscaped`: a `setsid()` child). A
-//     descendant that both leaves the group and clears or changes its environment survives, still sandboxed. So does one that leaves the
-//     group and runs a platform binary (`/bin/sh`, `/bin/sleep`, `/usr/bin/perl`, ...): macOS's `ps -E` shows no environment for those,
-//     so its `HOME` cannot be seen (macOS 26.7.1; review harness-m7b-recheck note 5). No run-mode test at the pin leaves its group.
+//     descendant that both leaves the group and clears or changes its environment survives, still sandboxed.
 //   - A limit of `--run-timeout` ms (default 30 s) per run.
 // - Then, on stdout: `native-run: exit <code>` (or `signal <name>`, or `timed out after <ms> ms`); with `--expect`, compiletest's verdict
 //   on that run (`compiletestVerdict`); `native-run: program stdout follows`, then the program's stdout as it wrote it. On stderr:
@@ -36,12 +34,6 @@
 // - `--runs 2` (the oracle's side): the program runs twice. If the two runs differ, after the thread ids are masked and the backtraces
 //   cut (exit, stdout or stderr), or either timed out, the first run's output is printed and then, last on stderr,
 //   `native-run: unstable: <why>`, which difftest's `UNSTABLE_ORACLE_PATTERNS` reads: that case is UNSTABLE, never cached, never MATCH.
-//   **Only the program's runs are compared, not the compile**: each invocation compiles once, so a compiler output that changes from one
-//   compile to the next is not seen here, and difftest caches the first as if it were stable. (Seen: `RUSTC_LOG=info` logs the link line
-//   with its random `rustc<XXXXXX>` temp directory, in `attributes/log-backtrace.rs` and `rustc-env/def-path-hash-ice-157238.rs`.)
-//   `bun scripts/oracle-self.ts --suite <suite>` runs whole oracle invocations twice and finds such a case; it is then listed in
-//   `Suite.unstable` with its reason, as those two are. Until it is, it shows as a DIFF that comes and goes. Compiling twice here would
-//   double every oracle compile, so it is not done (review harness-m7b-recheck note 2).
 // - Exit code: the compiler's when it fails, else 0 (the program's result is in the output).
 // - SIGTERM/SIGINT (difftest's timeout) are passed on to the compiler or the program's group while one runs; at any other time they end
 //   this run at once with 128 + the signal, `work` and the lock removed (as scripts/ir-run.ts).
@@ -326,8 +318,7 @@ async function runProgram(a: NativeRunArgs, exe: string, lock: string): Promise<
  * Kills every process whose environment holds this case's `HOME=<case dir>/home` (`ps -E`): what the program started and left behind
  * outside its group, such as a child that called `setsid()` (review harness-m7b N1). Every descendant inherits that variable, which is
  * unique to the case, unless it cleared or changed its environment: **such a process can survive the run**, sandboxed (no network, writes
- * only under the case directory). So can one running a platform binary (`/bin/sh`, `/bin/sleep`, ...), whose environment macOS's `ps -E`
- * does not show (review harness-m7b-recheck note 5). No run-mode test at the pin calls `setsid`, `setpgid`, `process_group` or `daemon` (the review's grep).
+ * only under the case directory). No run-mode test at the pin calls `setsid`, `setpgid`, `process_group` or `daemon` (the review's grep).
  */
 export function killEscaped(dir: string): number[] {
   const mark = `HOME=${join(dir, "home")}`;
