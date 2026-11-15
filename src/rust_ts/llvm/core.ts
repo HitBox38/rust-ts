@@ -86,7 +86,7 @@ import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type R
 
 /** A PTR_LEN_STR argument's first `len` bytes, as a byte string. `StringRef(nullptr, 0)` is the empty string; a null pointer
  * with a length is undefined behaviour in C, here an error. */
-function bytesArg(s: PtrLenStr | undefined, len: number): string {
+export function bytesArg(s: PtrLenStr | undefined, len: number): string {
   if (s === undefined) {
     if (len === 0) return "";
     throw new Error(`llvm: a null pointer with length ${len}`);
@@ -100,7 +100,7 @@ function bytesArg(s: PtrLenStr | undefined, len: number): string {
 /** A `*const c_char` (NUL-terminated) argument, as a byte string. What LLVM makes of null depends on the type it becomes:
  * `StringRef(const char*)` takes null as the empty string (llvm/ADT/StringRef.h:94), `Twine(const char*)` reads `Str[0]`
  * (llvm/ADT/Twine.h:257), so a null there is a crash in the oracle and an error here. */
-function cstrArg(s: string | undefined, as: "StringRef" | "Twine", fn: string): string {
+export function cstrArg(s: string | undefined, as: "StringRef" | "Twine", fn: string): string {
   if (s === undefined) {
     if (as === "StringRef") return "";
     throw new Error(`llvm: ${fn}: Twine(const char*) of a null pointer`);

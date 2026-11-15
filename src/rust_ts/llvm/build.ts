@@ -4,6 +4,7 @@
 // (`// rustc:`) of the same name, over inst.ts; ffi_gen.ts binds every function exported here into ffi.ts.
 import { unported } from "../../std/panic.ts";
 import { LLVMRustCreateAlignmentAttr } from "./core.ts";
+import { DILocation } from "./di_nodes.ts";
 import type { AtomicOrdering, AtomicRmwBinOp, GEPNoWrapFlags, TailCallKind } from "./ffi_types.ts";
 import type { BinaryOps } from "./fold.ts";
 import { BasicBlock, FMF, IRBuilder, Inst, OperandBundleDef, setAlignAttrCreator } from "./inst.ts";
@@ -244,15 +245,16 @@ export function LLVMDisposeBuilder(_Builder: IRBuilder): void {
 }
 
 // llvm: llvm/lib/IR/Core.cpp:3494 LLVMGetCurrentDebugLocation2
-export function LLVMGetCurrentDebugLocation2(_Builder: IRBuilder): Metadata | undefined {
-  // No debug location is ever stored (LLVMSetCurrentDebugLocation2 stops on one), so this is `DebugLoc()`'s null node.
-  return undefined;
+export function LLVMGetCurrentDebugLocation2(Builder: IRBuilder): Metadata | undefined {
+  // `getCurrentDebugLocation().getAsMDNode()` (llir-di).
+  return Builder.storedDL;
 }
 
 // llvm: llvm/lib/IR/Core.cpp:3498 LLVMSetCurrentDebugLocation2
-export function LLVMSetCurrentDebugLocation2(_Builder: IRBuilder, Loc: Metadata | undefined): void {
-  // `SetCurrentDebugLocation(DebugLoc())` with a null location stores nothing the model has.
-  if (Loc !== undefined) return unported("llir: LLVMSetCurrentDebugLocation2 of a location (DILocation, llir-di)");
+export function LLVMSetCurrentDebugLocation2(Builder: IRBuilder, Loc: Metadata | undefined): void {
+  // `SetCurrentDebugLocation(DebugLoc(unwrap<DILocation>(Loc)))`, or `DebugLoc()` for null (llir-di).
+  if (Loc !== undefined && !(Loc instanceof DILocation)) throw new Error("llvm: unwrap<DILocation> of metadata that is not a DILocation");
+  Builder.storedDL = Loc;
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1403 LLVMRustPositionBuilderPastAllocas
@@ -261,12 +263,14 @@ export function LLVMRustPositionBuilderPastAllocas(B: IRBuilder, Fn: Value): voi
   const bb = asFunction(Fn).blocks[0] as BasicBlock;
   B.block = bb;
   B.insertBefore = bb.insts[bb.getFirstNonPHIOrDbgOrAlloca()];
+  // "Signal that this comes after any debug records" (`InsertPt.setHeadBit(false)`); the debug location is left as it is (llir-di).
+  B.headBit = false;
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1408 LLVMRustPositionBuilderAtStart
 export function LLVMRustPositionBuilderAtStart(B: IRBuilder, BB: BasicBlock): void {
-  // `SetInsertPoint(BB, BB->getFirstInsertionPt())`.
-  B.setInsertPoint(BB, BB.getFirstInsertionPt());
+  // `SetInsertPoint(BB, BB->getFirstInsertionPt())`: the iterator has its head bit set (BasicBlock.cpp:366; llir-di).
+  B.setInsertPoint(BB, BB.getFirstInsertionPt(), true);
 }
 
 // ---- terminators -------------------------------------------------------------------------------------------------------
