@@ -17,7 +17,8 @@ import { Symbol } from "../../../rustc_span/symbol.ts";
 import { Target } from "../../../rustc_target/spec/mod.ts";
 import { TargetTuple } from "../../../rustc_target/spec/tuple.ts";
 import type { NativeLib } from "../../lib.ts";
-import { create_raw_dylib_elf_stub_shared_objects, type ElfStubWriter, vendor_object } from "./raw_dylib.ts";
+import type { ArchiveBuilderBuilder, ImportLibraryItem } from "../archive.ts";
+import { create_raw_dylib_dll_import_libs, create_raw_dylib_elf_stub_shared_objects, type ElfStubWriter, vendor_object } from "./raw_dylib.ts";
 
 const saved = { ...vendor_object };
 afterEach(() => Object.assign(vendor_object, saved));
@@ -44,5 +45,28 @@ test("create_raw_dylib_elf_stub_shared_objects names the stub by the oracle's ha
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+test("create_raw_dylib_dll_import_libs calls the builder's own create_dll_import_lib when it has one (raw_dylib.rs:101)", () => {
+  // Review ssa-link-b N2: upstream calls the trait method, so an override such as the dummy backend's (rustc_interface util.rs:499)
+  // replaces the provided method, which would stop in ar_archive_writer.
+  create_default_session_globals_then(() => {
+    const r = Target.search(TargetTuple.from_tuple("x86_64-pc-windows-msvc"), "", false);
+    if (r.$ === "Err") throw new Error(r._0);
+    const sess = { target: r._0[0], dcx: () => ({ abort_if_errors: () => {} }) } as unknown as Session;
+    const import_ = new DllImport(Symbol.intern("foo_fn"), undefined, DllCallingConvention.C, DUMMY_SP, "Function", Size.from_bytes(0));
+    const lib = { kind: { $: "RawDylib", as_needed: undefined }, name: Symbol.intern("foo"), cfg: undefined, verbatim: false, dll_imports: [import_] } as unknown as NativeLib;
+    const calls: [string, string[], string][] = [];
+    const builder: ArchiveBuilderBuilder = {
+      new_archive_builder: () => {
+        throw new Error("not reached");
+      },
+      create_dll_import_lib(_sess: Session, lib_name: string, items: ImportLibraryItem[], output_path: string) {
+        calls.push([lib_name, items.map((i) => i.name), output_path]);
+      },
+    };
+    expect(create_raw_dylib_dll_import_libs(sess, builder, [lib], "/tmp-dir", true)).toEqual(["/tmp-dir/foo.dll_imports.lib"]);
+    expect(calls).toEqual([["foo.dll", ["foo_fn"], "/tmp-dir/foo.dll_imports.lib"]]);
   });
 });

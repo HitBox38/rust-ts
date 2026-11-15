@@ -91,6 +91,12 @@ export interface ArchiveBuilderBuilder {
 
   // (provided) create_dylib_metadata_wrapper
   // (provided) create_dll_import_lib
+  /**
+   * PORT: an implementor's override of the provided `create_dll_import_lib`, such as the dummy backend's
+   * (rustc_interface/util.ts). Callers use it when present, else `ArchiveBuilderBuilder_provided.create_dll_import_lib`
+   * (review ssa-link-b N2).
+   */
+  create_dll_import_lib?(sess: Session, lib_name: string, items: ImportLibraryItem[], output_path: string): void;
   // (provided) extract_bundled_libs
 }
 

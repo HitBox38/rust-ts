@@ -1,12 +1,16 @@
-// Tests of lane ir-fix-a's port of the head of `generic_simd_intrinsic` (intrinsic.rs:2047; intrinsic.ts) against the pinned
-// rustc, through the port's whole driver and the IR model.
+// Tests of the port of `generic_simd_intrinsic` (intrinsic.rs:2047; intrinsic.ts) against the pinned rustc, through the port's
+// whole driver and the IR model: lane ir-fix-a's head and lane cg-intrinsic-b's other arms.
 //
-// The oracle crates are simd_oracle/simd.rs, a `#![no_core]` lib with one `#[no_mangle]` function per ported arm (and per
-// element kind where the arm branches on it), simd_oracle/simd_err.rs, whose calls fail the arms' checks, and simd_oracle/simd_stop.rs,
-// which calls an arm that is not ported (review ir-fix-a N4: the port must stop with exit 70, naming the fill lane cg-intrinsic-b). The fixtures are
-// the pinned rustc's output for `--crate-type lib --target x86_64-unknown-linux-gnu --emit=llvm-ir -Cno-prepopulate-passes -O`:
-// `x86_64-unknown-linux-gnu.O.ll` for simd.rs, and `simd_err.stderr` (stderr, exit 1) for simd_err.rs. With the pinned
-// toolchain present they are re-made and must be unchanged.
+// The oracle crates are `#![no_core]` libs with one `#[no_mangle]` function per arm (and per element kind or cast style where the
+// arm branches on it):
+// - simd_oracle/simd.rs (ir-fix-a's arms) and simd_oracle/simd2.rs (cg-intrinsic-b's), whose IR must be the oracle's;
+// - simd_oracle/simd_err.rs and simd_oracle/simd2_err.rs, whose calls fail the arms' checks; their stderr must be the oracle's;
+// - simd_oracle/simd_model.rs, cg-intrinsic-b's arms whose `llvm.*` intrinsic the IR model does not declare yet
+//   (`llvm.masked.{gather,load,store,scatter}`, `llvm.vector.reduce.{fadd,fmul}`; lane ir-fix-b). The port either stops in the
+//   model naming one of those signatures (exit 70), or, once the model has them, its IR must be the oracle's.
+// The fixtures are the pinned rustc's output for `--crate-type lib --target x86_64-unknown-linux-gnu --emit=llvm-ir
+// -Cno-prepopulate-passes -O`: `<crate>.x86_64-unknown-linux-gnu.O.ll` (simd.rs's is `x86_64-unknown-linux-gnu.O.ll`) and
+// `<crate>.stderr` (exit 1). With the pinned toolchain present they are re-made and must be unchanged.
 //
 // The port runs as a child process (`src/rust_ts/main.ts`, the subject of the IR suites), in the fixture's own directory with
 // the same relative file name, so the two sides' texts can be compared directly. The IR is compared without what plan-m7 §1b's
@@ -80,10 +84,37 @@ describe("generic_simd_intrinsic's ported arms against the oracle", () => {
     expect(r.stderr).toBe(oracle("simd_err.stderr"));
   });
 
-  test("simd_stop.rs: an arm that is not ported stops, naming cg-intrinsic-b", () => {
-    const r = compile([process.execPath, MAIN], "simd_stop.rs", "port_stop.ll");
-    expect(r.code).toBe(70);
-    expect(r.stderr).toContain("rust-ts: unported: cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic simd_fsqrt");
+});
+
+describe("generic_simd_intrinsic's other arms (lane cg-intrinsic-b) against the oracle", () => {
+  test("simd2.rs: the port's IR is the oracle's", () => {
+    const r = compile([process.execPath, MAIN], "simd2.rs", "port2.ll");
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    const want = oracle("simd2.x86_64-unknown-linux-gnu.O.ll");
+    // One function per arm the model can declare: select, the 16 float intrinsics, the integer `arith_red!` expansions, the
+    // three pointer casts, every `simd_cast` / `simd_as` style, the unary integer arm, `simd_arith_offset` and the saturating pair.
+    for (const f of ["g_select_u8", "g_fsqrt", "g_relaxed_fma", "g_reduce_mul_ordered_u64", "g_reduce_add_unordered_u32", "g_cast_ptr", "g_expose_provenance", "g_with_exposed_provenance", "g_cast_same", "g_cast_trunc", "g_cast_zext", "g_cast_uitofp", "g_cast_fptoui", "g_cast_fpext", "g_as_fptoui", "g_bswap_u8", "g_ctlz", "g_carryless_mul", "g_funnel_shr", "g_arith_offset_u", "g_saturating_sub_u64"])
+      expect(want).toContain(`@${f}(`);
+    expect(comparable(r.ir ?? "")).toEqual(comparable(want));
+  });
+
+  test("simd2_err.rs: the port's InvalidMonomorphization errors are the oracle's", () => {
+    const r = compile([process.execPath, MAIN], "simd2_err.rs", "port2_err.ll");
+    expect(r.code).toBe(1);
+    expect(oracle("simd2_err.stderr")).toContain("error: aborting due to 35 previous errors");
+    expect(r.stderr).toBe(oracle("simd2_err.stderr"));
+  });
+
+  test("simd_model.rs: the port stops in the IR model on a missing signature, or its IR is the oracle's", () => {
+    const r = compile([process.execPath, MAIN], "simd_model.rs", "port_model.ll");
+    if (r.code === 70) {
+      expect(r.stderr).toMatch(/^rust-ts: unported: llir: the signature of llvm\.(masked\.(gather|load|store|scatter)|vector\.reduce\.f(add|mul)) \(Intrinsics\.td\) is not in the IR model\n$/);
+    } else {
+      expect(r.stderr).toBe("");
+      expect(r.code).toBe(0);
+      expect(comparable(r.ir ?? "")).toEqual(comparable(oracle("simd_model.x86_64-unknown-linux-gnu.O.ll")));
+    }
   });
 });
 
@@ -93,14 +124,25 @@ describe.skipIf(!HAVE && !REQUIRE)("the oracle fixtures are current", () => {
     expect(r.code).toBe(0);
     expect(r.ir).toBe(oracle("x86_64-unknown-linux-gnu.O.ll"));
   });
-  test("simd_stop.rs compiles under the oracle", () => {
-    const r = compile([join(SYSROOT, "bin", "rustc")], "simd_stop.rs", "oracle_stop.ll");
-    expect(r.stderr).toBe("");
-    expect(r.code).toBe(0);
-  });
   test("simd_err.stderr", () => {
     const r = compile([join(SYSROOT, "bin", "rustc")], "simd_err.rs", "oracle_err.ll");
     expect(r.code).toBe(1);
     expect(r.stderr).toBe(oracle("simd_err.stderr"));
+  });
+  test("simd2.x86_64-unknown-linux-gnu.O.ll", () => {
+    const r = compile([join(SYSROOT, "bin", "rustc")], "simd2.rs", "oracle2.ll");
+    expect(r.code).toBe(0);
+    expect(r.ir).toBe(oracle("simd2.x86_64-unknown-linux-gnu.O.ll"));
+  });
+  test("simd2_err.stderr", () => {
+    const r = compile([join(SYSROOT, "bin", "rustc")], "simd2_err.rs", "oracle2_err.ll");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toBe(oracle("simd2_err.stderr"));
+  });
+  test("simd_model.x86_64-unknown-linux-gnu.O.ll", () => {
+    const r = compile([join(SYSROOT, "bin", "rustc")], "simd_model.rs", "oracle_model.ll");
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    expect(r.ir).toBe(oracle("simd_model.x86_64-unknown-linux-gnu.O.ll"));
   });
 });

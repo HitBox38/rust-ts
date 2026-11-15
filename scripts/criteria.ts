@@ -16,7 +16,9 @@
 // Every number comes from that run's `gate.json`, one snapshot of one commit: a `<suite>.summary.json` can be overwritten
 // later (`difftest --run-id`), and so can mix trees. A group is met only if the gate passed on a clean tree, with its
 // static steps, and ran every suite of the group and every protected suite at that gate's commit: a narrowed gate says nothing about losses
-// (review integ-w38-recheck N3). Prints one line per group; exits 1 if a group is not met. Report only: `scripts/gate.ts` does not read it.
+// (review integ-w38-recheck N3). Prints one line per group, then one verdict line per milestone and a line saying what the exit status
+// means; exits 1 if a selected group is not met, so `--milestone M7` exits 1 while M7c is unmet even when M7a and M7b are met: read the
+// `milestone M7a: met` lines, not the status (review harness-m7b-recheck note 1). Report only: `scripts/gate.ts` does not read it.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -144,6 +146,27 @@ function countResult(group: CriteriaGroup & { count: NonNullable<CriteriaGroup["
   return { name: group.name, match, of: c.of, oracleTimeouts, unstable: 0, percent, target: Math.round(((100 * c.atLeast) / c.of) * 100) / 100, met: problems.length === 0 && match >= c.atLeast, count: { atLeast: c.atLeast, what: c.what }, problems };
 }
 
+/**
+ * The verdict of each milestone among `results` (each group's `milestone` and whether it is met), in the order they first
+ * appear, and a last line saying what the exit status means (review harness-m7b-recheck note 1): `--milestone M7` exits 1
+ * while M7c is unmet though M7a and M7b are met, so the status alone must not be read as any one sub-milestone's.
+ */
+export function milestoneVerdicts(results: readonly { milestone: string; met: boolean }[]): string[] {
+  const by = new Map<string, { met: number; of: number }>();
+  for (const r of results) {
+    const m = by.get(r.milestone) ?? { met: 0, of: 0 };
+    m.of++;
+    if (r.met) m.met++;
+    by.set(r.milestone, m);
+  }
+  const lines = [...by].map(([name, m]) => `milestone ${name}: ${m.met === m.of ? "met" : "not met"} (${m.met} of ${m.of} groups met)`);
+  const unmet = [...by].filter(([, m]) => m.met < m.of).map(([name]) => name);
+  const met = [...by].filter(([, m]) => m.met === m.of).map(([name]) => name);
+  if (unmet.length === 0) lines.push(`exit 0: every selected milestone is met (${met.join(", ")})`);
+  else lines.push(`exit 1: not met: ${unmet.join(", ")}${met.length ? `; met all the same: ${met.join(", ")} (read each milestone's line, not the exit status)` : ""}`);
+  return lines;
+}
+
 /** `baselines`: the protected set at the gate's commit, by suite; only a count group reads it. */
 export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites: readonly string[] = [], baselines: ReadonlyMap<string, readonly string[]> = new Map()): GroupResult {
   if (group.count !== undefined) return countResult({ ...group, count: group.count }, g, [...gateProblems(g), ...protectedNotRun(g, protectedSuites)], baselines);
@@ -214,12 +237,15 @@ if (import.meta.main) {
     baselines.set(suite, show.stdout.toString().split("\n").filter(Boolean));
   }
   let allMet = true;
+  const verdicts: { milestone: string; met: boolean }[] = [];
   for (const group of groups) {
     const r = groupResult(group, g, protectedSuites, baselines);
     allMet &&= r.met;
+    verdicts.push({ milestone: group.milestone, met: r.met });
     const why = r.problems.length ? ` (${r.problems.join("; ")})` : "";
     if (r.count) console.log(`${r.name}: MATCH ${r.match} of ${r.of} ${r.count.what} vs >= ${r.count.atLeast}, ${r.oracleTimeouts} oracle timeouts: ${r.met ? "met" : "not met"}${why}`);
     else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}${group.excludeUnstable && !group.allCases ? `, ${r.unstable} unstable excluded` : ""}: ${r.met ? "met" : "not met"}${why}`);
   }
+  for (const line of milestoneVerdicts(verdicts)) console.log(line);
   process.exit(allMet ? 0 : 1);
 }

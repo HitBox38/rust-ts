@@ -806,6 +806,7 @@ export function codegen_crate<M, W extends WriteBackendTypes & { Module: M }>(
   backend: ExtraBackendMethods<M> & WriteBackendMethods<W>,
   tcx: TyCtxt,
 ): OngoingCodegen<W> {
+  // PORT (review mono-run-head N3): rust_ts/codegen_backend.ts `mono_collection_head` copies base.rs:723-739 below for mono-ui; change both.
   if (tcx.sess.target.need_explicit_cpu && tcx.sess.opts.cg.target_cpu === undefined) {
     // The target has no default cpu, but none is set explicitly
     tcx.dcx().emit_fatal(CpuRequired_diagnostic({}));

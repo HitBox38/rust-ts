@@ -1051,8 +1051,9 @@ function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
   if (v.isAllOnesValue()) return getAllOnesValue(destTy);
   // Handle ConstantInt -> Constant{Byte, FP} (the model has no byte types)
   if (v instanceof ConstantInt) {
-    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts.
-    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
+    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts. This allows for other simplifications (although some
+    // of them can only be handled by Analysis/ConstantFolding.cpp).
+    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return getBitCast(getConstantVector([v]), destTy);
     // Make sure dest type is compatible with the folded fp constant. See note below regarding the PPC_FP128 restriction.
     const destScalar = destTy.getScalarType();
     if (destScalar.isFloatingPointTy() && destTy.typeID !== "PPC_FP128" && scalarSizeInBits(destTy) === scalarSizeInBits(srcTy)) {
@@ -1067,8 +1068,9 @@ function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
       const val = v.getValueAPF().bitcastToAPInt();
       return getConstantFPOfAPFloat(destTy.context, APFloat.fromAPInt(destTy.getFltSemantics(), val));
     }
-    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts.
-    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
+    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts. This allows for other simplifications (although some
+    // of them can only be handled by Analysis/ConstantFolding.cpp).
+    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return getBitCast(getConstantVector([v]), destTy);
     // PPC_FP128 is really the sum of two consecutive doubles, where the first double is always stored first in memory,
     // regardless of the target endianness. The memory layout of i128, however, depends on the target endianness, and so we
     // can't fold this without target endianness information.
@@ -1577,6 +1579,16 @@ export class MDNode extends Metadata {
   ) {
     super();
   }
+  /** llir-di's hook (di_nodes.ts): a specialized node (`DILocation`, `DISubprogram`, ...) returns its `write<CLASS>` text
+   * (AsmWriter.cpp), given the printer's metadata operand writer; an `MDTuple` returns undefined. */
+  writeSpecialized(_operand: (md: Metadata | undefined) => string): string | undefined {
+    return undefined;
+  }
+  /** llir-di's hook: a `DIExpression` gets no slot and is printed inline where it is an operand (AsmWriter.cpp
+   * `SlotTracker::CreateMetadataSlot`, `writeAsOperandInternal`). */
+  printsInline(): boolean {
+    return false;
+  }
 }
 /** `MetadataAsValue`: metadata wrapped as a value of type `metadata`. */
 export class MetadataAsValue extends Value {
@@ -1839,6 +1851,60 @@ export class Module {
     const sorted = [...specs.entries()].sort((a, b) => a[0] - b[0]);
     const I = sorted.find(([w]) => w >= BitWidth) ?? sorted[sorted.length - 1]!;
     return I[1];
+  }
+
+  // llvm: llvm/lib/IR/DataLayout.cpp:871 DataLayout::getAlignment
+  /** The ABI alignment in bytes of a sized type (`abi_or_pref` true; lane ir-fix-b): pointers, arrays, structs (with their
+   *  `StructLayout` alignment, DataLayout.cpp:48-88, and the layout's `a` spec), integers and floating-point types. A vector, which
+   *  needs the layout's `v` specs and the type's store size, stops. */
+  abiTypeAlign(Ty: Type): number {
+    if (Ty instanceof PointerType) return this.pointerABIAlignment(Ty.addressSpace);
+    if (Ty instanceof ArrayType) return this.abiTypeAlign(Ty.elementType);
+    if (Ty instanceof StructType) {
+      // Packed structure types always have an ABI alignment of one.
+      if (Ty.packed) return 1;
+      if (Ty.body === undefined) throw new Error("llvm: Cannot get layout of opaque structs");
+      // `StructLayout::StructLayout`: the largest of its elements' ABI alignments (`StructAlignment` starts at 1).
+      let StructAlignment = 1;
+      for (const e of Ty.body) StructAlignment = Math.max(StructAlignment, this.abiTypeAlign(e));
+      return Math.max(this.structABIAlignment(), StructAlignment);
+    }
+    if (Ty instanceof IntegerType) return this.integerABIAlignment(Ty.bits);
+    if (Ty.isFloatingPointTy()) {
+      const BitWidth = Ty.fpBits();
+      const specs = new Map<number, number>([
+        [16, 2],
+        [32, 4],
+        [64, 8],
+        [128, 16],
+      ]);
+      for (const s of this.dataLayout.split("-")) {
+        if (!s.startsWith("f")) continue;
+        const m = /^f(\d+):(\d+)(:\d+)?$/.exec(s);
+        if (m === null) return unported(`llir: data layout float spec ${JSON.stringify(s)} (DataLayout parsing)`);
+        specs.set(Number(m[1]), Number(m[2]) / 8);
+      }
+      const I = specs.get(BitWidth);
+      if (I !== undefined) return I;
+      // The first power of two greater-or-equal to the store size of the type.
+      let a = 1;
+      while (a < BitWidth / 8) a *= 2;
+      return a;
+    }
+    return unported(`llir: DataLayout::getABITypeAlign of ${Ty.typeID} (not modelled)`);
+  }
+
+  /** The layout's `a[<size>]:<abi>[:<pref>]` spec's ABI alignment in bytes (`parseAggregateSpec`, DataLayout.cpp:405: zero means one
+   *  byte); `StructABIAlignment` is 1 without one (DataLayout.h:151). */
+  structABIAlignment(): number {
+    let r = 1;
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("a")) continue;
+      const m = /^a(0?):(\d+)(:\d+)?$/.exec(s);
+      if (m === null) return unported(`llir: data layout aggregate spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      r = Math.max(1, Number(m[2]) / 8);
+    }
+    return r;
   }
 
   /** The default address spaces of the data layout (`DataLayout::getProgramAddressSpace`, `getDefaultGlobalsAddressSpace`). */

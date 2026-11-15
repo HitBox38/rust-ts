@@ -259,7 +259,8 @@ export function xcrun_show_sdk_path(sdk_name: string, verbose: boolean): Result<
 
   // It is fine to do lossy conversion here, non-UTF-8 paths are quite rare on macOS nowadays
   // (only possible with the HFS+ file system), and we only use it for error messages.
-  let stderr = new TextDecoder().decode(output.stderr);
+  // PORT: `ignoreBOM`, as `from_utf8_lossy_owned` keeps a leading U+FEFF (review vendor-object-write N1).
+  let stderr = new TextDecoder("utf-8", { ignoreBOM: true }).decode(output.stderr);
   if (stderr.length !== 0) {
     // debug!(stderr, "original xcrun stderr");
   }
@@ -275,7 +276,7 @@ export function xcrun_show_sdk_path(sdk_name: string, verbose: boolean): Result<
   } else {
     // Output both stdout and stderr, since shims of `xcrun` (such as the one provided by
     // nixpkgs), do not always use stderr for errors.
-    const stdout = string_trim(new TextDecoder().decode(output.stdout));
+    const stdout = string_trim(new TextDecoder("utf-8", { ignoreBOM: true }).decode(output.stdout));
     return Err({ $: "Unsuccessful", sdk_name, command_formatted: cmd.debug(), stdout, stderr });
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GROUPS, gateRecordProblem, groupResult, protectedNotRun, type GateRecord } from "./criteria.ts";
+import { GROUPS, gateRecordProblem, groupResult, milestoneVerdicts, protectedNotRun, type GateRecord } from "./criteria.ts";
 
 const s = (suite: string, match: number, total: number, oracleTimeouts: string[] = []) => ({ suite, match, total, oracleTimeouts });
 const gate = (suites: GateRecord["suites"], over: Partial<GateRecord> = {}): GateRecord => ({ pass: true, staticOk: true, skipStatic: false, head: "abc", dirty: [], suites, ...over });
@@ -140,4 +140,31 @@ describe("a count group: check-rg's crates", () => {
     const more = groupResult(rg, ids([], ["ripgrep-15.2.0|extra_crate"]), [], new Map([["check-rg", base]]));
     expect([more.match, more.met, more.problems]).toEqual([35, false, ["35 crates seen, where the plan counts 34"]]);
   });
+});
+
+test("each milestone gets its own verdict line, and the last line says what the exit status means (review harness-m7b-recheck note 1)", () => {
+  // M7a and M7b met, M7c not: `--milestone M7` exits 1, which says nothing about M7a or M7b.
+  const m7 = [
+    { milestone: "M7a", met: true },
+    { milestone: "M7a", met: true },
+    { milestone: "M7b", met: true },
+    { milestone: "M7c", met: false },
+    { milestone: "M7c", met: true },
+  ];
+  expect(milestoneVerdicts(m7)).toEqual([
+    "milestone M7a: met (2 of 2 groups met)",
+    "milestone M7b: met (1 of 1 groups met)",
+    "milestone M7c: not met (1 of 2 groups met)",
+    "exit 1: not met: M7c; met all the same: M7a, M7b (read each milestone's line, not the exit status)",
+  ]);
+  expect(milestoneVerdicts(m7.slice(0, 3)).at(-1)).toBe("exit 0: every selected milestone is met (M7a, M7b)");
+  expect(milestoneVerdicts([{ milestone: "M7c", met: false }]).at(-1)).toBe("exit 1: not met: M7c");
+  // Every group's milestone is one the verdicts can name.
+  expect(milestoneVerdicts(GROUPS.map((g) => ({ milestone: g.milestone, met: true }))).length).toBe(new Set(GROUPS.map((g) => g.milestone)).size + 1);
+});
+
+test("the percent groups naming one suite agree on excludeUnstable, so difftest's per-suite criterion can follow them (review harness-m7b-recheck note 3)", () => {
+  const by = new Map<string, Set<boolean>>();
+  for (const g of GROUPS) if (!g.count && !g.allCases) for (const suite of g.suites) by.set(suite, (by.get(suite) ?? new Set()).add(g.excludeUnstable === true));
+  expect([...by].filter(([, v]) => v.size > 1).map(([k]) => k)).toEqual([]);
 });

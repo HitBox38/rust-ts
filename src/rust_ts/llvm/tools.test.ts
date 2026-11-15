@@ -21,6 +21,9 @@ import { parseScript, replay } from "./replay.ts";
 import {
   assert_model_current,
   canonical_extra_passes,
+  cutModuleText,
+  definitions_carry_global_features,
+  forceFullLTOSummary,
   is_tool_text,
   llc_target_flags,
   llvm_tmp_dir,
@@ -33,6 +36,8 @@ import {
   run_pinned_tool,
   run_pinned_tool_or_ice,
   set_module_text,
+  sourceLinkNames,
+  touchedBySources,
   triple_probe,
   with_cl_args,
 } from "./tools.ts";
@@ -404,15 +409,16 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect(module_text(M)).not.toContain("!guid");
   });
 
-  test("R1 end to end: rustc-ts with -Zsplit-lto-unit -Clinker-plugin-lto --emit=llvm-bc exits 70 with the stop's text", () => {
+  test("R1 end to end: rustc-ts with -Zsplit-lto-unit -Clinker-plugin-lto --emit=llvm-bc exits 70 with the stop's text", async () => {
     // The reviewer's case through the driver (review llir-tools-recheck-2 note 2). Before wave 40q the driver stopped at
     // `codegen_crate`; codegen now forwards to the ported backend, which reaches write.rs's `ModuleBuffer::new`. The pinned
     // rustc takes the same command (exit 0); the port stops by name instead of handing opt a module it would abort on.
-    const run = (sub: string, extra: string[]): { status: number | null; stderr: string; dir: string } => {
+    const run = (sub: string, extra: string[], rustc?: string): { status: number | null; stderr: string; dir: string } => {
       const dir = join(llvm_tmp_dir(), sub);
       mkdirSync(dir, { recursive: true });
       const args = [join(HERE, "opt.rs"), "--sysroot", oracle_sysroot(), "--target", X86, "-Copt-level=2", "-Ccodegen-units=1", ...extra, "-Clinker-plugin-lto", "--emit=llvm-bc,llvm-ir", "--out-dir", "."];
-      const r = Bun.spawnSync([process.execPath, join(import.meta.dir, "..", "main.ts"), ...args], { cwd: dir, env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, stdout: "pipe", stderr: "pipe" });
+      const cmd = rustc === undefined ? [process.execPath, join(import.meta.dir, "..", "main.ts")] : [rustc];
+      const r = Bun.spawnSync([...cmd, ...args], { cwd: dir, env: { ...process.env, RUSTC_ICE: "0", RUST_BACKTRACE: "0" }, stdout: "pipe", stderr: "pipe" });
       return { status: r.exitCode, stderr: r.stderr.toString(), dir };
     };
     const split = run("driver-split-lto-unit", ["-Zsplit-lto-unit"]);
@@ -425,7 +431,81 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     const plain = run("driver-no-split-lto-unit", []);
     expect([plain.status, plain.stderr]).toEqual([0, ""]);
     expect(existsSync(join(plain.dir, "opt.bc"))).toBe(true);
+    // The `opt.ll` the same command writes is the pinned rustc's at N1 (review fixers-58 N2). `opt.bc` is not compared: it differs
+    // from the oracle's by opt's extra `EnableSplitLTOUnit` 0 flag (llir-tools handoff PORT 8), which F4 pins at the wrapper level.
+    const theirs = run("driver-no-split-lto-unit-oracle", [], join(oracle_sysroot(), "bin", "rustc"));
+    expect([theirs.status, theirs.stderr]).toEqual([0, ""]);
+    expect(await normalForm(new Uint8Array(readFileSync(join(plain.dir, "opt.ll"))), "N1", bin())).toEqual(
+      await normalForm(new Uint8Array(readFileSync(join(theirs.dir, "opt.ll"))), "N1", bin()),
+    );
   }, 60_000);
+
+  test("LLVMRustModuleCost: every function, defined or declared, of the model or of a tool's text (lane ir-fix-b)", () => {
+    // The model: two definitions and two declarations (an intrinsic among them).
+    const C = new Context();
+    const M = L.LLVMModuleCreateWithNameInContext("cost", C);
+    const fnTy = L.LLVMFunctionType(L.LLVMVoidTypeInContext(C), [], 0, L.FALSE);
+    const B = L.LLVMCreateBuilderInContext(C);
+    for (const n of ["a", "b"]) {
+      L.LLVMPositionBuilderAtEnd(B, L.LLVMAppendBasicBlockInContext(C, L.LLVMAddFunction(M, n, fnTy), "start"));
+      L.LLVMBuildRetVoid(B);
+    }
+    L.LLVMAddFunction(M, "c", fnTy);
+    L.LLVMGetIntrinsicDeclaration(M, L.LLVMLookupIntrinsicID("llvm.trap", 9), [], 0);
+    expect(L.LLVMRustModuleCost(M)).toBe(4n);
+    // A tool's text: a declaration with metadata attachments counts; an indented `#dbg_declare`, a string holding "define " and a
+    // comment do not.
+    const T = L.LLVMModuleCreateWithNameInContext("cost-text", new Context());
+    set_module_text(T, `; ModuleID = 'x'\n@s = constant [8 x i8] c"define \\0A"\n\n; define void @no()\ndefine void @f() !dbg !3 {\n  #dbg_declare(ptr null, !4, !DIExpression(), !5)\n  ret void\n}\n\ndeclare !dbg !6 void @g()\n\ndeclare void @h()\n`);
+    expect(L.LLVMRustModuleCost(T)).toBe(3n);
+    expect(L.LLVMRustModuleCost(L.LLVMModuleCreateWithNameInContext("empty", new Context()))).toBe(0n);
+  });
+
+  test("definitions_carry_global_features: every definition's own target-features starts with the global list (lane ir-fix-b)", () => {
+    const G = "+v8a,+outline-atomics";
+    const mod = (attrs: string[]) =>
+      `define void @a() #0 {\n  ret void\n}\n\ndefine internal void @b(ptr %x) unnamed_addr #1 personality ptr @p {\n  ret void\n}\n\ndeclare void @p()\n\n${attrs.map((a, i) => `attributes #${i} = { ${a} }`).join("\n")}\n`;
+    expect(definitions_carry_global_features(mod([`nounwind "target-features"="${G}"`, `"target-cpu"="generic" "target-features"="${G},+neon"`]), G)).toBe(true);
+    // `__rust_try`-like: a definition without the attribute; one with other features; a prefix that is not a whole feature.
+    expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-cpu"="generic"`]), G)).toBe(false);
+    expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-features"="+neon"`]), G)).toBe(false);
+    expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-features"="${G}x"`]), G)).toBe(false);
+    expect(definitions_carry_global_features("define void @c() {\n  ret void\n}\n", G)).toBe(false);
+  });
+
+  test("touchedBySources: replaced declarations and moved globals by name; locals never; a weak definition undecided (review N1)", () => {
+    const dst = cutModuleText(
+      `@g = global i32 0\n@l = internal global i32 0\n@u = appending global [0 x ptr] zeroinitializer\n\ndeclare void @d()\n\ndeclare void @e()\n\ndefine internal void @i() {\n  ret void\n}\n\ndefine weak void @w() {\n  ret void\n}\n`,
+    )!;
+    const src = (t: string) => sourceLinkNames([t]);
+    // A source defining d, declaring g and l (l's is local), appending to u, and defining a local e: d and g are touched.
+    expect([...touchedBySources(dst, src(`@g = external global i32\n@l = internal global i32 1\n@u = appending global [1 x ptr] [ptr @x]\n\ndefine void @d() {\n  ret void\n}\n\ndefine internal void @e() {\n  ret void\n}\n\ndefine void @i() {\n  ret void\n}\n`))!].sort()).toEqual(["d", "g"]);
+    // A source defining w, which the destination defines weakly: `shouldLinkFromSource` decides, so names do not.
+    expect(touchedBySources(dst, src(`define void @w() {\n  ret void\n}\n`))).toBeUndefined();
+  });
+
+  test("forceFullLTOSummary: a ThinLTO flag of 0, last in !llvm.module.flags, once (lane ir-fix-b)", () => {
+    const t = `define void @f() {\n  ret void\n}\n\n!llvm.module.flags = !{!0, !1}\n\n!0 = !{i32 7, !"PIC Level", i32 2}\n!1 = !{i32 2, !"Dwarf Version", i32 4}\n`;
+    const forced = forceFullLTOSummary(t);
+    expect(forced).toContain("!llvm.module.flags = !{!0, !1, !2}\n");
+    expect(forced.endsWith('!2 = !{i32 1, !"ThinLTO", i32 0}\n')).toBe(true);
+    expect(forceFullLTOSummary(forced)).toBe(forced);
+    // What opt makes of it: the flag is the module's last.
+    const out = new TextDecoder().decode(run_pinned_tool_or_ice("opt", ["-S", "-o", "-", "-"], new TextEncoder().encode(forced), "t"));
+    expect(out).toMatch(/!llvm\.module\.flags = !\{!0, !1, !2\}\n[^]*!2 = !\{i32 1, !"ThinLTO", i32 0\}/);
+    expect(() => forceFullLTOSummary("define void @f() {\n  ret void\n}\n")).toThrow(Unported);
+  });
+
+  test("LLVMRustRunRestrictionPass keeps exactly the listed names, glob characters included (lane ir-fix-b)", () => {
+    const M = L.LLVMModuleCreateWithNameInContext("r", new Context());
+    const names = ["keep", "a*b", "axb", "x{y,z}", "xy", "p[q]\\r", "pq", "drop"];
+    const def = (n: string) => `define void @"${n}"() {\n  ret void\n}\n`;
+    set_module_text(M, `; ModuleID = 'r'\n${names.map(def).join("\n")}`);
+    L.LLVMRustRunRestrictionPass(M, ["keep", "a*b", "x{y,z}", "p[q]\\r"], 4);
+    const linkage = new Map([...module_text(M).matchAll(/^define (internal )?void @"?([^"(]+)"?\(/gm)].map((m) => [m[2]!, m[1] === undefined ? "external" : "internal"]));
+    expect(Object.fromEntries(linkage)).toEqual({ keep: "external", "a*b": "external", axb: "internal", "x{y,z}": "external", xy: "internal", "p[q]\\\\r": "external", pq: "internal", drop: "internal" });
+    expect(() => L.LLVMRustRunRestrictionPass(M, ["a\nb"], 1)).toThrow(Unported);
+  });
 
   test("N5: a model read after a tool rewrote the module stops", () => {
     const M = smallModule();

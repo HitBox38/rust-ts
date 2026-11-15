@@ -24,7 +24,7 @@
 // - `CodegenUnitDebugContext`'s fields:
 //   - `created_files: RefCell<UnordMap<Option<(StableSourceFileId, SourceFileHash)>, &DIFile>>` is a `KeyedMap` keyed by the
 //     derived `Eq` of the key: `None`, or the id's `Hash128` and the hash's kind and bytes (`key_created_files`).
-//   - `type_map: metadata::TypeMap` is metadata/type_map.rs's (wave 44): an opaque type whose `Default` is a typed stop.
+//   - `type_map: metadata::TypeMap` is metadata/type_map.rs's (lane cg-di-b); `TypeMap_default()` is its `#[derive(Default)]`.
 //   - `adt_stack` is a `[DefId, GenericArgsRef][]`; `namespace_map` a `DefIdMap`; `recursion_marker_type: OnceCell<&DIType>`
 //     is `DIType | undefined`.
 // - `Instance`'s methods are its companion's (`Instance.def_id(instance)`). `args.terms().next().is_none()` asks the iterator for

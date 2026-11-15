@@ -107,13 +107,14 @@ describe("stubs name their fill lane", () => {
     // cg-types-attrs (type_.ts, ...) and cg-context (context.ts, common.ts) are ported: their members no longer stop
     // (type_of.test.ts, attributes.test.ts, context.test.ts).
     // cg-abi-consts (wave 41) ported abi.rs and consts.rs whole: no stub of its own is left (abi_consts.test.ts).
-    stops(() => cx.mangled_name(undefined as never), /^cg-asm: .*\/asm\.rs mangled_name$/);
+    // cg-asm (wave 40s) ported asm.rs whole: no stub of its own is left (asm.test.ts).
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
     // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); ir-fix-a (wave 40r) ported `generic_simd_intrinsic`'s
-    // reached arms, and the rest stop by intrinsic name in their place (simd_intrinsic.test.ts, `simd_stop.rs`).
+    // reached arms, and cg-intrinsic-b (wave 40s) the rest: no arm stops by lane (simd_intrinsic.test.ts).
     // cg-di-a (wave 40p) ported debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs whole, and metadata.rs's fns a
-    // compile without `-g` reaches; the rest of metadata.rs stays a typed stop (wave 44, plan-m7 D9).
-    stops(() => debuginfo_metadata.type_di_node(cx, undefined as never), /^cg-di-a: .*\/debuginfo\/metadata\.rs type_di_node$/);
+    // compile without `-g` reaches; cg-di-b (wave 40s) ported the rest of debuginfo/ (metadata.rs, metadata/type_map.rs,
+    // metadata/enums/*). Its only stops are `impl Hash`/`impl Debug for llvm::Metadata`, which hash or print a pointer.
+    stops(() => debuginfo_metadata.debug_Metadata(undefined as never), /^cg-di-b: .*\/debuginfo\/metadata\.rs Debug for llvm::Metadata/);
   });
 });
 
@@ -121,15 +122,12 @@ describe("stub counts per lane", () => {
   // Every `unported("<lane>: ...")` in the crate's sources, by lane: trait methods, the cross-lane surface (review F2) and the
   // callees of back/llvm_backend.ts. A fill lane that ports a stub lowers its count here.
   const EXPECTED: Record<string, number> = {
-    // cg-register (wave 40q) ported `inline_asm_call` (asm.rs:536), which `black_box` reaches in every std program.
-    "cg-asm": 3,
-    // 21 cg-contract left; cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs (`build_global_var_di_node`,
-    // `apply_vcall_visibility_metadata`, `create_vtable_di_node`). Left: the 9 metadata.rs fns that debuginfo/mod.rs and those
-    // three call past their `-g` checks (wave 44, plan-m7 D9).
-    "cg-di-a": 9,
-    // cg-di-a: `TypeMap::default` (metadata/type_map.rs), in `CodegenUnitDebugContext::new` (wave 44).
-    "cg-di-b": 1,
-    "cg-intrinsic-b": 2,
+    // "cg-asm": 0 (entry dropped): cg-register (wave 40q) ported `inline_asm_call` (asm.rs:536), cg-asm (wave 40s) the rest.
+    // "cg-di-a": 0 (entry dropped): cg-di-a (wave 40p) ported debuginfo/mod.rs's 18 and 3 of metadata.rs; cg-di-b (wave 40s)
+    // ported the 9 metadata.rs fns left.
+    // cg-di-b (wave 40s) ported `TypeMap::default` and the rest of debuginfo/. Left: `impl Hash` and `impl Debug for
+    // llvm::Metadata` (metadata.rs:54, :60), which hash or print a pointer address; neither is reached but by an ICE message.
+    "cg-di-b": 2,
     // cg-lto-diag (wave 40p) ported back/lto.rs, diagnostics.rs's hand impls and llvm/diagnostic.rs whole: no stub of its own is
     // left.
     // cg-write (wave 40o) ported back/write.rs, llvm_util.rs, back/owned_*, back/profiling.rs and back/archive.rs whole: no stub
@@ -160,6 +158,9 @@ describe("stub counts per lane", () => {
     "rustc_sanitizers": 5,
     // cg-write: `filesearch::dll_path` in `configure_llvm`'s version-mismatch error.
     "rustc_session": 1,
+    // cg-asm: asm.ts's arms for arch modules rust-ts keeps as stubs (rustc_target/asm): `SparcInlineAsmReg::dreg_number` in
+    // `reg_to_llvm`, and `AmdgpuInlineAsmRegClass`'s sized classes there.
+    "rustc_target": 2,
   };
   test("matches the table in docs/handoff/cg-contract.md", () => {
     const counts: Record<string, number> = {};

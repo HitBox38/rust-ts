@@ -5,7 +5,7 @@
 // every function exported here into ffi.ts; ffi.ts's signatures are the contract these must satisfy (tsc checks it).
 import { writeFileSync } from "node:fs";
 import { unported } from "../../std/panic.ts";
-import { module_text } from "./tools.ts";
+import { assert_types_unmerged, module_text } from "./tools.ts";
 import {
   type AsmDialect,
   AttributeKind,
@@ -78,6 +78,7 @@ import {
   VectorType,
 } from "./ir.ts";
 import { type BasicBlock, Inst } from "./inst.ts";
+import { verify as InlineAsm_verify } from "./inline_asm.ts";
 import { printEscapedString, printModule, printTypeToString, printValueToString } from "./printer.ts";
 import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type RustString } from "./support.ts";
 
@@ -85,7 +86,7 @@ import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type R
 
 /** A PTR_LEN_STR argument's first `len` bytes, as a byte string. `StringRef(nullptr, 0)` is the empty string; a null pointer
  * with a length is undefined behaviour in C, here an error. */
-function bytesArg(s: PtrLenStr | undefined, len: number): string {
+export function bytesArg(s: PtrLenStr | undefined, len: number): string {
   if (s === undefined) {
     if (len === 0) return "";
     throw new Error(`llvm: a null pointer with length ${len}`);
@@ -99,7 +100,7 @@ function bytesArg(s: PtrLenStr | undefined, len: number): string {
 /** A `*const c_char` (NUL-terminated) argument, as a byte string. What LLVM makes of null depends on the type it becomes:
  * `StringRef(const char*)` takes null as the empty string (llvm/ADT/StringRef.h:94), `Twine(const char*)` reads `Str[0]`
  * (llvm/ADT/Twine.h:257), so a null there is a crash in the oracle and an error here. */
-function cstrArg(s: string | undefined, as: "StringRef" | "Twine", fn: string): string {
+export function cstrArg(s: string | undefined, as: "StringRef" | "Twine", fn: string): string {
   if (s === undefined) {
     if (as === "StringRef") return "";
     throw new Error(`llvm: ${fn}: Twine(const char*) of a null pointer`);
@@ -188,8 +189,9 @@ export function LLVMRustSetNormalizedTarget(M: Module, triple: string | undefine
   if (!NORMAL_TRIPLES.includes(triple)) return unported(`llir: Triple::normalize(${JSON.stringify(triple)})`);
   M.targetTriple = cstrArg(triple, "StringRef", "LLVMRustSetNormalizedTarget");
 }
-/** Triples checked to be their own `Triple::normalize` (capi.oracle.test.ts). */
-export const NORMAL_TRIPLES: readonly string[] = ["x86_64-unknown-linux-gnu", "arm64-apple-macosx11.0.0"];
+/** Triples checked to be their own `Triple::normalize` (capi.oracle.test.ts); aarch64-unknown-linux-gnu: lane ir-fix-b, for
+ *  cg-intrinsic-b's AAPCS `va_arg` fixture. */
+export const NORMAL_TRIPLES: readonly string[] = ["x86_64-unknown-linux-gnu", "arm64-apple-macosx11.0.0", "aarch64-unknown-linux-gnu"];
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:929 LLVMRustAddModuleFlagU32
 export function LLVMRustAddModuleFlagU32(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr | undefined, NameLen: number, Value: number): void {
@@ -480,14 +482,10 @@ export function LLVMGetInlineAsm(Ty: Type, AsmString: PtrLenStr | undefined, Asm
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:654 LLVMRustInlineAsmVerify
 export function LLVMRustInlineAsmVerify(Ty: Type, Constraints: PtrLenStr | undefined, ConstraintsLen: number): boolean {
-  // PORT (plan-m7 D10; root at integ-w57 from lane cg-register's handoff, review cg-register N3): `InlineAsm::verify`
-  // (InlineAsm.cpp:274) is not ported yet, so this answers "valid" for every constraint string. Upstream answers "invalid" only
-  // where rustc then ICEs (rustc_codegen_llvm asm.rs:363 `span_bug!`, intrinsic.rs:173 `bug!`), so the stand-in differs from
-  // upstream only on a path that would be a compiler bug. A port of `InlineAsm::verify` belongs with lane cg-asm.
-  void Constraints;
-  void ConstraintsLen;
+  // (`llvm::Error` converts to true if it is an error.)
+  // PORT (lane cg-asm, plan-m7 D10): `InlineAsm::verify` (InlineAsm.cpp:274) is modelled in inline_asm.ts.
   if (!(Ty instanceof FunctionType)) throw new Error("llvm: unwrap<FunctionType> of a type that is not a function type");
-  return true;
+  return InlineAsm_verify(Ty, bytesArg(Constraints, ConstraintsLen)) === undefined;
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString
@@ -1215,7 +1213,9 @@ export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Dema
   }
   // PORT: the oracle prints through an annotation writer that adds `; <demangled>` comments; the normal form drops every
   // comment line (plan-m7 §1b), so the model prints none.
-  // Once a tool (tools.ts, lane llir-tools) has rewritten the module, its text is the module.
+  // Once a tool (tools.ts, lane llir-tools) has rewritten the module, its text is the module. A fat-LTO module whose link merged
+  // named struct types stops here (lane ir-fix-b, review F1).
+  assert_types_unmerged(M);
   const text = module_text(M);
   try {
     writeFileSync(Output, Buffer.from(text, "latin1"));

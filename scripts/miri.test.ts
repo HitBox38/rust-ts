@@ -178,7 +178,9 @@ console.log(JSON.stringify({
   criterion: [
     d.criterionOf({ percent: 90, what: "w" }, { MATCH: 9, DIFF: 0, UNPORTED: 0, CRASH: 0, TIMEOUT: 0, ORACLE_TIMEOUT: 2, UNSTABLE: 1 }, 12),
     d.criterionOf({ percent: 100, what: "w" }, { MATCH: 0, DIFF: 0, UNPORTED: 0, CRASH: 0, TIMEOUT: 0, ORACLE_TIMEOUT: 1, UNSTABLE: 0 }, 1),
+    d.criterionOf({ percent: 95, what: "w" }, { MATCH: 282, DIFF: 0, UNPORTED: 0, CRASH: 0, TIMEOUT: 0, ORACLE_TIMEOUT: 0, UNSTABLE: 7 }, 289, true),
   ],
+  criterionExcludesUnstable: Object.fromEntries(["run-pass-miri", "pm-ui", "miri-hello", "mir-o2", "mono-ui", "ir-hello", "check-rg", "native-hello", "run-pass-native", "run-fail-native", "ir-run-pass"].map((n) => [n, d.criterionExcludesUnstable(n)])),
   key: installed ? m.miriOracleKey() === m.miriOracleKey() && /^[0-9a-f]{40}$/.test(m.miriOracleKey()) : null,
 }));
 `;
@@ -302,4 +304,20 @@ test("Miri oracle, suites and argv (child process)", () => {
   expect(j.subjectRustc.slice(1)).toEqual([join(REPO, "src/rust_ts/main.ts"), ...j.ours, "a.rs", "--sysroot", "/m", "-O"]);
   expect(j.criterion[0]).toEqual({ match: 9, of: 10, oracleTimeouts: 2, percent: 90, target: 90, met: true, what: "w" });
   expect(j.criterion[1]).toEqual({ match: 0, of: 0, oracleTimeouts: 1, percent: 0, target: 100, met: false, what: "w" });
+  // The M7 suites leave UNSTABLE out, as scripts/criteria.ts does (review harness-m7b-recheck note 3): run-fail-native's 282 of 289
+  // with 7 UNSTABLE reads 282/282 in both. M6's suites, the hellos (criteria.ts counts all their cases) and check-rg (a count) do not.
+  expect(j.criterion[2]).toEqual({ match: 282, of: 282, oracleTimeouts: 0, unstable: 7, percent: 100, target: 95, met: true, what: "w" });
+  expect(j.criterionExcludesUnstable).toEqual({
+    "run-pass-miri": false,
+    "pm-ui": false,
+    "miri-hello": false,
+    "mir-o2": true,
+    "mono-ui": true,
+    "ir-hello": false,
+    "check-rg": false,
+    "native-hello": false,
+    "run-pass-native": true,
+    "run-fail-native": true,
+    "ir-run-pass": true,
+  });
 });
