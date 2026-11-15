@@ -286,10 +286,14 @@ function gen_scripts(seed: bigint, n: number): string[] {
 
 // ---- tests ----
 
+// These spawn the oracle probe and replay thousands of commands on both sides: 2.8-3.95 s at a load of about 28, and over Bun's
+// 5 s default under heavier load (review fixers-59), so they get an explicit timeout.
+const ORACLE_TIMEOUT_MS = 60_000;
+
 test.skipIf(SKIP)("build: insert results, len and raw bytes match the oracle's odht", () => {
   const cmds = gen_scripts(1n, 3000);
   expect_same(run_port(cmds), run_probe(cmds));
-});
+}, ORACLE_TIMEOUT_MS);
 
 test.skipIf(SKIP)("debug: {:?} of small tables matches", () => {
   const rng = new Rng(7n);
@@ -303,7 +307,7 @@ test.skipIf(SKIP)("debug: {:?} of small tables matches", () => {
     cmds.push(`debug ${cfg} ${i % 2 === 0 ? "default" : `cap=${n},${1 + rng.below(100)}`} ${pairs.join(" ")}`);
   }
   expect_same(run_port(cmds), run_probe(cmds));
-});
+}, ORACLE_TIMEOUT_MS);
 
 test.skipIf(SKIP)("get: from_raw_bytes, iteration and lookups (incl. corrupted tables) match", () => {
   const builds = gen_scripts(2n, 400);
@@ -362,7 +366,7 @@ test.skipIf(SKIP)("get: from_raw_bytes, iteration and lookups (incl. corrupted t
     }
   }
   expect_same(run_port(cmds), run_probe(cmds));
-});
+}, ORACLE_TIMEOUT_MS);
 
 function c_slot_count(b: Uint8Array): number {
   return Number(new DataView(b.buffer, b.byteOffset + 16, 8).getBigUint64(0, true));
@@ -411,7 +415,7 @@ test.skipIf(SKIP)("readmeta: core/alloc/std def_path_hash_map: same bytes, itera
     for (const [k, v] of entries) t.insert(k, v);
     expect(hex(t.raw_bytes()) === hex(bytes)).toBe(true);
   }
-});
+}, ORACLE_TIMEOUT_MS);
 
 // Pinned oracle answers (from the probe), so the byte layout stays checked without it.
 test("pinned bytes: odht's doc example (with an overwrite) and a one-entry rustc table", () => {
