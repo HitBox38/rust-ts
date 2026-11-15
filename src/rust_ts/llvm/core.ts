@@ -33,6 +33,7 @@ import {
   ATTR_KIND_ENUM,
   Attribute,
   bstrOfBytes,
+  bytesArg,
   bstrOfString,
   Comdat,
   Constant,
@@ -84,19 +85,9 @@ import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type R
 
 // ---- argument conversions ----------------------------------------------------------------------------------------------
 
-/** A PTR_LEN_STR argument's first `len` bytes, as a byte string. `StringRef(nullptr, 0)` is the empty string; a null pointer
- * with a length is undefined behaviour in C, here an error. */
-export function bytesArg(s: PtrLenStr | undefined, len: number): string {
-  if (s === undefined) {
-    if (len === 0) return "";
-    throw new Error(`llvm: a null pointer with length ${len}`);
-  }
-  if (typeof s === "string") {
-    const b = bstrOfString(s);
-    return len < b.length ? b.slice(0, len) : b;
-  }
-  return bstrOfBytes(s.subarray(0, len));
-}
+/** `bytesArg` lives in ir.ts beside the byte-string helpers, so inline_asm.ts (which printer.ts imports) can share it without
+ *  importing this module (review cg-asm N4); it is re-exported here for this module's other users. */
+export { bytesArg };
 /** A `*const c_char` (NUL-terminated) argument, as a byte string. What LLVM makes of null depends on the type it becomes:
  * `StringRef(const char*)` takes null as the empty string (llvm/ADT/StringRef.h:94), `Twine(const char*)` reads `Str[0]`
  * (llvm/ADT/Twine.h:257), so a null there is a crash in the oracle and an error here. */

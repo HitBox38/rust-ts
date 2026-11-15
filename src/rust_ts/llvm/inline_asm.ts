@@ -20,10 +20,10 @@
 // Module-level inline asm (`global_asm!`, naked functions) is here too: `LLVMRustAppendModuleInlineAsm` (RustWrapper.cpp:661, the
 // LLVM >= 23 branch, as the pinned LLVM is 23), `Module::GlobalAsmFragment` / `GlobalAsmProperties` and
 // `Module::appendModuleInlineAsm` (llvm/IR/Module.h), and the part of `AssemblyWriter::printModule` that prints them
-// (AsmWriter.cpp:3129). PORT (cg-asm): `Module::GlobalScopeAsm` is a side table keyed by the module (`GlobalScopeAsm` below),
-// as this lane owns no file of the module class; ir.ts's `Module.inlineAsm` string stays unused.
+// (AsmWriter.cpp:3129). `Module::GlobalScopeAsm` is ir.ts's `Module.GlobalScopeAsm` (lane llir-callbr-mangler; cg-asm had a side
+// table, as it owned no file of the module class). `LLVMCloneModule` (tools.ts) copies the printed text, module asm included.
 
-import { type FunctionType, type Module, StructType, bstrOfBytes, bstrOfString } from "./ir.ts";
+import { bytesArg, type FunctionType, type Module, StructType } from "./ir.ts";
 import { printEscapedString } from "./printer.ts";
 import type { PtrLenStr } from "./support.ts";
 
@@ -378,7 +378,8 @@ export interface GlobalAsmProperties {
   TargetCPU: string;
 }
 
-/** `GlobalAsmProperties::operator==` (llvm/IR/Module.h:183, inline). */
+/** `GlobalAsmProperties::operator==`. */
+// llvm: llvm/include/llvm/IR/Module.h:183 operator==
 function GlobalAsmProperties_eq(a: GlobalAsmProperties, b: GlobalAsmProperties): boolean {
   return a.TargetFeatures === b.TargetFeatures && a.TargetCPU === b.TargetCPU;
 }
@@ -398,54 +399,41 @@ export interface GlobalAsmFragment {
   Props: GlobalAsmProperties;
 }
 
-/** `GlobalAsmFragment(std::string AsmArg, GlobalAsmProperties Props = {})` (llvm/IR/Module.h:198, inline). */
+/** `GlobalAsmFragment(std::string AsmArg, GlobalAsmProperties Props = {})`. */
+// llvm: llvm/include/llvm/IR/Module.h:198 GlobalAsmFragment
 export function newGlobalAsmFragment(AsmArg: string, Props: GlobalAsmProperties = { TargetFeatures: "", TargetCPU: "" }): GlobalAsmFragment {
   let Asm = AsmArg;
   if (Asm !== "" && Asm[Asm.length - 1] !== "\n") Asm += "\n";
   return { Asm, Props };
 }
 
-/** `Module::GlobalScopeAsm` (llvm/IR/Module.h:223): inline asm at the global scope (see the header). */
-const GlobalScopeAsm = new WeakMap<Module, GlobalAsmFragment[]>();
-
-/** `Module::getModuleInlineAsm()` (llvm/IR/Module.h:330, inline). */
+/** `Module::getModuleInlineAsm() const`. */
+// llvm: llvm/include/llvm/IR/Module.h:330 getModuleInlineAsm
 export function getModuleInlineAsm(M: Module): readonly GlobalAsmFragment[] {
-  return GlobalScopeAsm.get(M) ?? [];
+  return M.GlobalScopeAsm;
 }
 
-/** `Module::hasModuleInlineAsm()` (llvm/IR/Module.h:340, inline). */
+/** `Module::hasModuleInlineAsm()`. */
+// llvm: llvm/include/llvm/IR/Module.h:340 hasModuleInlineAsm
 export function hasModuleInlineAsm(M: Module): boolean {
-  return getModuleInlineAsm(M).length !== 0;
+  return M.GlobalScopeAsm.length !== 0;
 }
 
 /// Append to the module-scope inline assembly blocks.
 /// A trailing newline is added if the input doesn't have one.
-/** `Module::appendModuleInlineAsm(GlobalAsmFragment)` (llvm/IR/Module.h:393, inline). */
+/** `Module::appendModuleInlineAsm(GlobalAsmFragment)`. */
+// llvm: llvm/include/llvm/IR/Module.h:393 appendModuleInlineAsm
 export function appendModuleInlineAsm(M: Module, Fragment: GlobalAsmFragment): void {
   // `Fragment.empty()`
   if (Fragment.Asm === "") return;
 
-  let list = GlobalScopeAsm.get(M);
-  if (list === undefined) GlobalScopeAsm.set(M, (list = []));
+  const list = M.GlobalScopeAsm;
   // `GlobalScopeAsm.back().hasSameProperties(Fragment)`
   if (list.length !== 0 && GlobalAsmProperties_eq(list[list.length - 1]!.Props, Fragment.Props)) {
     list[list.length - 1]!.Asm += Fragment.Asm;
   } else {
     list.push(Fragment);
   }
-}
-
-/** A `(ptr, len)` argument as a byte string (core.ts's `bytesArg`, which is not exported). */
-function bytesArg(s: PtrLenStr | undefined, len: number): string {
-  if (s === undefined) {
-    if (len === 0) return "";
-    throw new Error(`llvm: a null pointer with length ${len}`);
-  }
-  if (typeof s === "string") {
-    const b = bstrOfString(s);
-    return len < b.length ? b.slice(0, len) : b;
-  }
-  return bstrOfBytes(s.subarray(0, len));
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:661 LLVMRustAppendModuleInlineAsm

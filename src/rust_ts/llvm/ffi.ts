@@ -11,12 +11,14 @@ import * as impl3 from "./target.ts";
 import * as impl4 from "./tools.ts";
 import * as impl5 from "./di_builder.ts";
 import * as impl6 from "./inline_asm.ts";
+import * as impl7 from "./mangler.ts";
+import * as impl8 from "./symbol_wrapper.ts";
 
 export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Context, DIArray, DIBasicType, DIBuilder, DICompositeType, DIDerivedType, DIDescriptor, DIFile, DILexicalBlock, DILocation, DIScope, DISubprogram, DITemplateTypeParameter, DIType, DIVariable, DbgRecord, DiagnosticHandler, DiagnosticInfo, Linker, MCSubtargetInfo, Metadata, Module, OperandBundle, RustString, SMDiagnostic, TargetMachine, ThinLTOData, Twine, Type, Value } from "./handles.ts";
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 330 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 336 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -239,6 +241,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMDisposeOperandBundle",
   "LLVMBuildCallWithOperandBundles",
   "LLVMBuildInvokeWithOperandBundles",
+  "LLVMBuildCallBr",
   "LLVMCreateDIBuilder",
   "LLVMDisposeDIBuilder",
   "LLVMDIBuilderFinalize",
@@ -347,7 +350,12 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustContextGetDiagnosticHandler",
   "LLVMRustContextSetDiagnosticHandler",
   "LLVMRustContextConfigureDiagnosticHandler",
+  "LLVMRustGetMangledName",
   "LLVMRustGetElementTypeArgIndex",
+  "LLVMRustGetSymbols",
+  "LLVMRustIs64BitSymbolicFile",
+  "LLVMRustIsECObject",
+  "LLVMRustIsAnyArm64Coff",
 ]);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:888 LLVMContextCreate
@@ -1026,7 +1034,7 @@ export const LLVMBuildCallWithOperandBundles: (B: Builder, Ty: Type, Fn: Value, 
 export const LLVMBuildInvokeWithOperandBundles: (B: Builder, Ty: Type, Fn: Value, Args: readonly Value[], NumArgs: number, Then: BasicBlock, Catch: BasicBlock, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = bind("LLVMBuildInvokeWithOperandBundles", impl1.LLVMBuildInvokeWithOperandBundles);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1714 LLVMBuildCallBr
-export const LLVMBuildCallBr: (B: Builder, Ty: Type, Fn: Value, DefaultDest: BasicBlock, IndirectDests: readonly BasicBlock[], NumIndirectDests: number, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = stub("LLVMBuildCallBr");
+export const LLVMBuildCallBr: (B: Builder, Ty: Type, Fn: Value, DefaultDest: BasicBlock, IndirectDests: readonly BasicBlock[], NumIndirectDests: number, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundle[], NumBundles: number, Name: string | undefined) => Value = bind("LLVMBuildCallBr", impl1.LLVMBuildCallBr);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:1736 LLVMCreateDIBuilder
 export const LLVMCreateDIBuilder: (M: Module) => DIBuilder | undefined = bind("LLVMCreateDIBuilder", impl5.LLVMCreateDIBuilder);
@@ -1461,7 +1469,7 @@ export const LLVMRustContextSetDiagnosticHandler: (context: Context, diagnostic_
 export const LLVMRustContextConfigureDiagnosticHandler: (context: Context, diagnostic_handler_callback: unknown, diagnostic_handler_context: unknown, remark_all_passes: boolean, remark_passes: readonly string[], remark_passes_len: number, remark_file: string | undefined, pgo_available: boolean) => void = bind("LLVMRustContextConfigureDiagnosticHandler", impl3.LLVMRustContextConfigureDiagnosticHandler);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2599 LLVMRustGetMangledName
-export const LLVMRustGetMangledName: (V: Value, out: RustString) => void = stub("LLVMRustGetMangledName");
+export const LLVMRustGetMangledName: (V: Value, out: RustString) => void = bind("LLVMRustGetMangledName", impl7.LLVMRustGetMangledName);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2601 LLVMRustGetElementTypeArgIndex
 export const LLVMRustGetElementTypeArgIndex: (CallSite: Value) => number = bind("LLVMRustGetElementTypeArgIndex", impl1.LLVMRustGetElementTypeArgIndex);
@@ -1473,16 +1481,16 @@ export const LLVMRustLLVMHasZlibCompression: () => boolean = stub("LLVMRustLLVMH
 export const LLVMRustLLVMHasZstdCompression: () => boolean = stub("LLVMRustLLVMHasZstdCompression");
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2606 LLVMRustGetSymbols
-export const LLVMRustGetSymbols: (buf_ptr: Uint8Array | undefined, buf_len: number, state: unknown, callback: unknown, error_callback: unknown) => unknown = stub("LLVMRustGetSymbols");
+export const LLVMRustGetSymbols: (buf_ptr: Uint8Array | undefined, buf_len: number, state: unknown, callback: unknown, error_callback: unknown) => unknown = bind("LLVMRustGetSymbols", impl8.LLVMRustGetSymbols);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2614 LLVMRustIs64BitSymbolicFile
-export const LLVMRustIs64BitSymbolicFile: (buf_ptr: Uint8Array | undefined, buf_len: number) => boolean = stub("LLVMRustIs64BitSymbolicFile");
+export const LLVMRustIs64BitSymbolicFile: (buf_ptr: Uint8Array | undefined, buf_len: number) => boolean = bind("LLVMRustIs64BitSymbolicFile", impl8.LLVMRustIs64BitSymbolicFile);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2616 LLVMRustIsECObject
-export const LLVMRustIsECObject: (buf_ptr: Uint8Array | undefined, buf_len: number) => boolean = stub("LLVMRustIsECObject");
+export const LLVMRustIsECObject: (buf_ptr: Uint8Array | undefined, buf_len: number) => boolean = bind("LLVMRustIsECObject", impl8.LLVMRustIsECObject);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2618 LLVMRustIsAnyArm64Coff
-export const LLVMRustIsAnyArm64Coff: (buf_ptr: Uint8Array | undefined, buf_len: number) => boolean = stub("LLVMRustIsAnyArm64Coff");
+export const LLVMRustIsAnyArm64Coff: (buf_ptr: Uint8Array | undefined, buf_len: number) => boolean = bind("LLVMRustIsAnyArm64Coff", impl8.LLVMRustIsAnyArm64Coff);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2620 LLVMRustSetNoSanitizeAddress
 export const LLVMRustSetNoSanitizeAddress: (Global: Value) => void = stub("LLVMRustSetNoSanitizeAddress");

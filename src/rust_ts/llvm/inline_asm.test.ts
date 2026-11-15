@@ -3,10 +3,15 @@
 // FIXTURES: each row is a constraint string, the return and parameter types of the asm's function type, and what the pinned
 // `llvm-as` (nightly-2026-10-11's llvm-tools) says about `call <ret> asm sideeffect "", "<constraints>"(<params>)`: LLParser runs
 // `InlineAsm::verify` and prints its message (`null`: verify passed; rows LLParser accepted but the IR verifier rejected for
-// another reason, such as `!i` outside `callbr` or a missing `elementtype`, are `null` too). Generated once by a script that writes
-// the module, runs llvm-as and keeps the `error:` text; the strings cover what rustc's codegen_inline_asm builds (x86_64, aarch64)
-// and every failure path of `ParseConstraints`, `ConstraintInfo::Parse` and `verify`.
+// another reason, such as `!i` outside `callbr` or a missing `elementtype`, are `null` too). The strings cover what rustc's
+// codegen_inline_asm builds (x86_64, aarch64) and every failure path of `ParseConstraints`, `ConstraintInfo::Parse` and `verify`.
+// With the pinned toolchain present, "FIXTURES are the pinned llvm-as's answers" re-derives every row from llvm-as itself
+// (`llvmAsAnswer`, review cg-asm N2), so the table cannot drift from the oracle unnoticed.
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { PIN } from "../../../scripts/lib/common.ts";
+import { llvmBinDir } from "../../../scripts/lib/llvm-tools.ts";
 import * as L from "./ffi.ts";
 import { LLVMRustAppendModuleInlineAsm, ParseConstraints, printModuleInlineAsm, verify } from "./inline_asm.ts";
 import type { FunctionType, Type } from "./ir.ts";
@@ -96,7 +101,38 @@ function ty(s: string): Type {
   throw new Error(`ERROR: fixture type ${s}`);
 }
 
+const SYSROOT = (() => {
+  try {
+    const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"], { env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" } });
+    return r.exitCode === 0 ? r.stdout.toString().trim() : "";
+  } catch {
+    return "";
+  }
+})();
+const LLVM_AS = SYSROOT !== "" && process.platform === "darwin" && process.arch === "arm64" ? join(llvmBinDir(SYSROOT, "aarch64-apple-darwin"), "llvm-as") : "";
+const HAVE_LLVM_AS = LLVM_AS !== "" && existsSync(LLVM_AS);
+
+/** What the pinned llvm-as says about a row: the parser's `error:` message (LLParser returns `InlineAsm::verify`'s text), or
+ *  `null` when the parser accepts it, whatever the IR verifier says afterwards (see the header). */
+function llvmAsAnswer(cons: string, ret: string, params: readonly string[]): string | null {
+  const args = params.map((p, i) => `${p} %p${i}`).join(", ");
+  const call = `call ${ret} asm sideeffect "", "${cons}"(${args})`;
+  const text = `define void @f(${args}) {\n  ${ret === "void" ? "" : "%r = "}${call}\n  ret void\n}\n`;
+  const r = Bun.spawnSync([LLVM_AS, "-o", "/dev/null", "-"], { stdin: Buffer.from(text, "latin1"), stderr: "pipe" });
+  return /<stdin>:\d+:\d+: error: (.*)$/m.exec(r.stderr.toString())?.[1] ?? null;
+}
+
 describe("InlineAsm::verify", () => {
+  test.skipIf(!HAVE_LLVM_AS && process.env.RUST_TS_REQUIRE_PROBES !== "1")("FIXTURES are the pinned llvm-as's answers", () => {
+    const wrong: string[] = [];
+    for (const [cons, ret, params, llvm] of FIXTURES) {
+      const got = llvmAsAnswer(cons, ret, params);
+      if (got !== llvm) wrong.push(`${JSON.stringify(cons)} (${ret} <- ${params.join(", ")}): llvm-as ${got}, fixture ${llvm}`);
+    }
+    expect(wrong).toEqual([]);
+    expect(FIXTURES.length).toBe(65);
+  });
+
   test("matches the pinned LLVM on every fixture", () => {
     const wrong: string[] = [];
     for (const [cons, ret, params, llvm] of FIXTURES) {

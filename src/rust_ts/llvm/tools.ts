@@ -32,7 +32,7 @@ import { constants as osConstants } from "node:os";
 import { type CodeGenOptLevel, type CodeModel, type FileType, type FloatAbi, LLVMRustResult, type OptStage, type PassBuilderOptLevel, type RelocModel } from "./ffi_types.ts";
 import type { TargetMachine } from "./handles.ts";
 import { llvm_cl_args, type TargetMachineArgs } from "./target.ts";
-import { type Context, Module } from "./ir.ts";
+import { type Context, Module, NON_GLOBAL_VALUE_MAX_NAME_SIZE } from "./ir.ts";
 import { printModule } from "./printer.ts";
 import type { PtrLenStr, SanitizerOptions } from "./support.ts";
 import { oracle_toolchain, spawn_print_sysroot } from "../oracle_sysroot_env.ts";
@@ -115,7 +115,9 @@ export interface ToolRun {
  */
 export function run_pinned_tool(name: PinnedTool, args: readonly string[], stdin?: Uint8Array): ToolRun {
   const path = pinned_tool(name);
-  const r = Bun.spawnSync([path, ...args], { stdin: stdin ?? "ignore", stdout: "pipe", stderr: "pipe" });
+  // The tools that parse IR text on stdin (LLParser) take long local names verbatim when there are any (see `verbatimNameArgs`).
+  const verbatim = stdin !== undefined && (name === "opt" || name === "llc" || name === "llvm-as") ? verbatimNameArgs(stdin) : [];
+  const r = Bun.spawnSync([path, ...verbatim, ...args], { stdin: stdin ?? "ignore", stdout: "pipe", stderr: "pipe" });
   // The tool's own path starts its messages (`<argv0>: ...`) and its stack dumps: keep the machine's paths out of them.
   const stderr = r.stderr.toString().replaceAll(path, name);
   const stdout = new Uint8Array(r.stdout);
@@ -123,6 +125,41 @@ export function run_pinned_tool(name: PinnedTool, args: readonly string[], stdin
   const signal = String(r.signalCode ?? "unknown signal");
   const signo = (osConstants.signals as Record<string, number>)[signal] ?? 0;
   return { status: 128 + signo, signal, stdout, stderr };
+}
+
+/**
+ * PORT (lane llir-callbr-mangler, rg-fix-a G3): `-non-global-value-max-name-size=-1` for a tool that parses IR text holding a local
+ * name longer than LLVM's `NonGlobalValueMaxNameSize` (1024 bytes; Function.cpp:64), and nothing otherwise.
+ * - In-process LLVM can hold such names: `ValueSymbolTable::createValueName` truncates a name set on a value already in a function
+ *   (ValueSymbolTable.cpp:112), but `reinsertValue` (:82) keeps the whole name of a value named before it was inserted. rustc never
+ *   parses IR text, so it never meets the other rule: LLParser sets each local's name and rejects it when the name it gets back is
+ *   not the one written (`setInstName`, LLParser.cpp:4110, "multiple definition of local value named ..."). The model hands its
+ *   module to each pinned tool as text, so a module the in-process pipeline handles (regex_automata under `release-lto`) stopped.
+ * - With the flag, the parse takes every name as written: the module the tool reads is the one the model printed. The flag is a
+ *   global limit, so names that passes create in that same run are not truncated either, where in-process LLVM truncates them to
+ *   1024 bytes; that changes only local value names (never symbols, so never objects or behaviour), and only in modules that
+ *   already hold a name this long. Every other module runs with LLVM's default, as before.
+ * - The bitcode readers (llvm-dis, llvm-link's sources) truncate names as rustc's in-process bitcode parse does (fat LTO), and get
+ *   no flag; llvm-link gets it for its destination's text (`RustLinker`).
+ */
+export function verbatimNameArgs(text: Uint8Array): string[] {
+  return hasLongLocalName(text) ? ["-non-global-value-max-name-size=-1"] : [];
+}
+
+/** Whether IR text names a local value (`%name`, `%"name"`, or a block label `name:` at a line's start) longer than
+ *  `NON_GLOBAL_VALUE_MAX_NAME_SIZE` bytes, counting a quoted name's `\XX` escapes (AsmWriter's `printEscapedString`) as one byte. */
+export function hasLongLocalName(text: Uint8Array): boolean {
+  const s = bstrOf(text);
+  // A name this long is a long run of name bytes; anything shorter cannot qualify, so most modules return at the first test.
+  if (!/[^\s"]{1025}/.test(s) && !/"[^"\n]{1025}/.test(s)) return false;
+  const re = /(?:%|^)(?:"((?:[^"\\\n]|\\[0-9A-Fa-f]{2}|\\\\)*)"|([-a-zA-Z$._0-9]+))/gm;
+  for (const m of s.matchAll(re)) {
+    // A label (no `%`) must end in `:`.
+    if (m[0][0] !== "%" && s[m.index + m[0].length] !== ":") continue;
+    const len = m[1] !== undefined ? m[1].length - 2 * (m[1].match(/\\[0-9A-Fa-f]{2}/g)?.length ?? 0) : m[2]!.length;
+    if (len > NON_GLOBAL_VALUE_MAX_NAME_SIZE) return true;
+  }
+  return false;
 }
 
 /**
@@ -1188,7 +1225,8 @@ export function LLVMRustLinkerFree(L: RustLinker): void {
   });
   const where = `$RUST_TS_DATA/tmp/llir/${process.pid}/${dir.slice(dir.lastIndexOf("/") + 1)}`;
   const link = (inputs: readonly string[]): string => {
-    const r = run_pinned_tool("llvm-link", [...cl_args(), "-disable-debug-info-type-map", "-S", "-o", "-", ...inputs]);
+    // The destination is text (`verbatimNameArgs`); the sources are bitcode.
+    const r = run_pinned_tool("llvm-link", [...verbatimNameArgs(bytesOf(dstText)), ...cl_args(), "-disable-debug-info-type-map", "-S", "-o", "-", ...inputs]);
     if (r.status !== 0) panic(`llir: llvm-link failed on ${where} (${r.signal === undefined ? `exit ${r.status}` : `signal ${r.signal}`}): ${firstErrorLine(r.stderr)}`);
     if (r.stderr.trim() !== "") return unported(`llir: LLVMRustLinkerAdd with a linker diagnostic (rustc's diagnostic handler would print it): ${firstLine(r.stderr)} (${where})`);
     return bstrOf(r.stdout);
