@@ -83,7 +83,7 @@ describe("generic_simd_intrinsic's ported arms against the oracle", () => {
   test("simd_stop.rs: an arm that is not ported stops, naming cg-intrinsic-b", () => {
     const r = compile([process.execPath, MAIN], "simd_stop.rs", "port_stop.ll");
     expect(r.code).toBe(70);
-    expect(r.stderr).toContain("rust-ts: unported: cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic simd_fsqrt");
+    expect(r.stderr).toBe("rust-ts: unported: cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic simd_fsqrt\n");
   });
 });
 
