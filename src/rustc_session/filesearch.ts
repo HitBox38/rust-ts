@@ -174,8 +174,10 @@ let DEFAULT_SYSROOT: PathBuf | undefined;
  * - The string is taken as the oracle prints it, not re-derived or canonicalised: `Sysroot::all_paths` always lists the default
  *   after an explicit `--sysroot`, so the linker's `PATH` (and `--print link-args`) carries it, and the oracle's line has
  *   its own sysroot there.
- * - Every protected suite passes `--sysroot`, so `Sysroot::path` (target search, crate search, `--print sysroot`) is not this
- *   value there; only `all_paths` readers see it (the linker's `PATH`).
+ * - Most protected suites pass `--sysroot`, so `Sysroot::path` (target search, crate search, `--print sysroot`) is not this
+ *   value there; only `all_paths` readers see it (the linker's `PATH`). `parse`, `mir-core` and `check-core` pass none: their
+ *   compiles read it at `build_session` (`sopts.sysroot.path()` for the host target search), so they spawn the oracle's
+ *   `--print sysroot` once per compile and need the pinned toolchain resolvable in the case's environment (review w40r-audit N3).
  * - The oracle cannot be asked in every environment the port runs in: Miri cases run it under Miri's own `RUSTUP_HOME`, where
  *   `rustc +<pin>` fails, and some unit tests run it with no `PATH`. There the port cannot know its default sysroot, so it stops
  *   (`unported`) rather than guess; upstream always can, as it reads its own binary's location. So config.ts `Sysroot` reads
