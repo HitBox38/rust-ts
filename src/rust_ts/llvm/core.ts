@@ -78,6 +78,7 @@ import {
   VectorType,
 } from "./ir.ts";
 import { type BasicBlock, Inst } from "./inst.ts";
+import { verify as InlineAsm_verify } from "./inline_asm.ts";
 import { printEscapedString, printModule, printTypeToString, printValueToString } from "./printer.ts";
 import { Bool, type MetadataKindId, type MutRef, type PtrLenStr, RawEnum, type RustString } from "./support.ts";
 
@@ -480,14 +481,10 @@ export function LLVMGetInlineAsm(Ty: Type, AsmString: PtrLenStr | undefined, Asm
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:654 LLVMRustInlineAsmVerify
 export function LLVMRustInlineAsmVerify(Ty: Type, Constraints: PtrLenStr | undefined, ConstraintsLen: number): boolean {
-  // PORT (plan-m7 D10; root at integ-w57 from lane cg-register's handoff, review cg-register N3): `InlineAsm::verify`
-  // (InlineAsm.cpp:274) is not ported yet, so this answers "valid" for every constraint string. Upstream answers "invalid" only
-  // where rustc then ICEs (rustc_codegen_llvm asm.rs:363 `span_bug!`, intrinsic.rs:173 `bug!`), so the stand-in differs from
-  // upstream only on a path that would be a compiler bug. A port of `InlineAsm::verify` belongs with lane cg-asm.
-  void Constraints;
-  void ConstraintsLen;
+  // (`llvm::Error` converts to true if it is an error.)
+  // PORT (lane cg-asm, plan-m7 D10): `InlineAsm::verify` (InlineAsm.cpp:274) is modelled in inline_asm.ts.
   if (!(Ty instanceof FunctionType)) throw new Error("llvm: unwrap<FunctionType> of a type that is not a function type");
-  return true;
+  return InlineAsm_verify(Ty, bytesArg(Constraints, ConstraintsLen)) === undefined;
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1171 LLVMRustWriteValueToString
