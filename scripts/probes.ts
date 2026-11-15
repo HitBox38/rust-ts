@@ -32,11 +32,16 @@
 //                                  rustcDriverHash).
 //   sysroot_extern = ["crate", ...] (rustc-dev probes only) pin each named crate with `--extern` to
 //                                  the compiler's own copy in the sysroot: the one `.rmeta` with no
-//                                  `.rlib` beside it (compiler crates are shipped as metadata, their
-//                                  code is in librustc_driver; std's dependencies are `.rlib`s). For a
-//                                  crate both have, as `object` 0.39.1: `extern crate` alone finds
-//                                  two candidates (E0464), and only the compiler's is built with
-//                                  `write` (lane harness-w40s, probe objwrite).
+//                                  `.rlib` beside it. Only such a metadata-only crate can be pinned:
+//                                  every metadata-only crate is a compiler crate (its code is in
+//                                  librustc_driver), but not every compiler crate is metadata-only, as
+//                                  the pinned rustc-dev component also ships 3 `.rlib`s
+//                                  (`manifest-rustc-dev-<host>`: rustc_public, rustc_public_bridge,
+//                                  tikv_jemalloc_sys). Naming one of those stops with "no metadata-only
+//                                  ...", never with the wrong copy (review harness-w40s N1). For a
+//                                  crate both std and the compiler have, as `object` 0.39.1: `extern
+//                                  crate` alone finds two candidates (E0464), and only the compiler's
+//                                  is built with `write` (lane harness-w40s, probe objwrite).
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, hash, parseArgs, requireUpstream, run } from "./lib/common.ts";

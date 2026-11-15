@@ -1,0 +1,29 @@
+{
+ "comment": "The fixed corpus of rg-behaviour (lane harness-m7d): path to contents, text or {base64}. scripts/rg-behaviour.ts writes it out, with an empty .git directory at its root, for every query.",
+ "files": {
+  "README.md": "# Sample project\n\nThis is a small corpus for ripgrep's behaviour suite.\nIt mentions foo, Foo and FOO, and also foobar and barfoo.\nThe quick brown fox jumps over the lazy dog.\nTODO: write more documentation\n",
+  "src/main.rs": "use std::collections::HashMap;\n\nfn main() {\n    let mut counts: HashMap<String, usize> = HashMap::new();\n    for word in \"foo bar foo baz\".split_whitespace() {\n        *counts.entry(word.to_string()).or_insert(0) += 1;\n    }\n    // TODO: sort the output\n    println!(\"{:?}\", counts.get(\"foo\"));\n}\n\nfn helper(x: i32) -> i32 {\n    x * 2 // FIXME: overflow\n}\n",
+  "src/lib.rs": "//! Library docs.\n\npub struct Point {\n    pub x: f64,\n    pub y: f64,\n}\n\nimpl Point {\n    pub fn new(x: f64, y: f64) -> Self {\n        Point { x, y }\n    }\n\n    pub fn norm(&self) -> f64 {\n        (self.x * self.x + self.y * self.y).sqrt()\n    }\n}\n",
+  "scripts/tool.py": "#!/usr/bin/env python3\nimport sys\n\ndef foo(args):\n    \"\"\"Return the number of args.\"\"\"\n    return len(args)\n\nif __name__ == \"__main__\":\n    print(foo(sys.argv))  # TODO: argparse\n",
+  "scripts/generated.txt": "generated foo, hidden by .rgignore\n",
+  "docs/unicode.txt": "Grüße aus Köln\nΣίσυφος ΣΊΣΥΦΟΣ\nemoji: 🦀 crab\nstraße STRASSE\nnaïve café\n",
+  "docs/crlf.txt": "line one\r\nline two foo\r\nline three\r\n",
+  "docs/multiline.txt": "start block\nfoo\nbar\nend block\n\nstart block\nbaz\nend block\n",
+  "data/numbers.csv": "id,name,value\n1,alpha,10\n2,beta,20\n3,gamma,30\n42,foo,4200\n",
+  "data/binary.bin": {
+   "base64": "aGVhZGVyIGZvbwoAAAECIGZvbyBhZ2Fpbgr//iB0cmFpbGluZyBmb28K"
+  },
+  "data/latin1.txt": {
+   "base64": "Y2Fm6SBhdSBsYWl0Cm5h73ZlIGZvbwo="
+  },
+  ".gitignore": "*.log\nbuild/\n!keep.log\n",
+  ".rgignore": "generated.txt\n",
+  "app.log": "ERROR foo failed (ignored by .gitignore)\n",
+  "keep.log": "kept log foo (re-included by .gitignore)\n",
+  "build/output.txt": "build artifact foo (ignored by .gitignore)\n",
+  ".hidden/secret.txt": "hidden foo\n",
+  "empty.txt": "",
+  "patterns.txt": "alpha\ngamma\n",
+  "words.txt": "foo\nfoobar\nbarfoo\nfoo_bar\nFoo\nFOO\nfo\nf.o\nfoo foo foo\n  indented foo\ntab\tfoo\n"
+ }
+}

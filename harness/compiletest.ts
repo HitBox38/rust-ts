@@ -1094,7 +1094,7 @@ function compileEnv(p: Props): Record<string, string | null> {
 // ---- auxiliary crates (see the header) ----
 
 /** Stands for the case's aux directory in argv until it is known (it is keyed by the commands). */
-const AUX_DIR = "@RUST_TS_AUX_DIR@";
+export const AUX_DIR = "@RUST_TS_AUX_DIR@";
 
 export interface AuxStep {
   file: string;
@@ -1301,7 +1301,7 @@ const AUX_INHERITED_ENV = ["HOME", "USERPROFILE", "SYSTEMROOT", "RUSTUP_HOME", "
  * `NOCORE_ENV`: no ICE report file in the upstream checkout, no backtrace), then the aux file's own `rustc-env` /
  * `unset-rustc-env` (`compose_and_run_compiler`). Nothing else from the caller's environment reaches it.
  */
-function auxEnv(step: AuxStep): Record<string, string> {
+export function auxEnv(step: AuxStep): Record<string, string> {
   const env: Record<string, string> = {};
   for (const k of AUX_INHERITED_ENV) {
     const v = getEnv(process.env, k);

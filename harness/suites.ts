@@ -8,10 +8,14 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
+import { RG_BUILD, RG_BUILD_SOURCES, hostToolsId } from "../scripts/rg-build.ts";
+import { noResultReason } from "../scripts/lib/rg-build.ts";
+import { RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
+import { AUX_PLACEHOLDER } from "../scripts/pm-self-run.ts";
 import type { IrTier } from "../scripts/lib/ir-normal.ts";
 import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
-import { COMPILETEST_TARGET, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, withCompiletestTarget, type Blessed, type ErrorFormat, type RunProps, type UiCase } from "./compiletest.ts";
+import { AUX_DIR, COMPILETEST_TARGET, auxEnv, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, withCompiletestTarget, type AuxStep, type Blessed, type ErrorFormat, type RunProps, type UiCase } from "./compiletest.ts";
 import { MIRI_SYSROOT_CORPUS, MIRI_SYSROOT_SUITE_CRATES } from "./miri-sysroot.ts";
 import { subjectCmd } from "../scripts/lib/subject-bin.ts";
 import { AUX_STALE_MS, EMPTY_SYSROOT, M5_TARGET, libArgs, libClosure, libCrate, libEnv, oracleLibRmeta, pruneStaleAux, touchAuxDir } from "./library.ts";
@@ -129,6 +133,13 @@ export interface Suite {
    * command.
    */
   miri?: boolean;
+  /**
+   * The suite's own mark of an oracle output that is no result (lane harness-m7d, review harness-m7d F2): the reason, if the oracle's stderr
+   * has it. difftest treats it as `UNSTABLE_ORACLE_PATTERNS`: the output is never cached, the case is UNSTABLE (scripts/difftest.ts
+   * `oracleUnstableReason`). The ripgrep suites set it to lib/rg-build.ts `noResultReason`, so an interrupted or failed oracle build of rg
+   * is never kept as the oracle's answer. Unset: as before.
+   */
+  uncachedOracle?(stderr: string): string | undefined;
   /**
    * The suite compares programs' output (the native suites, scripts/native-run.ts): difftest masks stdout and stderr further with
    * scripts/lib/unstable.ts `maskProgramOutput` (the thread id, also on stdout, and libtest's `finished in N.NNs`; root's decision for review
@@ -1836,9 +1847,9 @@ export function pinProcMacroEnv(c: Case, auxFiles: readonly string[] = []): Case
   if (add.length === 0) return c;
   return { ...c, env: { ...c.env, ...Object.fromEntries(add.map((v) => [v, null])) } };
 }
-let pmCorpusMemo: { cases: Case[]; skipped: SkippedCase[] } | undefined;
-/** The proc-macro tests' cases (see above), compiletest's main compile without the parse-ui flag. */
-function pmCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
+let pmCorpusMemo: { cases: Case[]; skipped: SkippedCase[]; auxSteps: Map<string, AuxStep[]> } | undefined;
+/** The proc-macro tests' cases (see above), compiletest's main compile without the parse-ui flag; and each case's aux builds, for pm-self. */
+function pmCorpus(): { cases: Case[]; skipped: SkippedCase[]; auxSteps: Map<string, AuxStep[]> } {
   if (pmCorpusMemo) return pmCorpusMemo;
   const ui = uiFileCases(collectUiTests("tests/ui").sort(), "human", { aux: true, auxTimeoutMs: PM_ORACLE_TIMEOUT_MS, procMacro: true, needs: true });
   const cases = ui.cases.map((c) => {
@@ -1849,7 +1860,7 @@ function pmCorpus(): { cases: Case[]; skipped: SkippedCase[] } {
     const aux = ui.auxFiles.get(c.id);
     return pinProcMacroEnv(pinSessionEnv({ id: c.id, file: c.file, args: c.args.slice(0, -1), env: { ...NOCORE_ENV, ...c.env } }, aux), aux);
   });
-  return (pmCorpusMemo = { cases, skipped: ui.skipped });
+  return (pmCorpusMemo = { cases, skipped: ui.skipped, auxSteps: ui.auxSteps });
 }
 /** pm-ui's argv: `--emit=metadata` unless compiletest already passes `--emit metadata` (check modes). */
 export const pmUiArgs = (args: readonly string[]): string[] => (args.some((a, i) => a === "--emit" && args[i + 1] === "metadata") ? [...args] : [...args, "--emit=metadata"]);
@@ -2799,6 +2810,170 @@ SUITES.push(
     unstable: nativeUnstable("run-fail-native"),
     criterion: { percent: 95, what: M7B("M7c: run-fail-native >= 95%") },
   }),
+);
+
+// M7d's suites (plan-m7 §6, D9, D11, D19; lane harness-m7d). All report only: no baseline, so none is in the gate's defaults. Each names its
+// side's compiler after the wrapper's `--` (or in `--compiler`): the oracle's rustc (`<sysroot>/bin/rustc`, or `rustc +<pin>`), or the port
+// (`bunCmd`), with the oracle's sysroot as `--sysroot` where cargo drives it, as check-rg does.
+// - `rg-build`: scripts/rg-build.ts. A real `cargo build --release` of ripgrep 15.2.0 (pinned `Cargo.lock`) with every compiler call, build
+//   scripts and the link included, on the side's compiler; the stock release profile (`debug = 1`), `CARGO_INCREMENTAL=0`, `-j1`. One case:
+//   cargo's exit, its stderr normalised, `rg --version`, the compiler calls and the artifacts. Heavy: one side at a time, at one target path.
+// - `rg-behaviour`: scripts/rg-behaviour.ts `query`, one case per scripted query (harness/corpus/rg-behaviour/queries.json) on the fixed corpus
+//   beside it, run by the `rg` each side's rg-build made (built first if no build of the current key is kept): rg's stdout, stderr and exit.
+// - `rg-behaviour-rgtest`: ripgrep's own integration tests (333 `rgtest!` and the rest), an oracle-built test binary running each side's `rg`,
+//   one section per test. A suite of its own rather than part of `rg-behaviour`, so the M7d criterion "rg-behaviour's scripted set MATCH"
+//   is a whole suite's figure: scripts/criteria.ts sums suites, not subsets.
+// - `pm-self`: pm-ui's cases with every aux crate, proc macros included, built by the side's compiler (scripts/pm-self-run.ts), so the port's
+//   side loads proc macros the port built; the oracle's side builds everything with the oracle. M7d needs one MATCH.
+// - `std-self`: port-built core, alloc and std, hello linked against them and run. Defined, with no case yet: see `STD_SELF_SKIP`.
+const M7D = (what: string) => `plan-m7 gate M7d: ${what}; report until accepted`;
+/** The compiler of an rg suite's side: the oracle toolchain's rustc by path (cargo runs it), or the port with that sysroot. */
+const rgCompiler = (side: "oracle" | "subject"): string[] => (side === "oracle" ? [join(oracleSysroot(), "bin", "rustc")] : [...bunCmd(RUSTC_DRIVER_ENTRY), "--sysroot", oracleSysroot()]);
+let rgBuildKeyMemo: string | undefined;
+/** `Suite.oracleKey` of the rg-build suites: rg-build's sources, the oracle rustc build and the host tools that link `rg`; rg-behaviour adds its own. */
+const rgBuildOracleKey = (): string => (rgBuildKeyMemo ??= hash([...RG_BUILD_SOURCES.map((f) => hash(readFileSync(f))), rustcDriverHash(), hostToolsId()].join("\0")));
+const rgBehaviourOracleKey = (): string => hash([rgBuildOracleKey(), ...[RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES].map((f) => hash(readFileSync(f)))].join("\0"));
+const requireRg = () => {
+  if (!rgIsSetUp()) die(`ripgrep is not set up in ${RG_ROOT}; run: bun scripts/rg-check.ts setup`);
+};
+/** A scripted query's directory, which both sides use in turn under the case lock. */
+const rgQueryDir = (c: Case): string => join(RG_ROOT, "behaviour", hash(c.id).slice(0, 16));
+const rgQueryCmd = (side: "oracle" | "subject", c: Case): string[] => {
+  const stdin = rgQueries().find((q) => q.id === c.id)?.stdin;
+  return [process.execPath, RG_BEHAVIOUR, "query", "--side", side, "--dir", rgQueryDir(c), "--query", JSON.stringify(stdin === undefined ? { args: c.args } : { args: c.args, stdin }), "--", ...rgCompiler(side)];
+};
+/** A pm-self case's directory: its aux crates are built in `<dir>/aux` by each side in turn, under the case lock. */
+const pmSelfDir = (c: Case): string => join(DATA, "pm-self", hash(c.id).slice(0, 16));
+let pmSelfMemo: Case[] | undefined;
+/**
+ * pm-self's cases: each pm-ui case as `--aux-key <key> --step <JSON>... -- <pm-ui's main argv>`, pm-ui's oracle-built aux directory written
+ * back as the placeholder in every argv (scripts/pm-self-run.ts fills in its own), each step with the environment pm-ui's oracle build of
+ * it has (`auxEnv`). The key is that directory's name, harness/compiletest.ts `auxKey`.
+ */
+function pmSelfCases(): Case[] {
+  if (pmSelfMemo) return pmSelfMemo;
+  if (AUX_DIR !== AUX_PLACEHOLDER) throw new Error("ERROR: harness/compiletest.ts AUX_DIR and scripts/pm-self-run.ts AUX_PLACEHOLDER differ");
+  const pm = pmCorpus();
+  const auxRoot = `${join(DATA, "aux", "ui")}/`;
+  return (pmSelfMemo = pm.cases.map((c): Case => {
+    const steps = pm.auxSteps.get(c.id);
+    const dirArg = steps?.flatMap((s) => s.args).find((a) => a.includes(auxRoot));
+    const m = dirArg === undefined ? null : new RegExp(`${auxRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([0-9a-f]{16})`).exec(dirArg);
+    if (!steps || !m) throw new Error(`ERROR: pm-self: ${c.id} has no oracle-built aux directory in its aux steps`);
+    const dir = join(DATA, "aux", "ui", m[1]!);
+    const back = (args: readonly string[]) => args.map((a) => a.replaceAll(dir, AUX_DIR));
+    const stepArgs = steps.flatMap((s) => ["--step", JSON.stringify({ file: s.file, args: back(s.args), env: auxEnv(s) })]);
+    return { ...c, args: ["--aux-key", m[1]!, ...stepArgs, "--", ...back(pmUiArgs(c.args))] };
+  }));
+}
+const pmSelfCmd = (side: "oracle" | "subject", c: Case): string[] => [process.execPath, PM_SELF_RUN, "--side", side, "--dir", pmSelfDir(c), "--compiler", JSON.stringify(side === "oracle" ? oracleRustcCmd([]) : bunCmd(RUSTC_DRIVER_ENTRY)), ...c.args];
+/** The wrapper both sides of pm-self run (under Bun). */
+export const PM_SELF_RUN = join(REPO, "scripts", "pm-self-run.ts");
+/**
+ * Why std-self has no case yet (plan-m7 §3, D6: a report, needed by M9). A port-built sysroot is 20-odd crates (core, compiler_builtins,
+ * alloc, std and its dependencies, with build scripts), each a codegen compile; the port's front end alone takes about 12 GB on core
+ * (miri-sysroot-core: 10-10.8 GB), and this host has memory for one such compile beside the running lanes, not a sysroot build in a
+ * wave. No harness change on the way to it is untried today; docs/handoff/harness-m7d.md has the design.
+ */
+export const STD_SELF_SKIP = "not run yet (lane harness-m7d): a port-built core/alloc/std sysroot is too heavy to build on this host in a wave (12 GB on core alone); docs/handoff/harness-m7d.md has the plan";
+
+SUITES.push(
+  {
+    name: "rg-build",
+    milestone: "M7",
+    uncachedOracle: noResultReason,
+    description:
+      "ripgrep 15.2.0 under a real `cargo build --release` (pinned Cargo.lock, D19) with every compiler call on the side's compiler: build scripts (which cargo runs), every crate and the link of rg. Stock release profile (debug = 1), CARGO_INCREMENTAL=0, -j1, one target path for both sides: cargo's exit, its stderr (paths and time normalised, Compiling lines sorted), rg --version, each call's exit and stderr, the artifacts' names and the dep-info and build-script outputs' bytes (scripts/rg-build.ts)",
+    mode: "single",
+    // A port build is ~50 compiles with codegen, one at a time; the oracle's took 71 s with 1-minute load around 30.
+    timeoutMs: 6 * 3_600_000,
+    oracleTimeoutMs: 1_800_000,
+    heavy: M5_HEAVY,
+    cwd: RG_ROOT,
+    inputDirs: RG_INPUT_DIRS,
+    cases: () => {
+      requireRg();
+      return [{ id: RG_SRC, file: join(RG_SRC, "Cargo.lock"), args: ["release", "-j1"] }];
+    },
+    oracleKey: rgBuildOracleKey,
+    oracle: () => [process.execPath, RG_BUILD, "run", "--side", "oracle", "--", ...rgCompiler("oracle")],
+    subject: () => [process.execPath, RG_BUILD, "run", "--side", "subject", "--", ...rgCompiler("subject")],
+    criterion: { percent: 100, what: M7D("rg-build passes with the stock release profile") },
+  },
+  {
+    name: "rg-behaviour",
+    milestone: "M7",
+    uncachedOracle: noResultReason,
+    description:
+      "scripted rg queries (search modes, regex features, -i, -w, -F, -c, -l, --json, globs, .gitignore, binary detection, multiline, replacements, ...) on a fixed corpus (harness/corpus/rg-behaviour), run by the rg each side's rg-build made: rg's stdout, stderr (--json and --stats times masked) and exit (scripts/rg-behaviour.ts)",
+    mode: "single",
+    // The first case of a side builds its rg if no build of the current key is kept (rg-build's limits); a query has 30 s.
+    timeoutMs: 6 * 3_600_000,
+    oracleTimeoutMs: 1_800_000,
+    heavy: M5_HEAVY,
+    cwd: RG_ROOT,
+    inputDirs: RG_INPUT_DIRS,
+    cases: () => {
+      requireRg();
+      return rgQueries().map((q): Case => ({ id: q.id, file: "", args: q.args }));
+    },
+    caseLock: (c) => `${rgQueryDir(c)}.case.lock`,
+    oracleKey: rgBehaviourOracleKey,
+    oracle: ([c]) => rgQueryCmd("oracle", c!),
+    subject: ([c]) => rgQueryCmd("subject", c!),
+    criterion: { percent: 100, what: M7D("rg-behaviour's scripted set MATCH") },
+  },
+  {
+    name: "rg-behaviour-rgtest",
+    milestone: "M7",
+    uncachedOracle: noResultReason,
+    description:
+      "ripgrep 15.2.0's own integration tests (tests/tests.rs: 333 rgtest! and the rest), one oracle-built test binary running each side's rg from rg-build: each test's ok/FAILED/ignored, and the test binary's exit (scripts/rg-behaviour.ts rgtest); report only",
+    mode: "split",
+    split: "rmetadump",
+    timeoutMs: 6 * 3_600_000,
+    oracleTimeoutMs: 1_800_000,
+    heavy: M5_HEAVY,
+    cwd: RG_ROOT,
+    inputDirs: RG_INPUT_DIRS,
+    cases: () => {
+      requireRg();
+      return [{ id: "integration", file: "", args: [] }];
+    },
+    oracleKey: () => hash([rgBuildOracleKey(), hash(readFileSync(RG_BEHAVIOUR)), "rgtest"].join("\0")),
+    oracle: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "oracle", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("oracle")],
+    subject: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "subject", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("subject")],
+  },
+  {
+    name: "pm-self",
+    milestone: "M7",
+    description:
+      "pm-ui's cases with every auxiliary crate, proc macros included, built by the side's own compiler before its main compile (scripts/pm-self-run.ts), so the port loads proc macros the port built; the oracle builds everything on its side: each aux build's exit and stderr, then the main compile's stdout, stderr and exit; report only, M7d needs 1 MATCH",
+    mode: "single",
+    // A port build of a proc-macro crate is a codegen compile and a link, per aux crate.
+    timeoutMs: 900_000,
+    oracleTimeoutMs: PM_ORACLE_TIMEOUT_MS,
+    cases: pmSelfCases,
+    skipped: () => pmCorpus().skipped,
+    caseLock: (c) => `${pmSelfDir(c)}.case.lock`,
+    oracleKey: () => hash([hash(readFileSync(PM_SELF_RUN)), rustcDriverHash()].join("\0")),
+    oracle: ([c]) => pmSelfCmd("oracle", c!),
+    subject: ([c]) => pmSelfCmd("subject", c!),
+    subsets: { "tests/ui/proc-macro": inDirs(["tests/ui/proc-macro"]) },
+  },
+  {
+    name: "std-self",
+    milestone: "M7",
+    description: "port-built core, alloc and std (plan-m7 §3, D6), then std's hello world built and linked against them and run; report only (M9). No case yet: see its skip",
+    mode: "single",
+    timeoutMs: 6 * 3_600_000,
+    heavy: M5_HEAVY,
+    cwd: REPO,
+    cases: () => [],
+    skipped: () => [{ id: "hello", reason: STD_SELF_SKIP }],
+    oracle: () => oracleRustcCmd([]),
+    subject: () => [...bunCmd(RUSTC_DRIVER_ENTRY)],
+  },
 );
 
 export function suite(name: string): Suite {
