@@ -54,6 +54,28 @@
       }
     }
   },
+  "tools": {
+    "comment": "M8's tools, ported like Miri (plan-m8 D1, D4; lane tools-prep-m8): each `crates` entry is a coverage crate over `root` (upstream-relative), with `excluded` and `partial` relative to it as Miri's. src/tools/clippy/<crate>/src/<path>.rs -> src/<crate>/<path>.ts; src/tools/clippy/src/<path>.rs -> src/clippy/<path>.ts; src/tools/rustfmt/src/<path>.rs -> src/rustfmt/<path>.ts. Markers `// rustc: src/tools/<tool>/.../<path>.rs:<line> <name>`. `excluded`: the tools' upstream trees that are out of M8, with reasons; a `// rustc:` marker under src/tools/ outside every root (and Miri's) is an ERROR of `coverage.ts --check`. declare_clippy_lint and rustc_tools_util are counted (plan-m8 §1c's in-scope total, D14's clippy-contract-a) though D4 does not name them; their macros come from tools/codegen (D5).",
+    "crates": {
+      "clippy_lints": { "root": "src/tools/clippy/clippy_lints/src", "excluded": {}, "partial": {} },
+      "clippy_utils": { "root": "src/tools/clippy/clippy_utils/src", "excluded": {}, "partial": {} },
+      "clippy_config": { "root": "src/tools/clippy/clippy_config/src", "excluded": {}, "partial": {} },
+      "clippy": { "root": "src/tools/clippy/src", "excluded": {}, "partial": {} },
+      "declare_clippy_lint": { "root": "src/tools/clippy/declare_clippy_lint/src", "excluded": {}, "partial": {} },
+      "rustc_tools_util": { "root": "src/tools/clippy/rustc_tools_util/src", "excluded": {}, "partial": {} },
+      "rustfmt": { "root": "src/tools/rustfmt/src", "excluded": {}, "partial": {} }
+    },
+    "excluded": {
+      "src/tools/clippy/clippy_dev": "clippy's developer tool, not in the clippy-preview component (plan-m8 D4)",
+      "src/tools/clippy/lintcheck": "clippy's lint-checking tool for crates.io crates, not in the component (plan-m8 D4)",
+      "src/tools/clippy/clippy_lints_internal": "clippy's internal lints, built only with feature `internal`, not in the component (plan-m8 §1c, D4)",
+      "src/tools/clippy/clippy_dummy": "a placeholder crate, not in the component (plan-m8 D4)",
+      "src/tools/clippy/clippy_test_deps": "the ui tests' dependencies, built by the oracle's cargo (plan-m8 D10)",
+      "src/tools/rustfmt/check_diff": "rustfmt's CI tool comparing two rustfmt builds, not in the rustfmt-preview component (plan-m8 D4)",
+      "src/tools/rustfmt/ci": "rustfmt's CI helper, not in the component",
+      "src/tools/rustfmt/config_proc_macro": "proc macros; replaced by tools/codegen (plan-m8 D5)"
+    }
+  },
   "vendor": {
     "ar_archive_writer": "=0.5.3",
     "pathdiff": "=0.2.3",

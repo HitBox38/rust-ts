@@ -53,5 +53,26 @@ describe("llvm-wrapper", () => {
   });
 });
 
+describe("M8's tool crates (harness/scope.json tools, plan-m8 D4)", () => {
+  test("--crate: each tool crate's denominator at the pin (plan-m8 section 1c)", () => {
+    const totals: Record<string, number> = { clippy_lints: 3295, clippy_utils: 982, clippy_config: 108, clippy: 24, declare_clippy_lint: 4, rustc_tools_util: 11, rustfmt: 1595 };
+    for (const [c, n] of Object.entries(totals)) expect(cov("--crate", c).at(-1)).toMatch(new RegExp(`^TOTAL \\d+/${n} fns ported \\(\\d+\\.\\d\\d%\\) in ${c}$`));
+  });
+  test("--crate rustfmt counts its bins and src/test, and no tree outside src/", () => {
+    const files = cov("--crate", "rustfmt").slice(0, -1).map((l) => l.trim().split(/\s+/)[1]!);
+    expect(files).toContain("src/tools/rustfmt/src/bin/main.rs");
+    expect(files).toContain("src/tools/rustfmt/src/test/mod.rs");
+    expect(files.every((f) => f.startsWith("src/tools/rustfmt/src/"))).toBe(true);
+  });
+  test("--missing on clippy's driver lists its fns", () => {
+    const out = cov("--missing", "src/tools/clippy/src/driver.rs");
+    expect(out[0]).not.toStartWith("note:");
+    expect(out.at(-1)).toMatch(/^\d+\/12 ported$/);
+  });
+  test("--missing on a tree out of M8: a note names the tools.excluded entry", () => {
+    expect(cov("--missing", "src/tools/clippy/clippy_dev/src/lib.rs")[0]).toStartWith("note: src/tools/clippy/clippy_dev/src/lib.rs is out of scope (harness/scope.json tools.excluded src/tools/clippy/clippy_dev:");
+  });
+});
+
 // That no runner test file (this one included) loads scripts/lib/common.ts in the gate's runner step is checked for every such file
 // by scripts/lib/unit-steps.test.ts (review scope-m7 N4).
