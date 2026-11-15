@@ -8,6 +8,7 @@
 //   gep: [ptr, idx...]   br: [dest] or [cond, then, else]   switch: [cond, default, (value, dest)...]   ret: [] or [v]
 //   phi: [values...] (blocks in `phiBlocks`)   select: [c, t, f]   landingpad: [clauses...]   resume: [v]
 //   call: [args..., bundle inputs..., callee]   invoke: [args..., bundle inputs..., normal, unwind, callee]
+//   callbr: [args..., bundle inputs..., default dest, indirect dests..., callee] (`numIndirectDests`)
 //   insertvalue: [agg, v]   extractelement: [v, idx]   insertelement: [v, elt, idx]   shufflevector: [v1, v2] (`mask`)
 //   atomicrmw: [ptr, v]   cmpxchg: [ptr, cmp, new]   cleanuppad/catchpad: [parent, args...]   catchswitch: [parent, handlers...]
 //   (unwind in `unwindDest`)   cleanupret: [pad] or [pad, unwind]   catchret: [pad, dest]
@@ -217,6 +218,8 @@ export class Inst extends Instruction {
   /** Call-site `AttributeList`: index -> attribute key -> attribute (as `Function.attributes`). */
   readonly attributes = new Map<number, Map<string, Attribute>>();
   bundles: { tag: string; count: number }[] = [];
+  /** callbr (`CallBrInst::NumIndirectDests`). */
+  numIndirectDests = 0;
   /** catchswitch. */
   unwindDest: BasicBlock | undefined;
 
@@ -709,6 +712,15 @@ export class IRBuilder {
     return this.insert(ii, name);
   }
 
+  // llvm: llvm/include/llvm/IR/IRBuilder.h:1300 CreateCallBr
+  /** `CreateCallBr(Ty, Callee, DefaultDest, IndirectDests, Args, OpBundles, Name)`: `CallBrInst::Create` (Instructions.h:4117), whose
+   *  constructor runs `init`, then `Insert`. */
+  createCallBr(fty: FunctionType, callee: Value, defaultDest: BasicBlock, indirectDests: readonly BasicBlock[], args: readonly Value[], bundles: readonly OperandBundleDef[], name: string): Inst {
+    const cbi = new Inst("callbr", fty.returnType, []);
+    callBrInit(cbi, fty, callee, defaultDest, indirectDests, args, bundles);
+    return this.insert(cbi, name);
+  }
+
   // ---- intrinsics (IRBuilder.cpp) ----
 
   // llvm: llvm/lib/IR/IRBuilder.cpp:296 IRBuilderBase::CreateMemTransferInst
@@ -769,6 +781,25 @@ function setCallBase(c: Inst, fty: FunctionType, numArgs: number, bundles: reado
   c.fnType = fty;
   c.numArgs = numArgs;
   c.bundles = bundles.map((b) => ({ tag: b.tag, count: b.inputs.length }));
+}
+
+// llvm: llvm/lib/IR/Instructions.cpp:939 CallBrInst::init
+/** The operands in LLVM's order (`ComputeNumOperands`: args, bundle inputs, the default and indirect destinations, the callee);
+ *  `setName` is the builder's `Insert`. The signature checks are `#ifndef NDEBUG` asserts, off in the oracle's build. */
+function callBrInit(cbi: Inst, FTy: FunctionType, Fn: Value, Fallthrough: BasicBlock, IndirectDests: readonly BasicBlock[], Args: readonly Value[], Bundles: readonly OperandBundleDef[]): void {
+  cbi.fnType = FTy;
+  // Set operands in order of their index to match use-list-order
+  // prediction.
+  for (const a of Args) cbi.addOperand(a);
+  cbi.numIndirectDests = IndirectDests.length;
+  // `populateBundleOperandInfos` fills the bundle inputs after the arguments.
+  for (const b of Bundles) for (const v of b.inputs) cbi.addOperand(v);
+  // `setDefaultDest`, `setIndirectDest(i, ..)`, `setCalledOperand`.
+  cbi.addOperand(Fallthrough);
+  for (let i = 0; i !== cbi.numIndirectDests; ++i) cbi.addOperand(IndirectDests[i]!);
+  cbi.addOperand(Fn);
+  cbi.numArgs = Args.length;
+  cbi.bundles = Bundles.map((b) => ({ tag: b.tag, count: b.inputs.length }));
 }
 
 /** `DataLayout::getTypeStoreSize(Ty)` (DataLayout.h: `getTypeSizeInBits` rounded up to whole bytes) for the types an atomic
@@ -935,7 +966,7 @@ function printInstruction(I: Inst, p: Printer): string {
     o += ` from ${w(ops[0]!, false)} to ${w(ops[1]!, true)}`;
   } else if (I.opcode === "cleanupret") {
     o += ` from ${w(ops[0]!, false)} unwind ${ops.length > 1 ? w(ops[1]!, true) : "to caller"}`;
-  } else if (I.opcode === "call" || I.opcode === "invoke") {
+  } else if (I.opcode === "call" || I.opcode === "invoke" || I.opcode === "callbr") {
     o += printCallBase(I, p);
   } else if (I.opcode === "alloca") {
     o += ` ${p.type(I.allocatedType!)}`;
@@ -983,17 +1014,20 @@ function printInstruction(I: Inst, p: Printer): string {
   return o;
 }
 
-/** The call and invoke arms of `printInstruction`. */
+/** The call, invoke and callbr arms of `printInstruction` (AsmWriter.cpp:4619, :4691, :4735). */
 function printCallBase(I: Inst, p: Printer): string {
   const fty = I.fnType!;
   const callee = I.callee;
   let o = callingConv(I.callingConv);
   const ret = I.attributes.get(0);
   if (ret?.size) o += ` ${p.attributeSet(ret)}`;
-  // `maybePrintCallAddrSpace`: the callee's address space, forced when the program address space is not 0.
-  const m = I.parent?.parentFn?.parent;
-  const callAS = (callee.type as PointerType).addressSpace;
-  if (callAS !== 0 || m === undefined || m.layoutAddressSpace("P") !== 0) o += ` addrspace(${callAS})`;
+  // `maybePrintCallAddrSpace`: the callee's address space, forced when the program address space is not 0. The callbr arm
+  // does not call it (AsmWriter.cpp:4735-4750).
+  if (I.opcode !== "callbr") {
+    const m = I.parent?.parentFn?.parent;
+    const callAS = (callee.type as PointerType).addressSpace;
+    if (callAS !== 0 || m === undefined || m.layoutAddressSpace("P") !== 0) o += ` addrspace(${callAS})`;
+  }
   o += ` ${p.type(fty.isVarArg ? fty : fty.returnType)} ${p.operand(callee, false)}(`;
   const args: string[] = [];
   for (let i = 0; i < I.numArgs; i++) {
@@ -1020,6 +1054,13 @@ function printCallBase(I: Inst, p: Printer): string {
   if (I.opcode === "invoke") {
     const n = I.operands.length;
     o += `\n          to ${p.operand(I.operands[n - 3]!, true)} unwind ${p.operand(I.operands[n - 2]!, true)}`;
+  } else if (I.opcode === "callbr") {
+    // `getDefaultDest()` is `Op<-1>() - NumIndirectDests - 1`, `getIndirectDest(i)` is `Op<-1>() - NumIndirectDests + i`.
+    const n = I.operands.length;
+    o += `\n          to ${p.operand(I.operands[n - 2 - I.numIndirectDests]!, true)} [`;
+    const dests: string[] = [];
+    for (let i = 0; i < I.numIndirectDests; i++) dests.push(p.operand(I.operands[n - 1 - I.numIndirectDests + i]!, true));
+    o += `${dests.join(", ")}]`;
   }
   return o;
 }

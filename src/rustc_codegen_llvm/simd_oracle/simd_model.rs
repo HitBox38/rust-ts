@@ -1,7 +1,8 @@
-// The model-stop oracle crate of simd_intrinsic.test.ts (lane cg-intrinsic-b): the arms of `generic_simd_intrinsic`
-// (intrinsic.rs:2047) that lane cg-intrinsic-b ported but whose `llvm.*` intrinsic the IR model (src/rust_ts/llvm/intrinsics.ts)
-// does not declare yet: `llvm.masked.{gather,load,store,scatter}` and `llvm.vector.reduce.{fadd,fmul}` (lane ir-fix-b). Until
-// the model has them the port stops in the model, naming the signature; once it has them, its IR must be the oracle's.
+// The model oracle crate of simd_intrinsic.test.ts (lane cg-intrinsic-b): the arms of `generic_simd_intrinsic`
+// (intrinsic.rs:2047) whose `llvm.*` intrinsic the IR model (src/rust_ts/llvm/intrinsics.ts) declared only from lane ir-fix-b:
+// `llvm.masked.{gather,load,store,scatter}` and `llvm.vector.reduce.{fadd,fmul}`. Each arm's functions sit behind their own
+// `--cfg` (review cg-intrinsic-b N2, lane fixers-60), and each is compiled on its own: `gather`, `scatter`, `masked_load`,
+// `masked_store`, `float_reduce`. So a stop in one arm cannot hide another arm's IR.
 #![feature(no_core, lang_items, intrinsics, rustc_attrs, auto_traits, repr_simd, adt_const_params)]
 #![allow(internal_features, incomplete_features, non_camel_case_types)]
 #![no_core]
@@ -75,27 +76,36 @@ pub unsafe fn simd_reduce_add_unordered<T, U>(x: T) -> U;
 #[rustc_intrinsic]
 pub unsafe fn simd_reduce_mul_unordered<T, U>(x: T) -> U;
 
+#[cfg(gather)]
 #[no_mangle]
 pub unsafe fn h_gather(v: f32x4, p: cptrx4, m: i32x4) -> f32x4 { simd_gather(v, p, m) }
+#[cfg(scatter)]
 #[no_mangle]
 pub unsafe fn h_scatter(v: f32x4, p: mptrx4, m: m8x4) { simd_scatter(v, p, m) }
+#[cfg(masked_load)]
 #[no_mangle]
 pub unsafe fn h_masked_load_element(m: i32x4, p: *const f32, v: f32x4) -> f32x4 {
     simd_masked_load::<_, _, _, { SimdAlign::Element }>(m, p, v)
 }
+#[cfg(masked_load)]
 #[no_mangle]
 pub unsafe fn h_masked_load_vector(m: m8x4, p: *const f64, v: f64x4) -> f64x4 {
     simd_masked_load::<_, _, _, { SimdAlign::Vector }>(m, p, v)
 }
+#[cfg(masked_store)]
 #[no_mangle]
 pub unsafe fn h_masked_store_unaligned(m: i32x4, p: *mut f32, v: f32x4) {
     simd_masked_store::<_, _, _, { SimdAlign::Unaligned }>(m, p, v)
 }
+#[cfg(float_reduce)]
 #[no_mangle]
 pub unsafe fn h_reduce_add_ordered_f32(a: f32x4, acc: f32) -> f32 { simd_reduce_add_ordered(a, acc) }
+#[cfg(float_reduce)]
 #[no_mangle]
 pub unsafe fn h_reduce_mul_ordered_f64(a: f64x4, acc: f64) -> f64 { simd_reduce_mul_ordered(a, acc) }
+#[cfg(float_reduce)]
 #[no_mangle]
 pub unsafe fn h_reduce_add_unordered_f32(a: f32x4) -> f32 { simd_reduce_add_unordered(a) }
+#[cfg(float_reduce)]
 #[no_mangle]
 pub unsafe fn h_reduce_mul_unordered_f64(a: f64x4) -> f64 { simd_reduce_mul_unordered(a) }

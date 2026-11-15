@@ -30,6 +30,7 @@ import { DUMMY_SP } from "../../rustc_span/span_encoding.ts";
 import type { Size } from "../../rustc_abi/lib.ts";
 import { type CodeModel, type FloatAbi, LlvmAbi, type RelocModel, SanitizerSet, type SplitDebuginfo } from "../../rustc_target/spec/mod.ts";
 import { display_IoError, io_error_from_node, type IoError, type IoResult } from "../../std/io.ts";
+import { link_or_copy } from "../../rustc_fs_util/lib.ts";
 import { assert, panic, unported } from "../../std/panic.ts";
 import { Err, Ok } from "../../std/result.ts";
 import { utf8 } from "../../std/str.ts";
@@ -1449,11 +1450,6 @@ function SelfProfilerRef_artifact_size(prof: SelfProfilerRef, _artifact_kind: st
 /** `crate::builder::gpu_offload::scalar_width` (excluded, plan-m7 D18; builder/gpu_offload.ts has no stub for it). */
 function scalar_width(_cx: SimpleCx, _ty: llvm.Type): number {
   return unported("excluded (plan-m7 D18): compiler/rustc_codegen_llvm/src/builder/gpu_offload.rs scalar_width");
-}
-
-/** `rustc_fs_util::link_or_copy` (rustc_fs_util/src/lib.rs:62, not ported there). */
-function link_or_copy(_p: PathBuf, _q: PathBuf): IoResult<"Link" | "Copy"> {
-  return unported("rustc_fs_util: compiler/rustc_fs_util/src/lib.rs link_or_copy");
 }
 
 // ---- crate modules read lazily (init order: builder.ts's extension modules must load after builder.ts, as in context.ts) ----

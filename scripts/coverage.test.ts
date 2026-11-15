@@ -41,16 +41,14 @@ describe("llvm-wrapper", () => {
     expect(out.at(-1)).toMatch(/^\d+\/11 ported$/);
   });
   test("--missing on a wrapper file lists C++ fns", () => {
-    // A wrapper file with nothing ported yet (Linker.cpp was until lane ir-fix-b; root at integ-w59).
-    expect(cov("--missing", "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp")).toEqual([
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:24 isArchiveSymbol",
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:43 getSymbolicFile",
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:66 LLVMRustGetSymbols",
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:106 withBufferAsSymbolicFile",
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:129 LLVMRustIs64BitSymbolicFile",
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:134 LLVMRustIsECObject",
-      "compiler/rustc_llvm/llvm-wrapper/SymbolWrapper.cpp:160 LLVMRustIsAnyArm64Coff",
-      "0/7 ported",
+    // A wrapper file with nothing ported yet (Linker.cpp until lane ir-fix-b, SymbolWrapper.cpp until lane llir-callbr-mangler;
+    // root at integ-w60).
+    expect(cov("--missing", "compiler/rustc_llvm/llvm-wrapper/LLVMWrapper.h")).toEqual([
+      "compiler/rustc_llvm/llvm-wrapper/LLVMWrapper.h:34 write_impl",
+      "compiler/rustc_llvm/llvm-wrapper/LLVMWrapper.h:39 current_pos",
+      "compiler/rustc_llvm/llvm-wrapper/LLVMWrapper.h:42 RawRustStringOstream",
+      "compiler/rustc_llvm/llvm-wrapper/LLVMWrapper.h:44 ~RawRustStringOstream",
+      "0/4 ported",
     ]);
   });
 });

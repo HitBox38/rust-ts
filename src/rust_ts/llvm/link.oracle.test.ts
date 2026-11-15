@@ -213,6 +213,21 @@ describe.skipIf(!HAVE && !REQUIRE)("fat LTO's linker vs libLLVM's Linker::linkIn
     L.LLVMRustLinkerAdd(l2, bc, bc.length);
     L.LLVMRustLinkerFree(l2);
     expect(L.LLVMWriteBitcodeToFile(N, "/nonexistent-dir/never-written.bc")).toBe(-1);
+    // RC-E (review root-w59-check N1; ir-fix-b-recheck note 1): a source reuses the merged-away name `%B` with another body, so
+    // the name is still in the linked text and only the whole-line check (`tools.ts`) sees that the destination's `%B = type {}`
+    // is gone. libLLVM keeps it and renames the source's.
+    const srcE = `${HEAD}\n%B = type { i32 }\n\n@sb = global %B zeroinitializer\n`;
+    const wantE = oracle(dst, [srcE]);
+    expect(wantE).toContain("%B = type {}");
+    expect(wantE).toContain("%B.0 = type { i32 }");
+    const E: Module = L.LLVMModuleCreateWithNameInContext("dst", new Context());
+    set_module_text(E, `; ModuleID = 'dst'\n${dst}`);
+    const lE = L.LLVMRustLinkerNew(E);
+    const bcE = asBitcode(srcE);
+    L.LLVMRustLinkerAdd(lE, bcE, bcE.length);
+    L.LLVMRustLinkerFree(lE);
+    expect(module_text(E)).toContain("%B = type { i32 }");
+    expect(() => L.LLVMWriteBitcodeToFile(E, "/nonexistent-dir/never-written.bc")).toThrow(stop);
   });
 
   test("one source, and none (the destination unchanged)", () => {

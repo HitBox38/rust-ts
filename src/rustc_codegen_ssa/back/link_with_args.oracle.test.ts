@@ -357,4 +357,4 @@ test("exec_linker falls back to an @-file, on E2BIG and over the estimate", () =
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 120_000); // explicit, as the other link tests: Bun's 5 s default was hit under load (review fixers-60 N1)

@@ -16,6 +16,8 @@
 import { unported } from "../../std/panic.ts";
 import { APFloat, type FltSemantics, opInvalidOp } from "./apfloat.ts";
 import type { Linkage as FfiLinkage } from "./ffi_types.ts";
+import type { GlobalAsmFragment } from "./inline_asm.ts";
+import type { PtrLenStr } from "./support.ts";
 
 let NEXT_ID = 1;
 const nextId = (): number => NEXT_ID++;
@@ -30,6 +32,19 @@ export function bstrOfBytes(b: Uint8Array): string {
   let o = "";
   for (let i = 0; i < b.length; i += 8192) o += String.fromCharCode(...b.subarray(i, i + 8192));
   return o;
+}
+/** A PTR_LEN_STR argument's first `len` bytes, as a byte string. `StringRef(nullptr, 0)` is the empty string; a null pointer
+ * with a length is undefined behaviour in C, here an error. */
+export function bytesArg(s: PtrLenStr | undefined, len: number): string {
+  if (s === undefined) {
+    if (len === 0) return "";
+    throw new Error(`llvm: a null pointer with length ${len}`);
+  }
+  if (typeof s === "string") {
+    const b = bstrOfString(s);
+    return len < b.length ? b.slice(0, len) : b;
+  }
+  return bstrOfBytes(s.subarray(0, len));
 }
 export function bytesOfBstr(s: string): Uint8Array {
   const b = new Uint8Array(s.length);
@@ -1699,7 +1714,8 @@ export class Module {
   targetTriple = "";
   /** `bstr`; `Module::Module` sets the source file name to the module id. */
   sourceFileName: string;
-  inlineAsm = "";
+  /** `Module::GlobalScopeAsm` (llvm/IR/Module.h:223): inline asm at the global scope (inline_asm.ts's `appendModuleInlineAsm`). */
+  readonly GlobalScopeAsm: GlobalAsmFragment[] = [];
   constructor(
     readonly context: Context,
     readonly moduleID: string,

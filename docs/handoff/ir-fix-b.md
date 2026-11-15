@@ -10,6 +10,10 @@ Branch `t3/add-aarch64-llvm-intrinsics` (from `2bf7435a`; no merges). Commits at
   `LLVMCloneModule` carries the flag. Objects carry no type names, so linking and running are unchanged.
   - The fat-LTO cases, rerun by id: **run-pass-native 10/10 MATCH** (+1 UNSTABLE). In each of **ir-host, ir-run-pass and
     ir-run-pass-o0: 9 UNPORTED on that stop, 2 MATCH**, so 0 DIFF.
+  - The 9 stopping cases (review ir-fix-b-recheck note 5): `abi/stack-probes-lto.rs#aarch64`;
+    `extern/issue-64655-allow-unwind-when-calling-panic-directly.rs#fat`; `extern/issue-64655-extern-rust-must-allow-unwind.rs#fat0`,
+    `#fat1`, `#fat2` and `#fat3`; `lto/lto-still-runs-thread-dtors.rs`, `panic-runtime/lto-abort.rs` and
+    `panic-runtime/lto-unwind.rs`. The 2 MATCH are `lto/fat-lto.rs` and `lto/lto-many-codegen-units.rs`.
   - Test: link.oracle.test.ts, a destination with `%A = type {}` and `%B = type {}`. libLLVM keeps both; the model's text has one.
     All three outputs stop, a clone stops too, and a destination with distinct types is not flagged.
 - **N1 fixed: touched values are decided by name, not by position.**
@@ -132,6 +136,15 @@ They were UNPORTED before as well. Their programs MATCH in run-pass-native.
    - **not undone: a renamed source local's `.N` suffix** (review N4). The suffix comes from the module's `ValueSymbolTable`
      counter (`LastUnique`), which starts at 0 in llvm-link's new module, while rustc's destination keeps the count from its codegen
      and pre-link passes. A suffix can differ; that is a DIFF only, and none of the 11 cases shows one.
+   - **not undone: a source named struct type's `.N` suffix** (review ir-fix-b-recheck note 2, from reading the source). rustc
+     parses each source into the destination's `LLVMContext`, which keeps the types of its codegen and earlier parses and the
+     counter `NamedStructTypesUniqueID` (Type.cpp:659-671); llvm-link's context holds only the destination's text. A source type
+     no destination type absorbs, whose name collides with a type the context holds but the module no longer uses, gets a suffix
+     in rustc and none in llvm-link. A DIFF only.
+   - **comdats** (review ir-fix-b-recheck note 4): `touchedBySources` marks as touched a destination declaration whose source
+     definition is in a comdat that `ComdatsChosen` takes from the destination, which is not replaced (LinkModules.cpp:387-392).
+     The restored order can then differ from rustc's: a DIFF at most. Darwin has no comdats, so it is not reachable while the IR suites run on
+     the darwin host; the aarch64 Linux target makes it reachable later.
 2. **llvm-link's first link merges the destination's own isomorphic named struct types** (`IdentifiedStructTypeSet::findNonOpaque`),
    which rustc's in-place link never touches. It changes type names only, and it cannot be undone from the text: that would need
    IRMover's type mapping, which no pinned tool runs on the destination itself (there is no `llvm-lto`). **It stops by name** where

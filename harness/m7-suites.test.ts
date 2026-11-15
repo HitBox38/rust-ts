@@ -271,8 +271,10 @@ console.log(JSON.stringify({
   expect(j.optsLibtest).toEqual(["--expect", "run-fail", "--should-fail", "--libtest"]);
   // F1: the program-output mask is the native suites' alone; their unstable cases are listed, each with a diagnosed reason.
   expect(j.masked).toEqual([true, true, true, false, false]);
-  expect(j.unstableLists).toEqual({ "run-pass-native": 18, "run-fail-native": 7 });
-  expect(j.unstableHooked).toEqual([18, 7]);
+  // 22: `yield1.rs`, then task-comm-0.rs, comm.rs and unwind-resource.rs added at integ-w60 (w40r-audit N2, w40s-audit N1,
+  // root-w60-check N1; decisions recorded).
+  expect(j.unstableLists).toEqual({ "run-pass-native": 22, "run-fail-native": 7 });
+  expect(j.unstableHooked).toEqual([22, 7]);
   // N3: the harness-caused case left; N2: the link variables in the key.
   expect(j.harnessSkips).toEqual(["tests/ui/process-termination/process-termination-blocking-io.rs"]);
   expect(j.linkEnv).toEqual(["SDKROOT", "DEVELOPER_DIR", "LIBRARY_PATH"]);
@@ -281,4 +283,8 @@ console.log(JSON.stringify({
   // accept (gate-20261114-162816-root-vc2v, 4ec9a565) gave each a baseline, so the gate runs them by default.
   const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));
   for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "native-hello", "run-pass-native", "run-fail-native"]) expect(baseline.has(n)).toBe(true);
+  // Review harness-w40s N2: native-hello's protected set is its one case, as ir-hello's is pinned above; the growing ones are at least not empty.
+  const ids = (n: string) => readFileSync(join(REPO, "harness/baseline", `${n}.txt`), "utf8").split("\n").filter(Boolean);
+  expect(ids("native-hello")).toEqual(["hello"]);
+  for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "run-pass-native", "run-fail-native"]) expect(ids(n).length).toBeGreaterThan(0);
 }, 120_000);

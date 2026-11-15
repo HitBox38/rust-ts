@@ -10,12 +10,15 @@
 // - `variant_indices: impl Iterator + Clone` is a `readonly VariantIdx[]` (it is iterated twice, as `clone()` allows).
 // - `IndexVec<VariantIdx, DiscrResult>` is an array; `next_index()` is its length.
 // - `Cow<'static, str>` names are `string`s; `PRE_ALLOCATED.get(i)`, else the formatted name.
+// - Renamed locals: the parameter `discr` is `discr0`, as `let discr = match discr { .. }` reads it in its own
+//   initializer (a TDZ error in TS); `build_assoc_const`'s parameter `align` is `align0`, as `let (t_di, align) = ..` would
+//   redeclare it in the same scope; `tag_base_type_` would shadow the imported `tag_base_type` function.
 import { Align, FieldsShape, Size } from "../../../../rustc_abi/lib.ts";
 import type { FieldIdx, VariantIdx } from "../../../../rustc_abi/layout.ts";
 import { tag_base_type, wants_c_like_enum_debuginfo } from "../../../../rustc_codegen_ssa/debuginfo/mod.ts";
 import { compute_debuginfo_type_name } from "../../../../rustc_codegen_ssa/debuginfo/type_names.ts";
 import type { AdtDef } from "../../../../rustc_middle/ty/adt.ts";
-import { debug_TyAndLayout_Ty, type TyAndLayout } from "../../../../rustc_middle/ty/layout.ts";
+import { debug_LayoutError, debug_TyAndLayout_Ty, type TyAndLayout } from "../../../../rustc_middle/ty/layout.ts";
 import { Ty } from "../../../../rustc_middle/ty/mod.ts";
 import { CoroutineArgsExt } from "../../../../rustc_middle/ty/sty.ts";
 import { debug_Ty } from "../../../../rustc_middle/ty/structural_impls.ts";
@@ -33,6 +36,7 @@ import type { DIFile, DIFlags, DIType, Metadata, Value } from "../../../llvm/mod
 import { DIB } from "../../utils.ts";
 import { DW_TAG_const_type } from "../../dwarf_const.ts";
 import {
+  assert_size_and_align_eq,
   build_field_di_node,
   create_member_type,
   file_metadata,
@@ -662,7 +666,7 @@ function build_union_fields_for_direct_tag_coroutine(cx: CodegenCx, coroutine_ty
       return unreachable();
   }
 
-  const coroutine_layout = unwrap_result(cx.tcx.coroutine_layout(coroutine_def_id, coroutine_args.args), () => "LayoutError");
+  const coroutine_layout = unwrap_result(cx.tcx.coroutine_layout(coroutine_def_id, coroutine_args.args), debug_LayoutError);
 
   const common_upvar_names = cx.tcx.closure_saved_names_of_captured_variables(coroutine_def_id);
   const variant_range = CoroutineArgsExt.variant_range(coroutine_args, coroutine_def_id, cx.tcx);
@@ -795,11 +799,10 @@ function build_union_fields_for_direct_tag_enum_or_coroutine(
   }
 
   {
-    const [s0, a0] = cx.size_and_align_of(enum_type_and_layout.field(cx, tag_field).ty);
-    const [s1, a1] = cx.size_and_align_of(tag_base_type(cx.tcx, enum_type_and_layout));
-    if (!(s0.bytes() === s1.bytes() && a0.bytes() === a1.bytes())) {
-      panic(`assertion \`left == right\` failed\n  left: (${s0.bytes()}, ${a0.bytes()})\n right: (${s1.bytes()}, ${a1.bytes()})`);
-    }
+    assert_size_and_align_eq(
+      cx.size_and_align_of(enum_type_and_layout.field(cx, tag_field).ty),
+      cx.size_and_align_of(tag_base_type(cx.tcx, enum_type_and_layout)),
+    );
   }
 
   // ... and a field for the tag. If the tag is 128 bits wide, this will actually

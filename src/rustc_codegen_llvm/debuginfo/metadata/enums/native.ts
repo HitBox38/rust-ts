@@ -5,11 +5,14 @@
 //   `[DIFile, c_uint]` pair.
 // - `smallvec![x]` is `[x]`; `SmallVec` an array.
 // - `variants.indices()` (an `IndexVec`) is `0..variants.len()`.
+// - Renamed locals: `coroutine_def_id0` is the `ty::Coroutine` binding, as the closure's `let coroutine_def_id = if .. {
+//   Some(coroutine_def_id) }` reads it in its own initializer (a TDZ error in TS); `file_metadata_` and `tag_base_type_`
+//   would shadow the imported `file_metadata` and `tag_base_type` functions.
 import { FieldsShape, Size } from "../../../../rustc_abi/lib.ts";
 import type { VariantIdx } from "../../../../rustc_abi/layout.ts";
 import { tag_base_type, wants_c_like_enum_debuginfo } from "../../../../rustc_codegen_ssa/debuginfo/mod.ts";
 import { compute_debuginfo_type_name } from "../../../../rustc_codegen_ssa/debuginfo/type_names.ts";
-import { debug_TyAndLayout_Ty, type TyAndLayout } from "../../../../rustc_middle/ty/layout.ts";
+import { debug_LayoutError, debug_TyAndLayout_Ty, type TyAndLayout } from "../../../../rustc_middle/ty/layout.ts";
 import { debug_Ty } from "../../../../rustc_middle/ty/structural_impls.ts";
 import type { DefId } from "../../../../rustc_span/def_id.ts";
 import { Span } from "../../../../rustc_span/lib.ts";
@@ -159,7 +162,7 @@ export function build_coroutine_di_node(cx: CodegenCx, unique_type_id: UniqueTyp
       llvm.DIFlags.FlagZero,
     ),
     (cx, coroutine_type_di_node) => {
-      const coroutine_layout = unwrap_result(cx.tcx.coroutine_layout(coroutine_def_id0, coroutine_args), () => "LayoutError");
+      const coroutine_layout = unwrap_result(cx.tcx.coroutine_layout(coroutine_def_id0, coroutine_args), debug_LayoutError);
 
       const v = coroutine_type_and_layout.variants;
       if (!(v.$ === "Multiple" && v.tag_encoding.$ === "Direct")) {

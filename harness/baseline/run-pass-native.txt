@@ -2963,7 +2963,6 @@ tests/ui/thread-local/thread-local-with-attributes-30756.rs
 tests/ui/thread-local/tls.rs
 tests/ui/threads-sendsync/child-outlives-parent.rs
 tests/ui/threads-sendsync/clone-with-exterior.rs
-tests/ui/threads-sendsync/comm.rs
 tests/ui/threads-sendsync/eprint-on-tls-drop.rs
 tests/ui/threads-sendsync/issue-24313.rs
 tests/ui/threads-sendsync/issue-29488.rs
@@ -2989,7 +2988,6 @@ tests/ui/threads-sendsync/std-sync-right-kind-impls.rs
 tests/ui/threads-sendsync/sync-send-in-std.rs
 tests/ui/threads-sendsync/sync-send-iterators-in-libcollections.rs
 tests/ui/threads-sendsync/sync-send-iterators-in-libcore.rs
-tests/ui/threads-sendsync/task-comm-0.rs
 tests/ui/threads-sendsync/task-comm-1.rs
 tests/ui/threads-sendsync/task-comm-10.rs
 tests/ui/threads-sendsync/task-comm-11.rs
@@ -3016,8 +3014,6 @@ tests/ui/threads-sendsync/tls-in-global-alloc.rs
 tests/ui/threads-sendsync/tls-init-on-init.rs
 tests/ui/threads-sendsync/tls-try-with.rs
 tests/ui/threads-sendsync/trivial-message.rs
-tests/ui/threads-sendsync/unwind-resource.rs
-tests/ui/threads-sendsync/yield1.rs
 tests/ui/threads-sendsync/yield2.rs
 tests/ui/tool-attributes/tool_lints-rpass.rs
 tests/ui/traits/alias/basic.rs

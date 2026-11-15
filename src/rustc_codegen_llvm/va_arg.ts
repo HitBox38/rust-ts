@@ -24,6 +24,7 @@ import { assert, assert_matches, unreachable } from "../std/panic.ts";
 import { unwrap_result } from "../std/result.ts";
 import type { Builder } from "./builder.ts";
 import type { Value } from "./llvm/mod.ts";
+import { debug_Value } from "./value.ts";
 
 /** `std::assert_matches!(stability, CVariadicStatus::Unstable { .. })` (header). */
 const assert_unstable = (stability: CVariadicStatus): void =>
@@ -49,7 +50,7 @@ function round_pointer_up_to_alignment(bx: Builder, addr: Value, align: Align): 
 // rustc: compiler/rustc_codegen_llvm/src/va_arg.rs:42 emit_direct_ptr_va_arg
 function emit_direct_ptr_va_arg(bx: Builder, list: OperandRef<Value>, size: Size, align: Align, slot_size: Align, allow_higher_align: boolean, force_right_adjust: boolean): [Value, Align] {
   const va_list_ty = bx.type_ptr();
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
 
   const ptr_align_abi = bx.tcx.data_layout().pointer_align().abi;
   const ptr = bx.load_inherent(va_list_ty, va_list_addr, ptr_align_abi);
@@ -185,7 +186,7 @@ function emit_aapcs_va_arg(bx: Builder, list: OperandRef<Value>, layout: TyAndLa
   //     int gr_offs; // offset from  gr_top to next GP register arg
   //     int vr_offs; // offset from  vr_top to next FP/SIMD register arg
   // } va_list;
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
 
   // There is no padding between fields since `void*` is size=8 align=8, `int` is size=4 align=4.
   // See https://github.com/ARM-software/abi-aa/blob/master/aapcs64/aapcs64.rst
@@ -277,7 +278,7 @@ function emit_powerpc_va_arg(bx: Builder, list: OperandRef<Value>, layout: TyAnd
   //   void *overflow_arg_area;
   //   void *reg_save_area;
   // };
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
 
   // Peel off any newtype wrappers.
   layout = layout.peel_transparent_wrappers_from_non_1zst(bx.cx_);
@@ -410,7 +411,7 @@ function emit_s390x_va_arg(bx: Builder, list: OperandRef<Value>, layout: TyAndLa
   //     void *__overflow_arg_area;
   //     void *__reg_save_area;
   // } va_list[1];
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
 
   // There is no padding between fields since `long` and `void*` both have size=8 align=8.
   // https://github.com/IBM/s390x-abi (Table 1.1.: Scalar types)
@@ -527,7 +528,7 @@ function emit_x86_64_sysv64_va_arg(bx: Builder, list: OperandRef<Value>, layout:
   //     void *overflow_arg_area;
   //     void *reg_save_area;
   // } va_list[1];
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
 
   // Peel off any newtype wrappers.
   //
@@ -817,7 +818,7 @@ function emit_hexagon_va_arg_musl(bx: Builder, list: OperandRef<Value>, layout: 
   //
   // All variadic arguments are passed on the stack, but the musl implementation
   //  uses a register save area for compatibility.
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
   const ptr_align_abi = bx.tcx_().data_layout().pointer_align().abi;
   const ptr_size = bx.tcx_().data_layout().pointer_size().bytes();
 
@@ -885,7 +886,7 @@ function emit_hexagon_va_arg_bare_metal(bx: Builder, list: OperandRef<Value>, la
   // Based on LLVM's EmitVAArgForHexagon implementation.
   //
   // va_list is a simple pointer (char *)
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
   const ptr_align_abi = bx.tcx_().data_layout().pointer_align().abi;
 
   // Load current pointer from va_list
@@ -932,7 +933,7 @@ function emit_xtensa_va_arg(bx: Builder, list: OperandRef<Value>, layout: TyAndL
   //
   // Primitive arguments are never split between registers and the stack. For example, if loading an 8 byte
   // primitive value and va_ndx = 20, we instead bump the offset and read everything from va_stk.
-  const va_list_addr = list.immediate(String);
+  const va_list_addr = list.immediate(debug_Value);
   // FIXME: handle multi-field structs that split across regsave/stack?
   const from_stack = bx.append_sibling_block("va_arg.from_stack");
   const from_regsave = bx.append_sibling_block("va_arg.from_regsave");
@@ -1173,7 +1174,7 @@ export function emit_va_arg(bx: Builder, addr: OperandRef<Value>, layout: TyAndL
       assert_unstable(stability);
 
       // Clang uses the LLVM implementation for these architectures.
-      return bx.va_arg_inherent(addr.immediate(String), layout.llvm_type(bx.cx_));
+      return bx.va_arg_inherent(addr.immediate(debug_Value), layout.llvm_type(bx.cx_));
 
     case "Other":
       assert_unstable(stability);

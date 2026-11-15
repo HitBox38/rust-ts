@@ -20,7 +20,7 @@
 // 3. gdb.rs, `-Cdebuginfo=2` (cg-di-b): `compile_codegen_unit` with the debug context, `build_compile_unit_di_node` and the
 //    subprograms, variables and locations of mod.rs: the whole module equals the oracle's, metadata included (`canonical`
 //    below: metadata renumbered in order of first use, which is what the parser of the N1 normal form does too).
-// 4. gdb.rs, `-Cdebuginfo=2`, the `.debug_gdb_scripts` helpers on a `CodegenCx` whose debug context is a placeholder (below):
+// 4. gdb.rs, `-Cdebuginfo=2`, the `.debug_gdb_scripts` helpers on a `CodegenCx` with its debug context:
 //    `needs_gdb_debug_scripts_section`, the global `get_or_insert_gdb_debug_scripts_section_global` defines (and finds again),
 //    the entry wrapper's volatile load (ssa base.rs `maybe_create_entry_wrapper`, the real one), against the oracle's text, and
 //    `debuginfo_finalize`'s calls.
@@ -32,7 +32,8 @@
 //    `&dyn`, raw and fn pointers, arrays, `!`, `()`, the basic types (f16/f128 included), a closure, a static and a vtable.
 //    The whole module must equal the oracle's (as 3) at `-Cdebuginfo=2` and `=1` on x86_64-unknown-linux-gnu (the native
 //    enum layout, enums/native.rs), and at `-Cdebuginfo=2` on x86_64-pc-windows-msvc (CPP-like: enums/cpp_like.rs, the
-//    MSVC basic-type names and typedefs, the f16/f128 structs).
+//    MSVC basic-type names and typedefs, the f16/f128 structs), and at `-Cdebuginfo=2 -Zdebug-info-type-line-numbers` on
+//    x86_64-unknown-linux-gnu (the types' lines). The vtables include one for a `dyn` with no principal trait (fixers-60).
 //
 // Test doubles (each restored after its test):
 // - The MSVC case of 6 only: the IR model's `LLVMRustSetNormalizedTarget` stops on a triple it has not checked to be its own
@@ -41,9 +42,7 @@
 // - Not copies: `back::write::{create_informational_target_machine, create_target_machine}` return an opaque target machine
 //   carrying the oracle's data layout, which the model's stub `LLVMRustSetDataLayoutFromTargetMachine` sets (its effect);
 //   `OwnedTargetMachine::drop` is a no-op (intrinsic.test.ts's doubles; `LLVMRustCreateTargetMachine` is llir-tools').
-// - Test 4 only: `CodegenUnitDebugContext::new` and `metadata::build_compile_unit_di_node` (written when both reached the
-//   model's `LLVMDI*` stubs) are replaced by a placeholder context whose `finalize` records its call. The gdb code reads only
-//   `cx.dbg_cx`'s presence (`debuginfo_finalize`) and the session.
+// - Test 4 only: a spy counts `CodegenUnitDebugContext::finalize`'s calls; the method itself runs.
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -79,7 +78,6 @@ import { CodegenCx } from "../context.ts";
 import type * as llvm from "../llvm/mod.ts";
 import { get_value_name } from "../llvm/mod.ts";
 import * as gdb from "./gdb.ts";
-import * as metadata from "./metadata.ts";
 import { CodegenUnitDebugContext } from "./mod.ts";
 import { mangled_name_of_instance } from "./namespace.ts";
 import { is_node_local_to_unit } from "./utils.ts";
@@ -96,6 +94,12 @@ const FIXTURES = {
   types_g2: { rs: "types.rs", ll: `${TARGET}.types-g2.ll`, target: TARGET, args: ["--crate-type", "lib", "-Cdebuginfo=2"] },
   types_g1: { rs: "types.rs", ll: `${TARGET}.types-g1.ll`, target: TARGET, args: ["--crate-type", "lib", "-Cdebuginfo=1"] },
   types_msvc: { rs: "types.rs", ll: `${MSVC}.types-g2.ll`, target: MSVC, args: ["--crate-type", "lib", "-Cdebuginfo=2"] },
+  types_lines: {
+    rs: "types.rs",
+    ll: `${TARGET}.types-g2-lines.ll`,
+    target: TARGET,
+    args: ["--crate-type", "lib", "-Cdebuginfo=2", "-Zdebug-info-type-line-numbers"],
+  },
 } as const;
 type Fixture = (typeof FIXTURES)[keyof typeof FIXTURES];
 const oracle = (f: Fixture): string => readFileSync(join(ORACLE, f.ll), "utf8");
@@ -142,11 +146,11 @@ function with_tcx<R>(f: Fixture, body: (tcx: TyCtxt) => R, as_oracle = false): R
   if (as_oracle) process.chdir(ORACLE);
   try {
     run_compiler(config_from_args(args), (compiler) => {
-    const krate: Crate = parse(compiler.sess);
-    create_and_enter_global_ctxt(compiler, krate, (tcx) => {
-      out = body(tcx);
+      const krate: Crate = parse(compiler.sess);
+      create_and_enter_global_ctxt(compiler, krate, (tcx) => {
+        out = body(tcx);
+      });
     });
-  });
   } finally {
     if (as_oracle) process.chdir(cwd);
   }
@@ -373,20 +377,14 @@ test("-Cdebuginfo=2: the .debug_gdb_scripts global, the entry wrapper's load, de
   const f = FIXTURES.gdb_g;
   const ir = oracle(f);
   const mod_name = /^; ModuleID = '([^']*)'/.exec(ir)![1]!;
-  const finalized: string[] = [];
-  const placeholder = Object.assign(Object.create(CodegenUnitDebugContext.prototype) as CodegenUnitDebugContext, {
-    finalize: () => void finalized.push("finalize"),
-  });
-  const spies = [
-    spyOn(CodegenUnitDebugContext, "new").mockImplementation(() => placeholder),
-    spyOn(metadata, "build_compile_unit_di_node").mockImplementation(() => undefined as never),
-  ];
+  // `finalize` runs as is; the spy only counts its calls.
+  const finalize = spyOn(CodegenUnitDebugContext.prototype, "finalize");
   try {
     const out = with_doubles(f, (tcx) => {
       const cgu = the_cgu(tcx);
       const llvm_module = ModuleLlvm.new(tcx, mod_name);
       const cx = CodegenCx.new(tcx, cgu, llvm_module, false);
-      expect(cx.dbg_cx).toBe(placeholder);
+      expect(cx.dbg_cx).toBeDefined();
       const needs = gdb.needs_gdb_debug_scripts_section(cx);
       const g1 = gdb.get_or_insert_gdb_debug_scripts_section_global(cx);
       const g2 = gdb.get_or_insert_gdb_debug_scripts_section_global(cx);
@@ -406,9 +404,9 @@ test("-Cdebuginfo=2: the .debug_gdb_scripts global, the entry wrapper's load, de
     expect(body(ir, "main")).toContain("load volatile i8, ptr @__rustc_debug_gdb_scripts_section__, align 1");
     // `debuginfo_finalize`: the global already exists, so `get_or_insert` finds it; then `dbg_cx.finalize()`.
     expect(out.text.split("\n").filter((l) => l.startsWith("@__rustc_debug_gdb_scripts_section__")).length).toBe(1);
-    expect(finalized).toEqual(["finalize"]);
+    expect(finalize).toHaveBeenCalledTimes(1);
   } finally {
-    for (const s of spies.reverse()) s.mockRestore();
+    finalize.mockRestore();
   }
 });
 
@@ -426,12 +424,7 @@ test("needs_gdb_debug_scripts_section is false without -g and for a lib", () => 
 test("lookup_debug_loc, is_node_local_to_unit, mangled_name_of_instance against the -g IR", () => {
   const f = FIXTURES.gdb_g;
   const ir = oracle(f);
-  const placeholder = Object.create(CodegenUnitDebugContext.prototype) as CodegenUnitDebugContext;
-  const spies = [
-    spyOn(CodegenUnitDebugContext, "new").mockImplementation(() => placeholder),
-    spyOn(metadata, "build_compile_unit_di_node").mockImplementation(() => undefined as never),
-  ];
-  try {
+  {
     const out = with_doubles(f, (tcx) => {
       const cx = CodegenCx.new(tcx, the_cgu(tcx), ModuleLlvm.new(tcx, "m"), false);
       const defs = items(tcx);
@@ -464,8 +457,6 @@ test("lookup_debug_loc, is_node_local_to_unit, mangled_name_of_instance against 
     const locs = [...ir.matchAll(/^!3[1-4] = !DILocation\(line: ([0-9]+), column: ([0-9]+), scope: !10\)$/gm)].map((m) => `${m[1]}:${m[2]}:true`);
     expect(locs.length).toBe(4);
     expect(out.args).toEqual(locs);
-  } finally {
-    for (const s of spies.reverse()) s.mockRestore();
   }
 });
 
@@ -497,8 +488,8 @@ test("set_var_name names an unnamed argument or instruction, never an unnamed gl
 
 // ---- 6: types.rs, the type debuginfo (cg-di-b) ----
 describe("types.rs: the module, type debug info included, equals the oracle's", () => {
-  for (const f of [FIXTURES.types_g2, FIXTURES.types_g1, FIXTURES.types_msvc]) {
-    test(`${f.target}, ${f.args[2]}`, () => {
+  for (const f of [FIXTURES.types_g2, FIXTURES.types_g1, FIXTURES.types_msvc, FIXTURES.types_lines]) {
+    test(`${f.target}, ${f.args.slice(2).join(" ")}`, () => {
       const ir = oracle(f);
       // The MSVC double (header).
       const spy =
@@ -516,9 +507,14 @@ describe("types.rs: the module, type debug info included, equals the oracle's", 
       expect(canonical(port)).toBe(canonical(ir));
       // Not vacuous: what each case is for is in the oracle's text.
       if (f === FIXTURES.types_g2) {
-        for (const s of ["DW_TAG_variant_part", "DIFlagPrivate", "DIFlagProtected", "DW_TAG_enumeration_type", "DW_TAG_union_type", "templateParams:", "vtableHolder:", '"<recur_type>"']) {
+        for (const s of ["DW_TAG_variant_part", "DIFlagPrivate", "DIFlagProtected", "DW_TAG_enumeration_type", "DW_TAG_union_type", "templateParams:", "vtableHolder:", '"<recur_type>"', '"<u32 as _>::{vtable_type}"']) {
           expect(ir).toContain(s);
         }
+        // Without the -Z flag, no type has a line.
+        expect(ir).not.toMatch(/DICompositeType\([^\n]*, line: /);
+      } else if (f === FIXTURES.types_lines) {
+        // `-Zdebug-info-type-line-numbers`: the types' definition lines (`Point` is defined at types.rs:48).
+        expect(ir).toMatch(/DICompositeType\(tag: DW_TAG_structure_type, name: "Point", scope: ![0-9]+, file: ![0-9]+, line: 48,/);
       } else if (f === FIXTURES.types_msvc) {
         for (const s of ['name: "VariantNames"', 'name: "DISCR_EXACT"', 'name: "DISCR128_EXACT_LO"', 'name: "DISCR_BEGIN"', 'name: "unsigned __int8"', 'name: "low_bits"']) {
           expect(ir).toContain(s);

@@ -620,6 +620,13 @@ export function LLVMBuildInvokeWithOperandBundles(B: IRBuilder, Ty: Type, Fn: Va
   return B.createInvoke(Ty as FunctionType, Fn, Then, Catch, Args.slice(0, NumArgs), Bundles.slice(0, NumBundles), twine(Name, "LLVMBuildInvokeWithOperandBundles"));
 }
 
+// llvm: llvm/lib/IR/Core.cpp:3575 LLVMBuildCallBr
+export function LLVMBuildCallBr(B: IRBuilder, Ty: Type, Fn: Value, DefaultDest: BasicBlock, IndirectDests: readonly BasicBlock[], NumIndirectDests: number, Args: readonly Value[], NumArgs: number, Bundles: readonly OperandBundleDef[], NumBundles: number, Name: string | undefined): Value {
+  // `OBs.push_back(*OB)` for each bundle: a copy of each definition.
+  const OBs = Bundles.slice(0, NumBundles);
+  return B.createCallBr(Ty as FunctionType, Fn, DefaultDest, IndirectDests.slice(0, NumIndirectDests), Args.slice(0, NumArgs), OBs, twine(Name, "LLVMBuildCallBr"));
+}
+
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:411 LLVMRustAddCallSiteAttributes
 export function LLVMRustAddCallSiteAttributes(Instr: Value, index: number, Attrs: readonly Attribute[], AttrsLen: number): void {
   // `AddAttributes(Call, Index, ...)`: an AttrBuilder over the index's attributes; `addAttribute` replaces one of the same kind.
