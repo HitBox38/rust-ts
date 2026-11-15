@@ -1577,6 +1577,16 @@ export class MDNode extends Metadata {
   ) {
     super();
   }
+  /** llir-di's hook (di_nodes.ts): a specialized node (`DILocation`, `DISubprogram`, ...) returns its `write<CLASS>` text
+   * (AsmWriter.cpp), given the printer's metadata operand writer; an `MDTuple` returns undefined. */
+  writeSpecialized(_operand: (md: Metadata | undefined) => string): string | undefined {
+    return undefined;
+  }
+  /** llir-di's hook: a `DIExpression` gets no slot and is printed inline where it is an operand (AsmWriter.cpp
+   * `SlotTracker::CreateMetadataSlot`, `writeAsOperandInternal`). */
+  printsInline(): boolean {
+    return false;
+  }
 }
 /** `MetadataAsValue`: metadata wrapped as a value of type `metadata`. */
 export class MetadataAsValue extends Value {

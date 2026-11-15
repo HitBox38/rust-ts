@@ -90,8 +90,8 @@ describe("builder", () => {
     expect(printValueToString(L.LLVMBuildFAdd(B, L.LLVMConstReal(dbl, 1.5), L.LLVMConstReal(dbl, 2), ""))).toBe("double 3.500000e+00");
     const ppc0 = L.LLVMConstNull(L.LLVMPPCFP128TypeInContext(C));
     expect(() => L.LLVMBuildFMul(B, ppc0, ppc0, "")).toThrow(Unported);
-    // A debug location is llir-di's.
-    expect(() => L.LLVMSetCurrentDebugLocation2(B, L.LLVMMDStringInContext2(C, "x", 1))).toThrow(Unported);
+    // A debug location must be a DILocation (`unwrap<DILocation>`); llir-di's builder stores one.
+    expect(() => L.LLVMSetCurrentDebugLocation2(B, L.LLVMMDStringInContext2(C, "x", 1))).toThrow("unwrap<DILocation>");
   });
 });
 

@@ -10,6 +10,7 @@ import * as L from "./ffi.ts";
 import { ConstantExpr, GlobalVariable } from "./ir.ts";
 import { printModule, printValueToString } from "./printer.ts";
 import { parseScript, replay } from "./replay.ts";
+import { DIBuilder } from "./di_builder.ts";
 
 function fresh() {
   const C = L.LLVMContextCreate();
@@ -116,9 +117,9 @@ describe("printer", () => {
 });
 
 describe("stops", () => {
-  test("debuginfo is llir-di's", () => {
+  test("debuginfo is llir-di's DIBuilder (di_builder.ts) now, not a stop", () => {
     const { M } = fresh();
-    expect(() => L.LLVMCreateDIBuilder(M)).toThrow(Unported);
+    expect(L.LLVMCreateDIBuilder(M)).toBeInstanceOf(DIBuilder);
   });
   test("an unsourced fold stops instead of guessing", () => {
     const { C, i64, ptr, M, i8 } = fresh();
