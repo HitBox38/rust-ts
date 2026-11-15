@@ -241,6 +241,26 @@ describe("intrinsic table (model only)", () => {
     expect(() => L.LLVMGetIntrinsicDeclaration(mm, dmb, [], 0)).toThrow(/llir: the signature of llvm.aarch64.dmb \(IntrinsicsAArch64.td\) is not in the IR model/);
   });
 
+  test("aarch64 CRC32 and SHA intrinsics (lane cargo-fix-a): fixed i32, i64, <4 x i32> and <2 x i64> signatures", () => {
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const decl = (name: string): [string, string] => {
+      const f = L.LLVMGetIntrinsicDeclaration(mm, L.LLVMLookupIntrinsicID(name, name.length), [], 0) as unknown as IrFunction;
+      return [f.name, printTypeToString(f.functionType)];
+    };
+    expect(decl("llvm.aarch64.crc32b")).toEqual(["llvm.aarch64.crc32b", "i32 (i32, i32)"]);
+    expect(decl("llvm.aarch64.crc32cx")).toEqual(["llvm.aarch64.crc32cx", "i32 (i32, i64)"]);
+    expect(decl("llvm.aarch64.crypto.sha1h")).toEqual(["llvm.aarch64.crypto.sha1h", "i32 (i32)"]);
+    expect(decl("llvm.aarch64.crypto.sha1c")).toEqual(["llvm.aarch64.crypto.sha1c", "<4 x i32> (<4 x i32>, i32, <4 x i32>)"]);
+    expect(decl("llvm.aarch64.crypto.sha256h")).toEqual(["llvm.aarch64.crypto.sha256h", "<4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>)"]);
+    expect(decl("llvm.aarch64.crypto.sha256su0")).toEqual(["llvm.aarch64.crypto.sha256su0", "<4 x i32> (<4 x i32>, <4 x i32>)"]);
+    expect(decl("llvm.aarch64.crypto.sha512h")).toEqual(["llvm.aarch64.crypto.sha512h", "<2 x i64> (<2 x i64>, <2 x i64>, <2 x i64>)"]);
+    expect(decl("llvm.aarch64.crypto.sha512su0")).toEqual(["llvm.aarch64.crypto.sha512su0", "<2 x i64> (<2 x i64>, <2 x i64>)"]);
+    // Neighbours outside the three crates' reach stay stops.
+    const rax1 = L.LLVMLookupIntrinsicID("llvm.aarch64.crypto.rax1", 24);
+    expect(() => L.LLVMGetIntrinsicDeclaration(mm, rax1, [], 0)).toThrow(/llir: the signature of llvm.aarch64.crypto.rax1 \(IntrinsicsAArch64.td\) is not in the IR model/);
+  });
+
   test("stops: target tables, signatures the model lacks, unnamed struct overloads", () => {
     expect(() => L.LLVMLookupIntrinsicID("llvm.arm.isb", 12)).toThrow(/llir: the arm intrinsic table/);
     const mc = L.LLVMContextCreate();
