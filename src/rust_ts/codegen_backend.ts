@@ -307,8 +307,11 @@ let PORTED_LLVM_INITED = false;
  * `llvm_util::init(sess)`), which stays the stand-in's, as `target_config` does (oracle tables, D4); so the model's
  * `llvm_util::init` runs here instead, once, at the first forward that has a session. It is idempotent anyway (`INIT`). The port's
  * own `init` is not called: its `global_llvm_features` would emit `-Ctarget-feature` warnings a second time, and its other
- * values are the stand-in's, already in the session. The statistics forwards (no session: `print_pass_timings` and the others are
- * only reached after `join_codegen`) only load the backend.
+ * values are the stand-in's, already in the session. The statistics forwards (`print_pass_timings` and the others) have no session,
+ * so they only load the backend. They are not reached only after `join_codegen`: `Linker::link` (rustc_interface queries.rs:49)
+ * calls them after its check-only branch too, so a check-only compile with `-Ztime-llvm-passes` (one CGU) or
+ * `-Zprint-codegen-stats(-json)` reaches them, without `codegen_crate` having run (review w40q-audit N2). Today the stand-in's
+ * `init` stops those flags first (`non_default_llvm_input`).
  * The model's init therefore runs just before the CPU checks (base.rs:723-733), where upstream runs it before everything. No
  * output changes (`configure_llvm` prints nothing on a path the port reaches); only the order of stops can: a compile that
  * upstream fails with `CpuRequired` stops in the model first when its init stops (review cg-register N2; no protected case).
