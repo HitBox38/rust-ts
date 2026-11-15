@@ -1,9 +1,9 @@
 // Port of compiler/rustc_codegen_ssa/src/back/link/raw_dylib.rs (lane ssa-link-b, wave 40r).
 //
 // PORT:
-// - `create_dll_import_lib` is a provided method of `ArchiveBuilderBuilder` (back/archive.ts `ArchiveBuilderBuilder_provided`,
-//   receiver first), called directly. (link.ts's `xlane` table wraps `create_raw_dylib_dll_import_libs`, not this method. An
-//   implementor's override, such as the dummy backend's, is not dispatched to: see docs/handoff/ssa-link-b.md, review N2.)
+// - `create_dll_import_lib` is a provided method of `ArchiveBuilderBuilder`: the builder's own override when it has one (the dummy
+//   backend's, rustc_interface/util.ts), else back/archive.ts `ArchiveBuilderBuilder_provided`'s, receiver first (review
+//   ssa-link-b N2). link.ts's `xlane` table wraps `create_raw_dylib_dll_import_libs`, not this method.
 // - `create_elf_raw_dylib_stub` uses `object::write::elf::Writer`'s dynamic-symbol, GNU-version and `.dynamic` writers, which
 //   the vendored object (write/elf/writer.ts) does not have yet. The function is ported against `ElfStubWriter` (the methods it
 //   calls, as upstream names them) and getting the writer stops by name, so only that stand-in changes when the vendor grows.
@@ -115,7 +115,11 @@ export function create_raw_dylib_dll_import_libs(
       }
     });
 
-    ArchiveBuilderBuilder_provided.create_dll_import_lib(archive_builder_builder, sess, raw_dylib_name, items, output_path);
+    if (archive_builder_builder.create_dll_import_lib !== undefined) {
+      archive_builder_builder.create_dll_import_lib(sess, raw_dylib_name, items, output_path);
+    } else {
+      ArchiveBuilderBuilder_provided.create_dll_import_lib(archive_builder_builder, sess, raw_dylib_name, items, output_path);
+    }
 
     return output_path;
   });
