@@ -9,6 +9,7 @@ import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDr
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
 import { RG_BUILD, RG_BUILD_SOURCES, hostToolsId } from "../scripts/rg-build.ts";
+import { noResultReason } from "../scripts/lib/rg-build.ts";
 import { RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
 import { AUX_PLACEHOLDER } from "../scripts/pm-self-run.ts";
 import type { IrTier } from "../scripts/lib/ir-normal.ts";
@@ -132,6 +133,13 @@ export interface Suite {
    * command.
    */
   miri?: boolean;
+  /**
+   * The suite's own mark of an oracle output that is no result (lane harness-m7d, review harness-m7d F2): the reason, if the oracle's stderr
+   * has it. difftest treats it as `UNSTABLE_ORACLE_PATTERNS`: the output is never cached, the case is UNSTABLE (scripts/difftest.ts
+   * `oracleUnstableReason`). The ripgrep suites set it to lib/rg-build.ts `noResultReason`, so an interrupted or failed oracle build of rg
+   * is never kept as the oracle's answer. Unset: as before.
+   */
+  uncachedOracle?(stderr: string): string | undefined;
   /**
    * The suite compares programs' output (the native suites, scripts/native-run.ts): difftest masks stdout and stderr further with
    * scripts/lib/unstable.ts `maskProgramOutput` (the thread id, also on stdout, and libtest's `finished in N.NNs`; root's decision for review
@@ -2872,6 +2880,7 @@ SUITES.push(
   {
     name: "rg-build",
     milestone: "M7",
+    uncachedOracle: noResultReason,
     description:
       "ripgrep 15.2.0 under a real `cargo build --release` (pinned Cargo.lock, D19) with every compiler call on the side's compiler: build scripts (which cargo runs), every crate and the link of rg. Stock release profile (debug = 1), CARGO_INCREMENTAL=0, -j1, one target path for both sides: cargo's exit, its stderr (paths and time normalised, Compiling lines sorted), rg --version, each call's exit and stderr, the artifacts' names and the dep-info and build-script outputs' bytes (scripts/rg-build.ts)",
     mode: "single",
@@ -2893,6 +2902,7 @@ SUITES.push(
   {
     name: "rg-behaviour",
     milestone: "M7",
+    uncachedOracle: noResultReason,
     description:
       "scripted rg queries (search modes, regex features, -i, -w, -F, -c, -l, --json, globs, .gitignore, binary detection, multiline, replacements, ...) on a fixed corpus (harness/corpus/rg-behaviour), run by the rg each side's rg-build made: rg's stdout, stderr (--json and --stats times masked) and exit (scripts/rg-behaviour.ts)",
     mode: "single",
@@ -2915,6 +2925,7 @@ SUITES.push(
   {
     name: "rg-behaviour-rgtest",
     milestone: "M7",
+    uncachedOracle: noResultReason,
     description:
       "ripgrep 15.2.0's own integration tests (tests/tests.rs: 333 rgtest! and the rest), one oracle-built test binary running each side's rg from rg-build: each test's ok/FAILED/ignored, and the test binary's exit (scripts/rg-behaviour.ts rgtest); report only",
     mode: "split",

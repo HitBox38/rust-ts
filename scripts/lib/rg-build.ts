@@ -3,7 +3,7 @@
 // it without scripts/lib/common.ts.
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 /** One compiler call cargo made, as scripts/rg-build-rustc.ts records it. */
 export interface RgBuildCall {
@@ -15,6 +15,8 @@ export interface RgBuildCall {
   args: string[];
   /** The kept stderr file's name, in the log directory. */
   stderr: string;
+  /** The size and SHA-256 of what the call printed on stdout: the answer cargo reads from a probe (review harness-m7d N3). */
+  stdout: string;
 }
 
 /** A call that asks the compiler about itself (cargo's `-vV` and `--print`, a build script's `--version`), or a compile. */
@@ -76,11 +78,14 @@ export const notArtifact = (rel: string): boolean => {
 
 /**
  * The artifacts whose bytes are compared, not only their names: dep-info (`*.d`, rustc's and cargo's) and what a build script
- * printed and where cargo put its output: `build/<package>/<hash>/run/{output,stderr,root-output}` in the oracle cargo's build-dir layout,
- * `build/<package>-<hash>/...` in the older one; not a file of that name a build script wrote into its `out` directory. Objects, rlibs
- * and binaries are compared by name only: plan-m7 D2 makes their bytes no gate.
+ * printed and where cargo put its output. In the oracle cargo's build-dir layout that is `build/<package>/<hash>/run/{stdout,stderr,
+ * root-output}`: the `cargo:` lines a port-built build script prints are in `stdout` (review harness-m7d F3: this matched `output`, the
+ * older layout's name, and so compared none of them). The older layout's `build/<package>-<hash>/{output,stderr,root-output}` is kept.
+ * Not a file of those names a build script wrote into its `out` directory. Objects, rlibs and binaries are compared by name only:
+ * plan-m7 D2 makes their bytes no gate.
  */
-export const comparedBytes = (rel: string): boolean => rel.endsWith(".d") || /^build\/[^/]+\/(?:[^/]+\/run\/)?(?:output|stderr|root-output)$/.test(rel);
+export const comparedBytes = (rel: string): boolean =>
+  rel.endsWith(".d") || /^build\/[^/]+\/[^/]+\/run\/(?:stdout|stderr|root-output)$/.test(rel) || /^build\/[^/]+\/(?:output|stderr|root-output)$/.test(rel);
 
 /** The artifact lines of the report: every artifact's path, then `bytes <path>: <size, sha256>` for those of `comparedBytes`. */
 export function artifactLines(profileDir: string): string[] {
@@ -88,8 +93,36 @@ export function artifactLines(profileDir: string): string[] {
   return [`artifacts: ${files.length} files`, ...files.map((f) => `  ${f}`), ...files.filter(comparedBytes).map((f) => `  bytes ${f}: ${sizeHash(readFileSync(join(profileDir, f)))}`)];
 }
 
-/** A call's line in the report: what kind, which crate and unit, and how it ended. Sorted by the caller, so cargo's order does not matter. */
-export const callLine = (c: Pick<RgBuildCall, "crate" | "metadata" | "kind" | "code">, stderr: Uint8Array): string => `  ${c.kind} ${c.crate} ${c.metadata}: exit ${c.code}, stderr ${sizeHash(stderr)}`;
+/**
+ * A call's line in the report: what kind, which crate and unit, how it ended, and the size and hash of its stdout (a probe's answer) and
+ * stderr. Sorted by the caller, so cargo's order does not matter.
+ */
+export const callLine = (c: Pick<RgBuildCall, "crate" | "metadata" | "kind" | "code" | "stdout">, stderr: Uint8Array): string =>
+  `  ${c.kind} ${c.crate} ${c.metadata}: exit ${c.code}, stdout ${c.stdout}, stderr ${sizeHash(stderr)}`;
+
+/**
+ * The line a ripgrep suite's wrapper prints, first on a line of its stderr, when it has no result to give: the oracle's build of rg made no
+ * binary, the build was interrupted, or the corpus's surroundings are wrong. difftest never caches an oracle output that has it and makes
+ * the case UNSTABLE (the suites' `uncachedOracle`), so an error is never kept as the oracle's answer (review harness-m7d F2).
+ */
+export const NO_RESULT_MARK = "rg-harness: no result: ";
+export const noResultReason = (stderr: string): string | undefined => {
+  const m = /^rg-harness: no result: (.*)$/m.exec(stderr);
+  return m ? `detected: the ripgrep harness had no result: ${m[1]!.slice(0, 200)}` : undefined;
+};
+
+/**
+ * The ignore files rg would read above `dir`: it reads `.ignore` and `.rgignore` in every parent directory up to the root, whatever
+ * the repository (the `ignore` crate's `add_parents`), so one there would change what the corpus's queries see (review harness-m7d N4).
+ */
+export function ancestorIgnoreFiles(dir: string): string[] {
+  const found: string[] = [];
+  for (let d = dirname(dir); ; d = dirname(d)) {
+    for (const f of [".ignore", ".rgignore"]) if (existsSync(join(d, f))) found.push(join(d, f));
+    if (dirname(d) === d) break;
+  }
+  return found;
+}
 
 /** The first `rust-ts: unported: ...` line of a port's stderr, if any (difftest's `unportedOf` reads the same form). */
 export const unportedLine = (stderr: string): string | undefined => /^rust-ts: unported: .*$/m.exec(stderr)?.[0];

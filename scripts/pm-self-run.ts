@@ -10,7 +10,8 @@
 //   compile's argv. **Both sides use that one path**, one at a time under difftest's case lock (`<case dir>.case.lock`), as it is in the
 //   main compile's `-L` and `--extern`, and so in what it may print.
 // - Each step runs as harness/compiletest.ts `buildAux` runs the oracle: `<compiler> <args>`, this process's cwd (the upstream checkout),
-//   exactly the step's environment. Then on stdout `pm-self: aux <file>: exit <n>`, and its stderr on this process's stderr. A step that
+//   exactly the step's environment, plus this process's `RUST_TS_IMPL` if it has one, so difftest's `--impl shim|stub` self-check reaches
+//   the port's aux builds too, not only its main compile (review harness-m7d N5); the oracle's rustc ignores it. Then on stdout `pm-self: aux <file>: exit <n>`, and its stderr on this process's stderr. A step that
 //   fails ends the run with its exit code (the port's `unported`, 70, is UNPORTED; its line is in the stderr passed on).
 // - Then the main compile: `<compiler> <main argv>`, with this process's cwd, environment and streams (inherited), its exit code this
 //   process's. Only a malformed command line exits 2.
@@ -80,7 +81,8 @@ if (import.meta.main) {
   rmSync(aux, { recursive: true, force: true });
   mkdirSync(aux, { recursive: true });
   for (const s of a.steps) {
-    const r = Bun.spawnSync([...a.compiler, ...fill(s.args, aux)], { env: s.env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const impl = process.env.RUST_TS_IMPL;
+    const r = Bun.spawnSync([...a.compiler, ...fill(s.args, aux)], { env: impl === undefined ? s.env : { ...s.env, RUST_TS_IMPL: impl }, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
     const code = r.exitCode ?? 101;
     const line = Buffer.from(`pm-self: aux ${s.file}: exit ${code}\n${r.stdout.length ? r.stdout.toString("latin1") : ""}`, "latin1");
     for (let at = 0; at < line.length; ) at += writeSync(1, line, at);

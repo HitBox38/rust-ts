@@ -3,16 +3,17 @@
 // dependencies, every crate, and the final link of `rg`. So on the port's side the build scripts are compiled by the port and run by
 // cargo: the first port-built programs that run during a build.
 //
-// Each call's stdin and stdout pass through (cargo reads a probe's answer from stdout, and `rustc -` reads stdin); its stderr passes
-// through too and is kept, and `<RGB_LOG>/<n>.json` records the crate, `-C metadata`, kind, exit code and argv (lib/rg-build.ts
-// `RgBuildCall`). Nothing is appended to the argv: the side's compiler argv already holds what a side needs (the port's `--sysroot`).
+// Each call's stdin passes through (`rustc -` reads it). Its stdout and stderr pass through too, after it ends: cargo reads a probe's
+// answer from stdout. Its stderr is kept, and `<RGB_LOG>/<n>.json` records the crate, `-C metadata`, kind, exit code, argv and the size
+// and hash of its stdout (lib/rg-build.ts `RgBuildCall`), so what the compiler answered cargo is in the report (review harness-m7d N3).
+// Nothing is appended to the argv: the side's compiler argv already holds what a side needs (the port's `--sysroot`).
 // `CARGO_MAKEFLAGS` is dropped from the compiler's environment: cargo's jobserver pipes do not survive this process (Bun does not pass on
 // file descriptors past stderr), so rustc would warn that it cannot open them, in every call's stderr. Without it the compiler makes its
 // own jobserver, as rustc run by hand does; the port acquires nothing either way (plan-m7 D11).
-import { writeFileSync } from "node:fs";
+import { writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { argValue, unitMetadata } from "./lib/rg-check.ts";
-import { callKind, type RgBuildCall } from "./lib/rg-build.ts";
+import { callKind, sizeHash, type RgBuildCall } from "./lib/rg-build.ts";
 
 const need = (k: string): string => {
   const v = process.env[k];
@@ -28,13 +29,14 @@ if (import.meta.main) {
   const compiler = JSON.parse(need("RGB_COMPILER")) as string[];
   const log = need("RGB_LOG");
   const { CARGO_MAKEFLAGS: _dropped, ...env } = process.env;
-  const p = Bun.spawnSync([...compiler, ...args], { env, stdin: "inherit", stdout: "inherit", stderr: "pipe" });
+  const p = Bun.spawnSync([...compiler, ...args], { env, stdin: "inherit", stdout: "pipe", stderr: "pipe" });
   const code = p.exitCode ?? 101;
-  process.stderr.write(p.stderr);
+  for (let at = 0; at < p.stdout.length; ) at += writeSync(1, p.stdout, at);
+  for (let at = 0; at < p.stderr.length; ) at += writeSync(2, p.stderr, at);
   // A unique name per call, in the order calls end (time, then pid); the report sorts its lines, so the order is only for reading.
   const id = `${process.hrtime.bigint().toString().padStart(20, "0")}-${process.pid}`;
   writeFileSync(join(log, `${id}.stderr`), p.stderr);
-  const call: RgBuildCall = { crate: argValue(args, "--crate-name") ?? "-", metadata: unitMetadata(args), kind: callKind(args), code, args, stderr: `${id}.stderr` };
+  const call: RgBuildCall = { crate: argValue(args, "--crate-name") ?? "-", metadata: unitMetadata(args), kind: callKind(args), code, args, stderr: `${id}.stderr`, stdout: sizeHash(p.stdout) };
   writeFileSync(join(log, `${id}.json`), JSON.stringify(call));
   process.exit(code);
 }

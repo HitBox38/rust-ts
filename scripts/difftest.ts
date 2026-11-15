@@ -92,6 +92,12 @@ export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOU
 /** Oracle stderr patterns that are not reproducible (scripts/lib/unstable.ts). */
 export { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason };
 
+/**
+ * Why an oracle output of suite `s` is not to be cached or scored, if it is not: `UNSTABLE_ORACLE_PATTERNS`, then the suite's own
+ * `uncachedOracle` (lane harness-m7d; only the ripgrep suites set it, so every other suite is as before).
+ */
+export const oracleUnstableReason = (s: Suite, stderr: string): string | undefined => unstableOracleReason(stderr) ?? s.uncachedOracle?.(stderr);
+
 /** An oracle process that times out is run once more with this many times its timeout (scripts/lib/oracle.ts). */
 export { ORACLE_RETRY_FACTOR };
 /**
@@ -451,7 +457,7 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
     let cached = !listed.has(c.id) && existsSync(p) ? readCached(p) : undefined;
     if (cached && s.mode === "single") {
       // An entry written before its pattern was known: never reused, removed.
-      const why = unstableOracleReason(stderrOf(cached));
+      const why = oracleUnstableReason(s, stderrOf(cached));
       if (why) {
         rmSync(p, { force: true });
         cached = undefined;
@@ -505,7 +511,7 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
         continue;
       }
       const o: Output = { text: render(r), code: r.code, timedOut: false };
-      const why = listed.get(c.id) ?? unstableOracleReason(r.stderr);
+      const why = listed.get(c.id) ?? oracleUnstableReason(s, r.stderr);
       if (why) o.unstable = why;
       out.set(c.id, o);
       if (!why) writeCached(paths.get(c.id)!, o);
@@ -831,7 +837,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
   /** What the oracle side found: its usage if it ran, its split text if it ran and finished, why it is unstable. */
   const fresh: { usage?: Usage; out?: SplitOutput; unstable?: string; timedOut?: boolean } = {};
   let cached = !listed.has(c.id) && existsSync(p) ? readCachedAs<SplitOracle>(p, (o) => typeof o?.code === "number" && typeof o.stderr === "string" && Array.isArray(o.hashes?.sections)) : undefined;
-  if (cached && unstableOracleReason(cached.stderr)) {
+  if (cached && oracleUnstableReason(s, cached.stderr)) {
     // An entry written before its pattern was known: never reused, removed (as in `runOracle`).
     rmSync(p, { force: true });
     cached = undefined;
@@ -846,7 +852,7 @@ export async function runSplit(s: Suite, c: Case, impl: string, stats: SubjectSt
     }
     fresh.out = splitter(r.stdout);
     const o: SplitOracle = { code: r.code, stderr: r.stderr, hashes: splitHashes(fresh.out) };
-    fresh.unstable = listed.get(c.id) ?? unstableOracleReason(r.stderr);
+    fresh.unstable = listed.get(c.id) ?? oracleUnstableReason(s, r.stderr);
     if (!fresh.unstable) writeCached(p, o);
     return o;
   };

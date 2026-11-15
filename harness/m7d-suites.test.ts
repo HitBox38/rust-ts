@@ -11,6 +11,7 @@ test("M7d's suites: report only, their commands, the corpus and the queries", ()
   const code = `
 const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
 const g = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
+const d = await import(${JSON.stringify(join(REPO, "scripts/difftest.ts"))});
 const { rgCorpus, rgQueries } = await import(${JSON.stringify(join(REPO, "scripts/rg-behaviour.ts"))});
 const get = (n) => s.suite(n);
 const fake = { id: "files", file: "", args: ["--files", "--sort=path"] };
@@ -31,6 +32,10 @@ console.log(JSON.stringify({
   keys: [get("rg-build").oracleKey(), get("rg-behaviour").oracleKey(), get("rg-behaviour-rgtest").oracleKey(), get("pm-self").oracleKey()],
   undeclared: ["rg-build", "rg-behaviour", "rg-behaviour-rgtest", "pm-self", "std-self"].flatMap((n) => g.undeclaredRuns(get(n))),
   runs: ["rg-build", "rg-behaviour", "rg-behaviour-rgtest", "pm-self"].map((n) => g.oracleRuns(get(n).oracle([n === "pm-self" ? pmFake : fake]))),
+  // Review harness-m7d F2: the ripgrep suites' no-result mark is never cached (UNSTABLE); no other suite has the hook.
+  noResult: ["rg-build", "rg-behaviour", "rg-behaviour-rgtest", "pm-self", "parse", "run-pass-native"].map((n) => d.oracleUnstableReason(get(n), "warning: x\\nrg-harness: no result: the build was interrupted (SIGTERM)\\n") ?? null),
+  plain: d.oracleUnstableReason(get("rg-behaviour"), "rg: foo: No such file or directory\\n") ?? null,
+  hooked: s.SUITES.filter((x) => x.uncachedOracle).map((x) => x.name),
 }));
 `;
   const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, stdout: "pipe", stderr: "pipe" });
@@ -86,6 +91,10 @@ console.log(JSON.stringify({
   // gate.ts's probe check: each runs the oracle rustc and nothing undeclared.
   expect(j.undeclared).toEqual([]);
   expect(j.runs).toEqual([["rustc"], ["rustc"], ["rustc"], ["rustc"]]);
+  const why = "detected: the ripgrep harness had no result: the build was interrupted (SIGTERM)";
+  expect(j.noResult).toEqual([why, why, why, null, null, null]);
+  expect(j.plain).toBeNull();
+  expect(j.hooked).toEqual(["rg-build", "rg-behaviour", "rg-behaviour-rgtest"]);
 }, 60_000);
 
 const pmCaseArgs = () => ["--aux-key", "0123456789abcdef", "--step", JSON.stringify({ file: "tests/ui/auxiliary/b.rs", args: ["--crate-type", "proc-macro"], env: { PATH: "/usr/bin" } }), "--", "tests/ui/a.rs"];

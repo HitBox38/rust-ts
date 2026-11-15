@@ -3,6 +3,9 @@
 Harness batch (AGENTS.md §2): `harness/`, `scripts/` and `tools/` only. Nothing under `src/` changed. Base `6a74a1de`, branch
 `t3/add-m7d-harness-suites`. AC power throughout, no `GATE_RUNNING` seen. The oracle toolchain was not touched.
 
+**Round 2** answers the independent review `docs/reviews/harness-m7d.md` (FAIL on F1-F3, at `9de88ff5`): see "Round 2: the review's
+findings" below. The sections in between describe the suites as they are now.
+
 ## Files touched
 
 - **New:**
@@ -49,21 +52,30 @@ None has a baseline, so none is in the gate's defaults. A gate must name them wi
   - Afterwards it is moved to `kept/rg-build/<side>`, with the logs in `kept/rg-build/<side>-logs`.
 - **The report (stdout):**
   - cargo's exit, whether `rg` exists, and `rg --version` (exit, stdout and stderr).
-  - Every compiler call: `probe|compile <crate> <-C metadata>: exit, stderr size+sha256`, sorted.
+  - Every compiler call: `probe|compile <crate> <-C metadata>: exit, stdout size+sha256, stderr size+sha256`, sorted. A probe's stdout is
+    its answer to cargo (review N3).
   - cargo's stderr: `$RG_ROOT` and the sysroot get names, the `Finished` time is masked, and the `Compiling` lines are listed first, sorted.
   - The names of the artifacts in `release/`, leaving out `.fingerprint` and `incremental`.
-  - The bytes of every `*.d` and every build-script `run/{output,stderr,root-output}`.
+  - The bytes of every `*.d` and every build-script `run/{stdout,stderr,root-output}`, which is this cargo's layout (review F3; the older
+    layout's `build/<pkg>-<hash>/{output,stderr,root-output}` is kept).
 - **Exit:** 70 with the port's first `rust-ts: unported:` line, which makes the case UNPORTED. 101 if a compiler panicked. Otherwise 0.
 - **Why `-j1`:** with more jobs, the compilers' diagnostics arrive in the order jobs finish. `-j1` also keeps the port to one compile at a time.
   - Even at `-j1`, cargo's `Compiling` order varies: two oracle runs swapped `serde` and `termcolor`. Hence the sorting.
 - **`CARGO_MAKEFLAGS` is dropped from the compiler's environment** (in rg-build-rustc.ts).
   - Bun does not pass cargo's jobserver fds through.
   - So every rustc warned "failed to connect to jobserver", in every crate's stderr, on the oracle too.
+- **The build's processes are its own** (review F2). See round 2.
 - **The binary for rg-behaviour:** `bin/<side>/<key>/rg` plus `stamp.json`.
   - `<key>` hashes rg-build's sources, the ripgrep lock, the host tools (`cc -v`, `ld -v`, SDK, `sw_vers`) and the compiler argv.
-  - For the oracle it also hashes the rustc build; for the port, the state of `src/` (`HEAD:src` plus every changed or untracked file and
-    its contents).
-  - A build that makes no `rg` writes only the stamp, with the reason, so later cases do not rebuild for the same key.
+  - For the oracle it also hashes the rustc build. For the port it hashes everything the port reads (review N1, `portInputs`):
+    - the state of `src/`: `HEAD:src`, plus every changed or untracked file and its contents;
+    - the files outside `src/` that `src/` imports, followed transitively;
+    - the config files Bun reads, and Bun itself (or the subject binary), by contents;
+    - the pinned LLVM tools, and the oracle's rustc build.
+  - Only a **completed** build writes a stamp: `ok` beside the `rg`, or, for the port only, why there is none. The oracle's build either
+    made an `rg` or leaves no stamp.
+  - The key directory is renamed into place whole, so a query reads a kept stamp without the lock.
+  - Other keys stay for 3 days (`KEY_MAX_AGE_MS`), so another worktree's query never loses its `rg` mid-run (review N2).
 
 ### `rg-behaviour` (scripts/rg-behaviour.ts `query`)
 
@@ -74,9 +86,11 @@ None has a baseline, so none is in the gate's defaults. A gate must name them wi
   - stdin is the query's text, if it has one; the limit is 30 s.
   - The times printed by `--json` (`elapsed`, `elapsed_total`, in both field orders) and `--stats` are masked.
 - **It uses rg-build's binary for each side (`ensureRg`).**
-  - If no build for the current key is kept, the first case builds it, under rg-build's lock. This happens on the oracle side when
-    difftest has rg-build's oracle output cached.
+  - A kept key's stamp is read without a lock. If no build for the current key is kept, the first case builds it, under rg-build's lock,
+    taken silently. That happens on the oracle side when difftest has rg-build's oracle output cached.
   - On the port's side, a failed build's `unported` gives UNPORTED.
+  - The oracle's build making no `rg`, an interrupted build, or ignore files above the corpus print `rg-harness: no result: ...`, which
+    difftest never caches (round 2).
 - **Coverage:** literal, no match, `-i`, `-S`, `-w`, `-F`, regex dot, anchors, alternation, repetition, `-c`, `--count-matches`, `-l`,
   `--files-without-match`, `-0`, `-n --column`, `-b`, `-o`, `-v`, `-C`, `-B/-A`, `-m`, `--no-heading -H`, `--vimgrep`, `--passthru`,
   `--color=always`, `--json` (twice), `--stats`, `-g`, `--iglob`, `-t`, `-T`, `--files`, `--sortr`, `--max-depth`, `--no-ignore`,
@@ -226,6 +240,98 @@ All under `$RUST_TS_DATA`, except the tests' `TMPDIR`.
 - **Peak during a build:** about 250 MB (one tree building, one kept).
 - **Free on the data volume at the end:** 7.0 GiB. Other lanes share the volume; it was 9.2 GiB at the start.
 
+## Round 2: the review's findings
+
+The review (`docs/reviews/harness-m7d.md` at `9de88ff5`) found three must-fix bugs and five nits. All eight are fixed.
+
+**F1. A lock wait printed a line with a pid into the compared and cached stderr.**
+- Every `withCaseLock` in the ripgrep wrappers now passes a silent note (`() => {}`), as `native-run.ts` and `ir-run.ts` do:
+  - rg-build's build lock, in both `buildSide` and `ensureRg`;
+  - rgtest's test-binary lock and its case lock.
+- `ensureRg` reads a kept stamp **without** the lock, and takes it only to build.
+  - This is safe because a key directory appears whole: it is written as `<key>.tmp-<pid>`, then renamed.
+  - Under the lock it checks the stamp again before building.
+  - The test-binary path works the same way.
+- **Result:** `oracle-self --suite rg-behaviour --jobs 4`, **three runs: 63/63, 63/63, 63/63 equal.** The review saw 47, 52 and 52.
+  - The first run rebuilt both keys while the other queries waited on the lock, so the waits really happened, and printed nothing.
+
+**F2. An interrupted build left the compiler running, and wrote a failure stamp that later runs trusted.**
+- **Process tree:**
+  - cargo runs in its own process group (`perl -e 'setpgrp(0, 0); exec ...'`, as native-run runs its programs). Every process of the
+    build also carries `RGB_TREE=<tree>` in its environment.
+  - On SIGTERM or SIGINT the group gets SIGTERM, then SIGKILL 3 s later.
+  - After cargo ends, whatever it ended by, the group gets SIGKILL and every process carrying the variable is killed. That sweep is
+    `killBuildProcesses`, which uses `ps -E` like native-run's `killEscaped`.
+  - A new build runs that sweep first, under the lock, for anything a dead owner left.
+  - cargo is a lock holder (`addLockHolder`), so a wrapper killed by SIGKILL does not hand the tree over while cargo still runs.
+- **Stamps:**
+  - An interrupted build, or one where cargo was killed by a signal, writes **no stamp and no report**. It deletes its tree, prints
+    `rg-harness: no result: the build was interrupted (<sig>)`, and exits 128 + the signal.
+  - Only a completed build writes a stamp. The oracle's is only ever `ok`: a completed oracle build that made no `rg` leaves no stamp,
+    and prints the mark.
+- **No error is ever cached as the oracle's answer:**
+  - New `Suite.uncachedOracle` hook, used by difftest's new `oracleUnstableReason` at the four places it read `unstableOracleReason`.
+  - The three ripgrep suites set it to `noResultReason`. An oracle output carrying `rg-harness: no result:` is never cached, and its
+    case is UNSTABLE.
+  - Every other suite has no hook, so it behaves as before. `scripts/lib/unstable.ts` is unchanged on purpose: the native suites' key
+    hashes it.
+- **Shown:**
+  - A port-side build with a deliberately slow compiler (rustc, then a 60 s wait, a Bun process) got SIGTERM while a compile hung.
+    The wrapper exited 143 with the mark. Half a second later no cargo, wrapper or compiler process was left (all three had been in
+    cargo's group). There was no stamp in `bin/subject` and no tree.
+  - The same with the oracle mid-build: exit 143, the mark, no stamp, no tree, nothing left running.
+  - A unit test kills a marked Bun child and leaves a differently marked one alone.
+  - `harness/m7d-suites.test.ts` checks that the mark gives UNSTABLE for the three rg suites only.
+
+**F3. Build-script output was not byte-compared.**
+- `comparedBytes` now takes `build/<pkg>/<hash>/run/{stdout,stderr,root-output}`, plus the older layout's `output`/`stderr`/`root-output`.
+  It does not take an `out/stdout` or a `run/output`. The unit test pins this layout.
+- On the oracle's tree the report now has `bytes` lines for **10 `run/stdout`**, 10 `run/stderr` and 10 `run/root-output` (752 lines).
+
+**N1.** The port's key now covers what the port reads (`portInputs`, `programId`):
+- the files outside `src/` that non-test `src/` modules import, followed transitively: `scripts/lib/common.ts`, `llvm-tools.ts`,
+  `tools/llir/ffi_gen.ts`, and so on;
+- `UPSTREAM.json`, `tsconfig.json`, `package.json`, `bunfig.toml` and `bun.lock`;
+- `llvmToolHashes` and `rustcDriverHash`;
+- the compiler's first word (Bun or the subject binary), by contents.
+
+**N2.** Key directories are no longer wiped on every build. `pruneKeys` removes only keys unused for 3 days, and temp directories of
+dead builds; never the current key, and never another live process's temp directory. rgtest's test binaries are kept per key the same way.
+
+**N3.** The compiler wrapper records each call's stdout (size and SHA-256), so cargo's probes' answers (`-vV`, `--print=cfg`, ...) are in
+the call lines. It forwards stdout after the call ends.
+
+**N4.** A query checks for `.ignore`/`.rgignore` above the corpus (`ancestorIgnoreFiles`). If any exists it stops with the mark and exit 2.
+There are none today.
+
+**N5.**
+- rg-build's header now says a missing setup exits 1.
+- pm-self's aux steps get this process's `RUST_TS_IMPL`. `difftest --suite pm-self --impl stub --sample 3` gives UNPORTED 3/3
+  (`stub implementation`), so the self-check now reaches the aux builds.
+
+### Round 2 evidence
+
+| run | result |
+|---|---|
+| `oracle-self --suite rg-behaviour --jobs 4`, three runs | **63/63, 63/63, 63/63** equal |
+| `oracle-self --suite rg-build`, twice | 1/1, 1/1 equal (39 s, 40 s) |
+| `oracle-self --suite rg-behaviour-rgtest` | 1/1 equal |
+| `oracle-self --suite pm-self --sample 40 --jobs 6` | 40/40 equal |
+| `difftest --suite pm-self --sample 40 --jobs 4` (port) | 40/40 MATCH |
+| `difftest --suite pm-self --impl stub --sample 3` | UNPORTED 3/3 |
+| `bunx tsc --noEmit -p .` | clean |
+| `bun test ./harness/` / `./scripts/` / `./tools/`, one root at a time | 90 / 504 / 84 pass, 0 fail |
+| the 81 existing suites, re-dumped (the same scratch `dump.ts`) | **identical** to the dump taken before this lane's first edit |
+
+- **Oracle cache keys:** this round changes the oracle keys of `rg-build`, `rg-behaviour`, `rg-behaviour-rgtest` (`RG_BUILD_SOURCES`
+  changed) and `pm-self` (`pm-self-run.ts` changed). They are new suites with no baseline. No other key moved.
+- **Disk, after cleanup:**
+  - Removed: my kept rg-build trees and logs (249 MB), pm-self's case directories (142 MB), `rgtest-run`, rgtest's temp directory, my
+    old test binary, and the `bin/subject` key that oracle-self made.
+  - Kept: the current oracle `rg` key (7 MB) and test binary (2 MB), so the next run need not rebuild them.
+  - `bin/oracle/8766cf8de2bda6a0` is not mine and stays; the 3-day prune will take it.
+  - `$RUST_TS_DATA/ripgrep` is 365 MB, of which 266 MB is check-rg's kept trees. The volume shows 14 GiB free.
+
 ## Review nits from harness-w40s
 
 - **N1:** `scripts/probes.ts`'s `sysroot_extern` comment now says only metadata-only crates can be pinned.
@@ -268,11 +374,18 @@ All under `$RUST_TS_DATA`, except the tests' `TMPDIR`.
    git repository.
 5. `pm-self`'s port side builds **every** aux crate, not only the proc-macro ones: "the oracle building everything" on the other side.
 6. `std-self` is defined with no case, and skipped with a reason.
+7. (Round 2) A ripgrep wrapper with no result marks its stderr `rg-harness: no result:`, and the suites' new `uncachedOracle` hook makes
+   difftest treat that as UNSTABLE, never cached. The hook lives in difftest rather than in `UNSTABLE_ORACLE_PATTERNS`: editing
+   `scripts/lib/unstable.ts` would re-key the protected native suites.
+8. (Round 2) Kept `rg` keys stay for 3 days rather than one per side, at about 7 MB each.
 
 ## Follow-ups
 
 - Port side: `rust-ts: unported: llir: LLVMRustGetSymbols` (rlib symbol table, `back/archive.rs`) stops rg-build at its first crate, and
   so stops rg-behaviour and rgtest. This is for lane rg-fix-a.
+  - The review then ran integ-w60's compiler, which has it: the port's rg-build report was byte-identical to the oracle's, and the
+    port-built `rg` matched all 63 queries. So M7d needs a gate that names `rg-build`, `rg-behaviour` (and `pm-self`) on a tree with
+    both this batch and that fix.
 - pm-self: 282/282 MATCH already. Lane pm-self may want to check that it agrees, and root can name `pm-self` in a gate to protect it.
 - std-self: the design above.
 - `.data` disk: 7.0 GiB free at the end. See "Disk".
