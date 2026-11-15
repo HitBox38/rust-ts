@@ -149,8 +149,7 @@ describe("stub counts per lane", () => {
     // cg-write: the self-profiler (`-Z self-profile`) in back/profiling.ts (`TimingGuard::start`) and back/write.ts
     // (`get_self_profiler`, `llvm_recording_enabled`, `artifact_size`).
     "rustc_data_structures": 4,
-    // cg-write: `link_or_copy` in back/write.ts (`--emit=obj` of bitcode).
-    "rustc_fs_util": 1,
+    // "rustc_fs_util": 0 (entry dropped): rg-fix-a ported `link_or_copy` in rustc_fs_util (`--emit=obj` of bitcode).
     // "rustc_middle": 0 (entry dropped): stable-hash-alloc (wave 40o) made cg-context's `StableHash for Allocation` stop in
     // `alloc_to_backend` a call of the generated derive.
     // cg-context's 2 (`SanitizerIgnoreList::new`, `typename_for_ignore_list`) and cg-types-attrs's 3 (rustc_sanitizers is out
