@@ -7,6 +7,7 @@
 // (`writeAPFloatInternal`: decimal when it round-trips, else hex; lane llir-apfloat).
 //
 // Function bodies are llir-core-b's: `bodyPrinter` is the hook its instructions register.
+import { printModuleInlineAsm } from "./inline_asm.ts";
 import { unported } from "../../std/panic.ts";
 import { APFloat, semanticsSizeInBits } from "./apfloat.ts";
 import {
@@ -596,6 +597,7 @@ export class Printer {
     if (m.dataLayout !== "") o += `target datalayout = "${m.dataLayout}"\n`;
     if (m.targetTriple !== "") o += `target triple = "${m.targetTriple}"\n`;
     if (m.inlineAsm !== "") return unported("llir: printing module inline asm");
+    o += printModuleInlineAsm(m);
     // Print the bodies first: they number unnamed struct types and attribute groups as they go.
     const globals = m.globals.map((g) => `${this.global(g)}\n`).join("");
     const aliases = m.aliases.map((a) => this.alias(a)).join("");

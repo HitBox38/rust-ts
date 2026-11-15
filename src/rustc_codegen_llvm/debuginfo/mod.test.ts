@@ -265,7 +265,7 @@ describe("without -g: the module equals the oracle's", () => {
 });
 
 // ---- 3: -Cdebuginfo=2, CodegenUnitDebugContext::new ----
-test("-Cdebuginfo=2: CodegenUnitDebugContext::new's module flags, then the IR model's LLVMCreateDIBuilder", () => {
+test("-Cdebuginfo=2: CodegenUnitDebugContext::new's module flags, then cg-di-b's TypeMap::default (the IR model's DIBuilder is ported, lane llir-di)", () => {
   const f = FIXTURES.gdb_g;
   const ir = oracle(f);
   const mod_name = /^; ModuleID = '([^']*)'/.exec(ir)![1]!;
@@ -284,7 +284,7 @@ test("-Cdebuginfo=2: CodegenUnitDebugContext::new's module flags, then the IR mo
   expect(flags).toEqual(module_flags(ir));
   expect(flags).toContain('!{i32 7, !"Dwarf Version", i32 4}');
   expect(flags).toContain('!{i32 2, !"Debug Info Version", i32 3}');
-  expect(stop).toBe("llir: LLVMCreateDIBuilder");
+  expect(stop).toBe("cg-di-b: compiler/rustc_codegen_llvm/src/debuginfo/metadata/type_map.rs TypeMap::default");
 });
 
 // ---- 4: -Cdebuginfo=2, the .debug_gdb_scripts helpers ----

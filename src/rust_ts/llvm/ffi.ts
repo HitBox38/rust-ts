@@ -10,12 +10,13 @@ import * as impl2 from "./intrinsics.ts";
 import * as impl3 from "./target.ts";
 import * as impl4 from "./tools.ts";
 import * as impl5 from "./di_builder.ts";
+import * as impl6 from "./inline_asm.ts";
 
 export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Context, DIArray, DIBasicType, DIBuilder, DICompositeType, DIDerivedType, DIDescriptor, DIFile, DILexicalBlock, DILocation, DIScope, DISubprogram, DITemplateTypeParameter, DIType, DIVariable, DbgRecord, DiagnosticHandler, DiagnosticInfo, Linker, MCSubtargetInfo, Metadata, Module, OperandBundle, RustString, SMDiagnostic, TargetMachine, ThinLTOData, Twine, Type, Value } from "./handles.ts";
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 324 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 325 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -298,6 +299,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustBuildMemSet",
   "LLVMRustGetLastError",
   "LLVMRustInlineAsmVerify",
+  "LLVMRustAppendModuleInlineAsm",
   "LLVMRustDebugMetadataVersion",
   "LLVMRustVersionMajor",
   "LLVMRustAddModuleFlagU32",
@@ -1223,7 +1225,7 @@ export const LLVMRustPrintStatisticsJSON: (OutStr: RustString) => void = stub("L
 export const LLVMRustInlineAsmVerify: (Ty: Type, Constraints: PtrLenStr | undefined, ConstraintsLen: number) => boolean = bind("LLVMRustInlineAsmVerify", impl0.LLVMRustInlineAsmVerify);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2124 LLVMRustAppendModuleInlineAsm
-export const LLVMRustAppendModuleInlineAsm: (M: Module, Asm: PtrLenStr | undefined, AsmLen: number, TargetFeatures: PtrLenStr | undefined, TargetFeaturesLen: number, TargetCpu: PtrLenStr | undefined, TargetCpuLen: number) => void = stub("LLVMRustAppendModuleInlineAsm");
+export const LLVMRustAppendModuleInlineAsm: (M: Module, Asm: PtrLenStr | undefined, AsmLen: number, TargetFeatures: PtrLenStr | undefined, TargetFeaturesLen: number, TargetCpu: PtrLenStr | undefined, TargetCpuLen: number) => void = bind("LLVMRustAppendModuleInlineAsm", impl6.LLVMRustAppendModuleInlineAsm);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2137 LLVMRustCoverageWriteFilenamesToBuffer
 export const LLVMRustCoverageWriteFilenamesToBuffer: (Filenames: readonly PtrLenStr[], FilenamesLen: number, Lengths: readonly number[], LengthsLen: number, BufferOut: RustString) => void = stub("LLVMRustCoverageWriteFilenamesToBuffer");

@@ -110,7 +110,7 @@ describe("stubs name their fill lane", () => {
     // cg-asm (wave 40s) ported asm.rs whole: no stub of its own is left (asm.test.ts).
     // cg-builder (wave 41) ported builder.rs and allocator.rs whole: no stub of its own is left (builder.test.ts).
     // cg-intrinsic-a (wave 41) ported intrinsic.rs's scalar half (:1-2046); ir-fix-a (wave 40r) ported `generic_simd_intrinsic`'s
-    // reached arms, and the rest stop by intrinsic name in their place (simd_intrinsic.test.ts, `simd_stop.rs`).
+    // reached arms, and cg-intrinsic-b (wave 40s) the rest: no arm stops by lane (simd_intrinsic.test.ts).
     // cg-di-a (wave 40p) ported debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs whole, and metadata.rs's fns a
     // compile without `-g` reaches; the rest of metadata.rs stays a typed stop (wave 44, plan-m7 D9).
     stops(() => debuginfo_metadata.type_di_node(cx, undefined as never), /^cg-di-a: .*\/debuginfo\/metadata\.rs type_di_node$/);
@@ -128,7 +128,6 @@ describe("stub counts per lane", () => {
     "cg-di-a": 9,
     // cg-di-a: `TypeMap::default` (metadata/type_map.rs), in `CodegenUnitDebugContext::new` (wave 44).
     "cg-di-b": 1,
-    "cg-intrinsic-b": 2,
     // cg-lto-diag (wave 40p) ported back/lto.rs, diagnostics.rs's hand impls and llvm/diagnostic.rs whole: no stub of its own is
     // left.
     // cg-write (wave 40o) ported back/write.rs, llvm_util.rs, back/owned_*, back/profiling.rs and back/archive.rs whole: no stub
