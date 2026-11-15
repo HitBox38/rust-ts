@@ -1,8 +1,10 @@
-// Tests of lane cg-di-a's port of debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs (and metadata.rs's fns that a
-// compile without `-g` reaches) against the pinned rustc's IR, through the IR model.
+// Tests of lane cg-di-a's port of debuginfo/{mod,utils,namespace,di_builder,dwarf_const,gdb}.rs and lane cg-di-b's port of the
+// rest of debuginfo/ (metadata.rs, metadata/type_map.rs, metadata/enums/{mod,native,cpp_like}.rs) against the pinned rustc's
+// IR, through the IR model.
 //
-// Fixtures: di_oracle/ (README.md): names.rs (lib) and gdb.rs (bin), and the oracle's `--emit=llvm-ir -Cno-prepopulate-passes
-// -Ccodegen-units=1` text for x86_64-unknown-linux-gnu at `-Copt-level=0`. With the pinned toolchain present they are re-made
+// Fixtures: di_oracle/ (README.md): names.rs (lib), gdb.rs (bin) and types.rs (lib, cg-di-b), and the oracle's
+// `--emit=llvm-ir -Cno-prepopulate-passes -Ccodegen-units=1` text at `-Copt-level=0`, for x86_64-unknown-linux-gnu (and, for
+// types.rs, x86_64-pc-windows-msvc). With the pinned toolchain present they are re-made
 // (from inside di_oracle/, into a scratch directory) and must be unchanged; with RUST_TS_REQUIRE_PROBES=1 the toolchain must be
 // present.
 //
@@ -15,21 +17,32 @@
 //    vtable (`apply_vcall_visibility_metadata`, `create_vtable_debuginfo`) return early, so they add nothing.
 // 2. gdb.rs, `-Cdebuginfo=0`: the same for an executable: the entry wrapper (`insert_reference_to_gdb_debug_scripts_section_global`,
 //    which loads nothing without `-g`) and `debuginfo_finalize` (not called without `-g`).
-// 3. gdb.rs, `-Cdebuginfo=2`: `CodegenCx::new` builds the `CodegenUnitDebugContext`: its module flags (`Dwarf Version`,
-//    `Debug Info Version`) must be the oracle's, in its order, then it stops at the IR model's `LLVMCreateDIBuilder` (llir-di's).
+// 3. gdb.rs, `-Cdebuginfo=2` (cg-di-b): `compile_codegen_unit` with the debug context, `build_compile_unit_di_node` and the
+//    subprograms, variables and locations of mod.rs: the whole module equals the oracle's, metadata included (`canonical`
+//    below: metadata renumbered in order of first use, which is what the parser of the N1 normal form does too).
 // 4. gdb.rs, `-Cdebuginfo=2`, the `.debug_gdb_scripts` helpers on a `CodegenCx` whose debug context is a placeholder (below):
 //    `needs_gdb_debug_scripts_section`, the global `get_or_insert_gdb_debug_scripts_section_global` defines (and finds again),
 //    the entry wrapper's volatile load (ssa base.rs `maybe_create_entry_wrapper`, the real one), against the oracle's text, and
 //    `debuginfo_finalize`'s calls.
 // 5. Pure helpers against oracle facts: `lookup_debug_loc` against the `-g` IR's `DILocation`s and `DISubprogram` lines,
 //    `is_node_local_to_unit` against its `DISPFlagLocalToUnit`, `mangled_name_of_instance` against its `linkageName`.
+// 6. types.rs (cg-di-b), the type debuginfo of metadata.rs and metadata/*: structs (field visibility flags, tuple structs,
+//    template parameters, a recursive struct), enums (C-like as an enumeration, tagged, niche with an untagged range,
+//    single-variant, empty, generic, a 128-bit tag, an expanding recursive type), a union, an extern type, slices, `str`,
+//    `&dyn`, raw and fn pointers, arrays, `!`, `()`, the basic types (f16/f128 included), a closure, a static and a vtable.
+//    The whole module must equal the oracle's (as 3) at `-Cdebuginfo=2` and `=1` on x86_64-unknown-linux-gnu (the native
+//    enum layout, enums/native.rs), and at `-Cdebuginfo=2` on x86_64-pc-windows-msvc (CPP-like: enums/cpp_like.rs, the
+//    MSVC basic-type names and typedefs, the f16/f128 structs).
 //
 // Test doubles (each restored after its test):
+// - The MSVC case of 6 only: the IR model's `LLVMRustSetNormalizedTarget` stops on a triple it has not checked to be its own
+//   `Triple::normalize` (a model gap, docs/handoff/cg-di-b.md); the double sets the module's triple as given, the oracle's IR
+//   shows `x86_64-pc-windows-msvc` is its own normal form.
 // - Not copies: `back::write::{create_informational_target_machine, create_target_machine}` return an opaque target machine
 //   carrying the oracle's data layout, which the model's stub `LLVMRustSetDataLayoutFromTargetMachine` sets (its effect);
 //   `OwnedTargetMachine::drop` is a no-op (intrinsic.test.ts's doubles; `LLVMRustCreateTargetMachine` is llir-tools').
-// - Test 4 only: `CodegenUnitDebugContext::new` and `metadata::build_compile_unit_di_node` (both reach the model's `LLVMDI*`
-//   stubs, test 3) are replaced by a placeholder context whose `finalize` records its call. The gdb code reads only
+// - Test 4 only: `CodegenUnitDebugContext::new` and `metadata::build_compile_unit_di_node` (written when both reached the
+//   model's `LLVMDI*` stubs) are replaced by a placeholder context whose `finalize` records its call. The gdb code reads only
 //   `cx.dbg_cx`'s presence (`debuginfo_finalize`) and the session.
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
@@ -74,11 +87,15 @@ import { is_node_local_to_unit } from "./utils.ts";
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
 const ORACLE = join(import.meta.dir, "di_oracle");
 const TARGET = "x86_64-unknown-linux-gnu";
-const COMMON = ["--target", TARGET, "--edition=2021", "-Copt-level=0", "-Cno-prepopulate-passes", "-Ccodegen-units=1", "--emit=llvm-ir"];
+const MSVC = "x86_64-pc-windows-msvc";
+const COMMON = ["--edition=2021", "-Copt-level=0", "-Cno-prepopulate-passes", "-Ccodegen-units=1", "--emit=llvm-ir"];
 const FIXTURES = {
-  names: { rs: "names.rs", ll: `${TARGET}.ll`, args: ["--crate-type", "lib", "-Cdebuginfo=0"] },
-  gdb: { rs: "gdb.rs", ll: `${TARGET}.gdb.ll`, args: ["--crate-type", "bin", "-Cdebuginfo=0"] },
-  gdb_g: { rs: "gdb.rs", ll: `${TARGET}.gdb-g.ll`, args: ["--crate-type", "bin", "-Cdebuginfo=2"] },
+  names: { rs: "names.rs", ll: `${TARGET}.ll`, target: TARGET, args: ["--crate-type", "lib", "-Cdebuginfo=0"] },
+  gdb: { rs: "gdb.rs", ll: `${TARGET}.gdb.ll`, target: TARGET, args: ["--crate-type", "bin", "-Cdebuginfo=0"] },
+  gdb_g: { rs: "gdb.rs", ll: `${TARGET}.gdb-g.ll`, target: TARGET, args: ["--crate-type", "bin", "-Cdebuginfo=2"] },
+  types_g2: { rs: "types.rs", ll: `${TARGET}.types-g2.ll`, target: TARGET, args: ["--crate-type", "lib", "-Cdebuginfo=2"] },
+  types_g1: { rs: "types.rs", ll: `${TARGET}.types-g1.ll`, target: TARGET, args: ["--crate-type", "lib", "-Cdebuginfo=1"] },
+  types_msvc: { rs: "types.rs", ll: `${MSVC}.types-g2.ll`, target: MSVC, args: ["--crate-type", "lib", "-Cdebuginfo=2"] },
 } as const;
 type Fixture = (typeof FIXTURES)[keyof typeof FIXTURES];
 const oracle = (f: Fixture): string => readFileSync(join(ORACLE, f.ll), "utf8");
@@ -113,14 +130,26 @@ function config_from_args(args: string[]): Config {
   return config;
 }
 
-function with_tcx<R>(f: Fixture, body: (tcx: TyCtxt) => R): R {
+/** `as_oracle`: compile as the fixture's oracle text was made (README.md): from inside di_oracle/, the file by its bare name,
+ *  with `--remap-path-prefix=<di_oracle>=.`, so the debug info's paths are the oracle's (cg-di-b). The process's working
+ *  directory is restored after. */
+function with_tcx<R>(f: Fixture, body: (tcx: TyCtxt) => R, as_oracle = false): R {
   let out: R | undefined;
-  run_compiler(config_from_args([...COMMON, ...f.args, join(ORACLE, f.rs)]), (compiler) => {
+  const args = as_oracle
+    ? ["--target", f.target, ...COMMON, `--remap-path-prefix=${ORACLE}=.`, ...f.args, f.rs]
+    : ["--target", f.target, ...COMMON, ...f.args, join(ORACLE, f.rs)];
+  const cwd = process.cwd();
+  if (as_oracle) process.chdir(ORACLE);
+  try {
+    run_compiler(config_from_args(args), (compiler) => {
     const krate: Crate = parse(compiler.sess);
     create_and_enter_global_ctxt(compiler, krate, (tcx) => {
       out = body(tcx);
     });
   });
+  } finally {
+    if (as_oracle) process.chdir(cwd);
+  }
   return out as R;
 }
 
@@ -142,10 +171,10 @@ function install_doubles(ir: string): () => void {
   };
 }
 
-function with_doubles<R>(f: Fixture, body: (tcx: TyCtxt) => R): R {
+function with_doubles<R>(f: Fixture, body: (tcx: TyCtxt) => R, as_oracle = false): R {
   const restore = install_doubles(oracle(f));
   try {
-    return with_tcx(f, body);
+    return with_tcx(f, body, as_oracle);
   } finally {
     restore();
   }
@@ -191,6 +220,66 @@ function body(ir: string, name: string): string {
   return out.join("\n");
 }
 
+/** The whole module, metadata included, with numbers that do not depend on the printer (cg-di-b), as the N1 normal form's
+ *  parser reads it (scripts/lib/ir-normal.ts):
+ *  - no comment lines, no `; preds` tails, no `!guid` attachments (the oracle's assign-guid pass, plan-m7 §1b);
+ *  - attribute groups written in place (`#{..}`), so their numbering and the unused ones do not count;
+ *  - no intrinsic declarations (`declare .. @llvm.*`): the parser replaces their attributes, and each call names its intrinsic;
+ *  - no `@"\01__imp_*"` globals: back/write.rs's `create_msvc_imps` (after codegen, not run by these tests) adds them;
+ *  - every `!N` renumbered in order of first use (the text top to bottom, each node's operands depth first, as `opt -S`
+ *    numbers a parsed module), nodes nothing uses dropped (the parser drops them), the nodes last, in their new order.
+ *  Two modules with equal `canonical` texts are one module, up to those. */
+function canonical(ir: string): string {
+  const defs = new Map<string, string>();
+  const groups = new Map<string, string>();
+  for (const l of ir.split("\n")) {
+    const g = /^attributes #([0-9]+) = (\{.*\})$/.exec(l);
+    if (g !== null) groups.set(g[1]!, g[2]!);
+  }
+  const rest: string[] = [];
+  for (const l of ir.split("\n")) {
+    const d = /^!([0-9]+) = (.*)$/.exec(l);
+    if (d !== null) {
+      defs.set(d[1]!, d[2]!.replace(/,? !guid ![0-9]+/g, ""));
+      continue;
+    }
+    if (l.trimStart().startsWith(";") || l.startsWith("attributes #") || /^declare .*@llvm\./.test(l) || l.startsWith('@"\\01__imp_')) continue;
+    rest.push(
+      l
+        .replace(/\s+; preds = .*$/, "")
+        .replace(/,? !guid ![0-9]+/g, "")
+        .replace(/ #([0-9]+)\b/g, (_, n: string) => ` #${groups.get(n) ?? `?${n}`}`),
+    );
+  }
+  const num = new Map<string, number>();
+  const order: string[] = [];
+  const visit = (text: string): void => {
+    for (const m of text.matchAll(/!([0-9]+)\b/g)) {
+      const n = m[1]!;
+      if (num.has(n)) continue;
+      num.set(n, order.length);
+      order.push(n);
+      visit(defs.get(n) ?? "");
+    }
+  };
+  for (const l of rest) visit(l);
+  const renum = (text: string): string => text.replace(/!([0-9]+)\b/g, (_, n: string) => `!${num.get(n) ?? `?${n}`}`);
+  while (rest.length > 0 && rest[rest.length - 1] === "") rest.pop();
+  return [...rest.map(renum), ...order.map((n, i) => `!${i} = ${renum(defs.get(n) ?? `<undefined !${n}>`)}`)].join("\n");
+}
+
+/** The port's module for the fixture's one CGU, printed (with the doubles of the header). */
+function port_module(f: Fixture): string {
+  return with_doubles(
+    f,
+    (tcx) => {
+      const [m] = compile_codegen_unit(tcx, the_cgu(tcx).name(), false);
+      return printModule(m.module_llvm.llmod() as unknown as IrModule);
+    },
+    true,
+  );
+}
+
 function the_cgu(tcx: TyCtxt): CodegenUnit {
   const parts = tcx.collect_and_partition_mono_items(null) as MonoItemPartitions;
   expect(parts.codegen_units.length).toBe(1);
@@ -214,7 +303,7 @@ describe("fixtures", () => {
     mkdirSync(WORK, { recursive: true });
     for (const f of Object.values(FIXTURES)) {
       const out = join(WORK, f.ll);
-      const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, ...COMMON, `--remap-path-prefix=${ORACLE}=.`, ...f.args, "-o", out, f.rs], {
+      const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--target", f.target, ...COMMON, `--remap-path-prefix=${ORACLE}=.`, ...f.args, "-o", out, f.rs], {
         cwd: ORACLE,
         env: { ...process.env, RUSTUP_AUTO_INSTALL: "0", RUSTC_ICE: "0" },
       });
@@ -264,27 +353,19 @@ describe("without -g: the module equals the oracle's", () => {
   }
 });
 
-// ---- 3: -Cdebuginfo=2, CodegenUnitDebugContext::new ----
-test("-Cdebuginfo=2: CodegenUnitDebugContext::new's module flags, then the IR model's LLVMCreateDIBuilder", () => {
+// ---- 3: -Cdebuginfo=2, the whole module (cg-di-b) ----
+test("-Cdebuginfo=2: gdb.rs's module, debug info included, equals the oracle's", () => {
   const f = FIXTURES.gdb_g;
   const ir = oracle(f);
-  const mod_name = /^; ModuleID = '([^']*)'/.exec(ir)![1]!;
-  const [flags, stop] = with_doubles(f, (tcx) => {
-    const cgu = the_cgu(tcx);
-    const llvm_module = ModuleLlvm.new(tcx, mod_name);
-    let what = "";
-    try {
-      CodegenCx.new(tcx, cgu, llvm_module, false);
-    } catch (e) {
-      if (!(e instanceof Unported)) throw e;
-      what = e.what;
-    }
-    return [module_flags(printModule(llvm_module.llmod() as unknown as IrModule)), what] as const;
-  });
+  const port = port_module(f);
+  expect(canonical(port)).toBe(canonical(ir));
+  const flags = module_flags(port);
   expect(flags).toEqual(module_flags(ir));
   expect(flags).toContain('!{i32 7, !"Dwarf Version", i32 4}');
   expect(flags).toContain('!{i32 2, !"Debug Info Version", i32 3}');
-  expect(stop).toBe("llir: LLVMCreateDIBuilder");
+  // Not vacuous: the unit, the two subprograms and their argument records are there.
+  expect(canonical(ir)).toContain("!DICompileUnit(");
+  expect(port.match(/#dbg_declare\(/g)?.length).toBe(4);
 });
 
 // ---- 4: -Cdebuginfo=2, the .debug_gdb_scripts helpers ----
@@ -412,4 +493,37 @@ test("set_var_name names an unnamed argument or instruction, never an unnamed gl
   Builder.prototype.set_var_name.call(bx, arg, "y");
   expect(name(arg)).toBe("x");
   ffi.LLVMDisposeBuilder(b);
+});
+
+// ---- 6: types.rs, the type debuginfo (cg-di-b) ----
+describe("types.rs: the module, type debug info included, equals the oracle's", () => {
+  for (const f of [FIXTURES.types_g2, FIXTURES.types_g1, FIXTURES.types_msvc]) {
+    test(`${f.target}, ${f.args[2]}`, () => {
+      const ir = oracle(f);
+      // The MSVC double (header).
+      const spy =
+        f.target === MSVC
+          ? spyOn(ffi, "LLVMRustSetNormalizedTarget").mockImplementation((m, triple) => {
+              (m as unknown as IrModule).targetTriple = triple!;
+            })
+          : undefined;
+      let port: string;
+      try {
+        port = port_module(f);
+      } finally {
+        spy?.mockRestore();
+      }
+      expect(canonical(port)).toBe(canonical(ir));
+      // Not vacuous: what each case is for is in the oracle's text.
+      if (f === FIXTURES.types_g2) {
+        for (const s of ["DW_TAG_variant_part", "DIFlagPrivate", "DIFlagProtected", "DW_TAG_enumeration_type", "DW_TAG_union_type", "templateParams:", "vtableHolder:", '"<recur_type>"']) {
+          expect(ir).toContain(s);
+        }
+      } else if (f === FIXTURES.types_msvc) {
+        for (const s of ['name: "VariantNames"', 'name: "DISCR_EXACT"', 'name: "DISCR128_EXACT_LO"', 'name: "DISCR_BEGIN"', 'name: "unsigned __int8"', 'name: "low_bits"']) {
+          expect(ir).toContain(s);
+        }
+      }
+    });
+  }
 });
