@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { PIN } from "../../../scripts/lib/common.ts";
 import * as L from "./ffi.ts";
 import { Context, type Module } from "./ir.ts";
+import { Unported } from "../../std/panic.ts";
 import { module_text, run_pinned_tool, set_module_text } from "./tools.ts";
 
 const REQUIRE = process.env.RUST_TS_REQUIRE_PROBES === "1";
@@ -177,6 +178,41 @@ describe.skipIf(!HAVE && !REQUIRE)("fat LTO's linker vs libLLVM's Linker::linkIn
     expect(body(new TextDecoder().decode(r.stdout))).not.toBe(body(oracle(DST, [])));
     expect(want).toContain("@dead_internal");
     expect(want).toMatch(/@shared_name\.\d+\(/);
+  });
+
+  test("a replaced declaration that an earlier global refers to lands where libLLVM puts it (review N1)", () => {
+    // `@llvm.compiler.used` refers to f and g, so llvm-link's first link creates f, g, then h; the source's definition replaces h.
+    const dst = `source_filename = "n1"\n${HEAD}\n@llvm.compiler.used = appending global [2 x ptr] [ptr @f, ptr @g], section "llvm.metadata"\n\ndeclare void @h()\n\ndefine void @f() {\n  call void @h()\n  ret void\n}\n\ndefine void @g() {\n  ret void\n}\n`;
+    const src = `${HEAD}\ndefine void @h() {\n  ret void\n}\n`;
+    const want = oracle(dst, [src]);
+    expect([...want.matchAll(/^define void @(\w+)/gm)].map((m) => m[1])).toEqual(["f", "g", "h"]);
+    expect(body(model(dst, [src]))).toBe(body(want));
+  });
+
+  test("merged isomorphic named types: the module is flagged and its types stop where they reach output (review F1)", () => {
+    const dst = `source_filename = "f1"\n${HEAD}\n%A = type {}\n%B = type {}\n\n@a = global %A zeroinitializer\n@b = global %B zeroinitializer\n\ndefine void @main_fn() {\n  ret void\n}\n`;
+    const src = `${HEAD}\ndefine void @other() {\n  ret void\n}\n`;
+    // libLLVM's in-process link keeps both types; llvm-link's composite has one.
+    expect(oracle(dst, [src])).toContain("%B = type {}");
+    const M: Module = L.LLVMModuleCreateWithNameInContext("dst", new Context());
+    set_module_text(M, `; ModuleID = 'dst'\n${dst}`);
+    const linker = L.LLVMRustLinkerNew(M);
+    const bc = asBitcode(src);
+    L.LLVMRustLinkerAdd(linker, bc, bc.length);
+    L.LLVMRustLinkerFree(linker);
+    expect(module_text(M)).not.toContain("%B = type {}");
+    const stop = /llir: fat LTO merged named struct types \(llvm-link's IRMover; rustc's in-process link keeps them\)/;
+    expect(() => L.LLVMRustPrintModule(M, "/nonexistent-dir/never-written.ll", undefined)).toThrow(stop);
+    expect(() => L.LLVMWriteBitcodeToFile(M, "/nonexistent-dir/never-written.bc")).toThrow(stop);
+    expect(() => L.LLVMRustModuleSerialize(M, false)).toThrow(Unported);
+    expect(() => L.LLVMRustPrintModule(L.LLVMCloneModule(M), "/nonexistent-dir/never-written.ll", undefined)).toThrow(stop);
+    // Without a merge (the other tests' destinations have distinct types or none), nothing is flagged.
+    const N: Module = L.LLVMModuleCreateWithNameInContext("dst", new Context());
+    set_module_text(N, `; ModuleID = 'dst'\n${dst.replace("%B = type {}", "%B = type { i8 }")}`);
+    const l2 = L.LLVMRustLinkerNew(N);
+    L.LLVMRustLinkerAdd(l2, bc, bc.length);
+    L.LLVMRustLinkerFree(l2);
+    expect(L.LLVMWriteBitcodeToFile(N, "/nonexistent-dir/never-written.bc")).toBe(-1);
   });
 
   test("one source, and none (the destination unchanged)", () => {

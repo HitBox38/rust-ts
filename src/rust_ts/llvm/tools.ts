@@ -781,6 +781,7 @@ export function forceFullLTOSummary(text: string): string {
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp:1523 LLVMRustModuleSerialize
 export function LLVMRustModuleSerialize(M: Module, is_thin: boolean): LLVMRustBuffer {
+  assert_types_unmerged(M);
   if (!is_thin) {
     // #if LLVM_VERSION_GE(23, 0): `MPM.addPass(AssignGUIDPass())`; then `forceFullLTOSummary(unwrap(M))` (it runs while the pipeline is
     // built, before `MPM.run`, so the flag is in the module the pass sees) and `BitcodeWriterPass(OS, false, /*EmitSummaryIndex=*/true)`.
@@ -789,8 +790,9 @@ export function LLVMRustModuleSerialize(M: Module, is_thin: boolean): LLVMRustBu
     set_module_text(M, bstrOf(guid));
     // `BitcodeWriterPass` with a summary index: opt's bitcode output with `--module-summary` (`EmitSummaryIndex`), and the use-list
     // order off as rustc passes it (`-preserve-bc-uselistorder=false`, as the ThinLTO case below). `assign-guid` again is a no-op.
-    // The summary's module path is opt's `<stdin>`, not the module's identifier: the only reader of this buffer is fat LTO's linker
-    // (lto.rs:296, `LLVMRustLinkerAdd`), which reads the module and not the summary.
+    // The summary's module path is opt's `<stdin>`, not the module's identifier. Fat LTO's linker (lto.rs:296, `LLVMRustLinkerAdd`)
+    // reads the module and not the summary; `--emit=llvm-bc -Clto=fat` writes these bytes to the user's `.bc` (write.rs:984), and
+    // bitcode bytes are not compared (plan-m7 D2).
     const bc = run_pinned_tool_or_ice("opt", ["--module-summary", "-preserve-bc-uselistorder=false", "-passes=assign-guid", "-o", "-", "-"], bytesOf(module_text(M)), M.moduleID);
     return new LLVMRustBuffer(bc);
   }
@@ -832,11 +834,13 @@ export function LLVMCloneModule(M: Module): Module {
   // `CloneModule(*unwrap(M))`: a module of the same identifier and context, with the same contents.
   const clone = new Module(M.context, M.moduleID);
   set_module_text(clone, module_text(M));
+  if (MERGED_TYPES.has(M)) MERGED_TYPES.add(clone);
   return clone;
 }
 
 // llvm: llvm/lib/Bitcode/Writer/BitWriter.cpp:20 LLVMWriteBitcodeToFile
 export function LLVMWriteBitcodeToFile(M: Module, Path: string | undefined): number {
+  assert_types_unmerged(M);
   // `raw_fd_ostream OS(Path, EC, sys::fs::OF_None); if (EC) return -1;`
   if (Path === undefined || Path === "") return -1;
   try {
@@ -947,20 +951,6 @@ export function joinModuleText(c: CutText): string {
   return [...c.before, ...c.globals.flatMap((g) => g.lines), ...c.between, ...functions, ...c.after].join("\n");
 }
 
-/**
- * `out` (a list of the linked module's globals or functions, in llvm-link's order) with its leading run from the destination put in
- * the destination's own order (`dst`), given the order the destination's values had after llvm-link's first link alone (`c0`).
- * Undefined if the run cannot be found: `c0` must hold exactly `dst`'s names.
- *
- * Why this is rustc's order (IRMover.cpp, `IRLinker::run` and `linkGlobalValueProto`): a link never moves a value of the module it
- * links into except (a) a function or global it replaces (`RAUWWorklist`: the old one is erased, the new one created at the end) and
- * (b) a global variable the source refers to or defines, which it moves to the end in the source's order (IRMover.cpp:1584). So after
- * the sources, the destination's untouched values keep their relative order, ahead of everything the links created or moved, and
- * what follows them depends only on the sources and on the set of names in the module, not on its order. rustc starts from the
- * destination's order; llvm-link from the first link's (`c0`). So `out` is `c0` less the touched values, then the same tail; the
- * touched ones are where `c0` and `out` first part, read greedily (a value of `c0` that is not next in `out` was touched, since the
- * untouched ones come first and in `c0`'s order).
- */
 /** The name of `keepAllLine`'s global (`[-a-zA-Z$._0-9]` needs no quotes), and its line in llvm-link's output. */
 const KEEP_NAME = "rust_ts.fat_lto.keep";
 const KEEP_LINE = /^@rust_ts\.fat_lto\.keep = .*\n?/m;
@@ -971,7 +961,7 @@ const KEEP_LINE = /^@rust_ts\.fat_lto\.keep = .*\n?/m;
  * its initializer refers to, so no local, `linkonce` or `available_externally` definition and no declaration is left out
  * (`ModuleLinker::linkIfNeeded`). Left out of it, as the verifier rejects them there or the `ptr` type does not hold them: intrinsics
  * and the `llvm.*` globals (whose address cannot be taken that way; the globals are appending, so always linked) and values in another address space (a thread-local global is accepted, checked). Such a
- * value can still be left out of the link, and then `restoreDestinationOrder` finds `c0` short and the order stays llvm-link's.
+ * value can still be left out of the link, and then `restoreDestinationOrder` finds it missing and the order stays llvm-link's.
  */
 function keepAllLine(dst: CutText): string | undefined {
   const refs: string[] = [];
@@ -1017,13 +1007,112 @@ export function restoreNamedMetadataOrder(dstText: string, text: string): string
   return lines.join("\n");
 }
 
-export function restoreDestinationOrder(dst: readonly TextChunk[], c0: readonly TextChunk[], out: readonly TextChunk[]): TextChunk[] | undefined {
-  const dstNames = new Set(dst.map((x) => x.name));
-  if (dstNames.size !== dst.length || c0.length !== dst.length || !c0.every((x) => dstNames.has(x.name))) return undefined;
-  let i = 0;
-  for (let j = 0; j < c0.length; j++) if (i < out.length && out[i]!.name === c0[j]!.name) i++;
-  const untouched = new Map(out.slice(0, i).map((x) => [x.name, x]));
-  return [...dst.flatMap((x) => untouched.get(x.name) ?? []), ...out.slice(i)];
+/** The linkage words before a function's name or a global's `global`/`constant`/`alias`/`ifunc` word. */
+const LOCAL_LINKAGE = new Set(["private", "internal"]);
+/** Linkages whose definition a source's definition may or may not replace (`shouldLinkFromSource`, LinkModules.cpp). */
+const REPLACEABLE_LINKAGE = new Set(["linkonce", "linkonce_odr", "weak", "weak_odr", "available_externally", "common", "extern_weak"]);
+
+/** A global line's words before its kind word, and the kind (`global`, `constant`, `alias`, `ifunc`). */
+function globalHead(line: string): { words: string[]; kind: string | undefined } {
+  const words = line.slice(line.indexOf(" = ") + 3).split(" ");
+  const k = words.findIndex((w) => w === "global" || w === "constant" || w === "alias" || w === "ifunc");
+  return { words: k === -1 ? words : words.slice(0, k), kind: k === -1 ? undefined : words[k] };
+}
+/** A function's head line (`define`/`declare`) and its words before ` @name(`. */
+function functionHead(lines: readonly string[], name: string): { head: string; words: string[] } {
+  const head = lines.find((l) => l.startsWith("define ") || l.startsWith("declare "))!;
+  return { head, words: head.slice(0, head.indexOf(` @${name}(`)).split(" ") };
+}
+
+/**
+ * What the sources' texts link to the destination by name (lane ir-fix-b, review N1). `IRLinker::getLinkedToGlobal` matches a source
+ * value to a destination value of the same name unless either is local (IRMover.cpp), so only non-local names count: the functions and
+ * aliases a source defines, and the global variables a source declares or defines (each is mapped in the reordering loop,
+ * IRMover.cpp:1586, which moves its destination value to the end).
+ */
+export function sourceLinkNames(srcTexts: readonly string[]): { defines: Set<string>; globals: Set<string> } {
+  const defines = new Set<string>();
+  const globals = new Set<string>();
+  for (const t of srcTexts) {
+    for (const line of t.split("\n")) {
+      if (line.startsWith("@")) {
+        const m = GLOBAL_NAME.exec(line);
+        if (m === null) continue;
+        const { words, kind } = globalHead(line);
+        if (words.some((w) => LOCAL_LINKAGE.has(w))) continue;
+        if (kind === "global" || kind === "constant") globals.add(m[1]!);
+        else defines.add(m[1]!);
+      } else if (line.startsWith("define ")) {
+        const m = FUNCTION_NAME.exec(line);
+        if (m === null) continue;
+        if (line.slice(0, line.indexOf(` @${m[1]}(`)).split(" ").some((w) => LOCAL_LINKAGE.has(w))) continue;
+        defines.add(m[1]!);
+      }
+    }
+  }
+  return { defines, globals };
+}
+
+/**
+ * The destination's functions and globals the sources' links replace or move (`touched`), by name (lane ir-fix-b, review N1); undefined
+ * when that cannot be told from names alone. A link moves nothing of the module it links into except (IRMover.cpp, `IRLinker::run`
+ * and `linkGlobalValueProto`):
+ * - a value it replaces (`RAUWWorklist`: the old one erased, the new one created at the end): a non-local destination declaration a
+ *   source defines (`ModuleLinker::linkIfNeeded` links a source definition whenever the destination has the name, LinkModules.cpp:380).
+ *   A destination `linkonce`, `weak`, `available_externally`, `common` or `extern_weak` definition a source also defines may or may not
+ *   be replaced (`shouldLinkFromSource`): undefined;
+ * - a non-local global variable a source declares or defines, moved to the end in the source's order (IRMover.cpp:1584), except an
+ *   appending one, replaced in place.
+ * (A local destination value whose name a source value takes is renamed, `forceRenaming`; `restoreDestinationOrder` then misses it.)
+ */
+export function touchedBySources(dst: CutText, src: { defines: Set<string>; globals: Set<string> }): Set<string> | undefined {
+  const touched = new Set<string>();
+  for (const f of dst.functions) {
+    if (!src.defines.has(f.name)) continue;
+    const { head, words } = functionHead(f.lines, f.name);
+    if (words.some((w) => LOCAL_LINKAGE.has(w))) continue;
+    if (head.startsWith("declare ")) touched.add(f.name);
+    else if (words.some((w) => REPLACEABLE_LINKAGE.has(w))) return undefined;
+  }
+  for (const g of dst.globals) {
+    // An appending global (`llvm.used`, `llvm.global_ctors`, ...) is replaced in place: `linkAppendingVarProto` creates the merged one
+    // before it (`InsertBefore = DstGV`, IRMover.cpp:879), and the reordering loop skips appending globals.
+    const { words } = globalHead(g.lines[0]!);
+    if (words.some((w) => LOCAL_LINKAGE.has(w) || w === "appending")) continue;
+    if (src.globals.has(g.name) || src.defines.has(g.name)) touched.add(g.name);
+  }
+  return touched;
+}
+
+/**
+ * `out` (the linked module's globals or functions, in llvm-link's order) in rustc's order (lane ir-fix-b): the destination's untouched
+ * values in the destination's order (`dst`), then the rest in `out`'s order. Undefined if `out` does not start with exactly the
+ * untouched values, so that what `touched` says is checked against llvm-link's own result.
+ *
+ * Why this is rustc's order: by `touchedBySources`, the untouched values keep their relative order through every link, ahead of what
+ * the links created or moved, and what follows them depends only on the sources and on the set of names in the module, not on its
+ * order. rustc starts from the destination's order, llvm-link from its first link's: so `out` is the untouched values in another order,
+ * then the same tail.
+ */
+export function restoreDestinationOrder(dst: readonly TextChunk[], out: readonly TextChunk[], touched: ReadonlySet<string>): TextChunk[] | undefined {
+  const untouched = dst.filter((x) => !touched.has(x.name));
+  const names = new Set(untouched.map((x) => x.name));
+  if (names.size !== untouched.length) return undefined;
+  const head = out.slice(0, untouched.length);
+  if (head.length !== untouched.length || !head.every((x) => names.has(x.name))) return undefined;
+  const byName = new Map(head.map((x) => [x.name, x]));
+  return [...untouched.map((x) => byName.get(x.name)!), ...out.slice(untouched.length)];
+}
+
+/** A named struct type's definition line (`%T = type ...`), by its printed name. */
+const NAMED_TYPE_LINE = /^(%(?:"(?:[^"\\]|\\.)*"|[-a-zA-Z$._0-9]+)) = type /gm;
+/** Modules whose fat-LTO link merged named struct types of the destination (lane ir-fix-b, review F1). */
+const MERGED_TYPES = new WeakSet<Module>();
+
+/** For a function that writes a module's types out (`LLVMRustPrintModule`, `LLVMWriteBitcodeToFile`, `LLVMRustModuleSerialize`): stops
+ *  on a module whose fat-LTO link merged named struct types (`LLVMRustLinkerFree`), whose type names are not rustc's. */
+export function assert_types_unmerged(M: Module): void {
+  if (MERGED_TYPES.has(M)) unported("llir: fat LTO merged named struct types (llvm-link's IRMover; rustc's in-process link keeps them)");
 }
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/Linker.cpp:17 LLVMRustLinkerNew
@@ -1042,8 +1131,9 @@ export function LLVMRustLinkerNew(DstRef: Module): RustLinker {
  * in: llvm-link links every input, the destination's text first, into a new empty module (`Composite`, llvm-link.cpp:480). That first
  * link is not the identity:
  * - values land in the order IRMover creates them (a function's body maps its callees as it goes), not the destination's; global
- *   variables other than appending ones are moved back to source order (IRMover.cpp:1584). Where the destination's own order can be
- *   derived exactly, it is put back (`restoreDestinationOrder`, from a second llvm-link run of the destination alone);
+ *   variables other than appending ones are moved back to source order (IRMover.cpp:1584). The destination's order is put back when
+ *   the values the sources touch can be told by name (`touchedBySources`) and llvm-link's result agrees (`restoreDestinationOrder`);
+ *   otherwise the order stays llvm-link's;
  * - the destination's local, `linkonce` and `available_externally` definitions that nothing refers to, and its unused declarations,
  *   would not be linked (`ModuleLinker::linkIfNeeded`, LinkModules.cpp:380-385): the destination's input carries one more global that
  *   refers to them all (`keepAllLine`), whose line is taken out of the result. Where that cannot hold one (an intrinsic, another
@@ -1051,11 +1141,18 @@ export function LLVMRustLinkerNew(DstRef: Module): RustLinker {
  * - named metadata: `!llvm.module.flags` comes last; put back (`restoreNamedMetadataOrder`);
  * - **isomorphic named struct types of the destination are merged** (`IdentifiedStructTypeSet::findNonOpaque`: the first link maps
  *   the destination's types as a source's, so `%"alloc::alloc::Global" = type {}` and `%"core::marker::PhantomData<..>" = type {}`
- *   become one, where rustc's destination keeps both). This cannot be undone from the text; it changes type names only;
+ *   become one, where rustc's destination keeps both). This cannot be undone from the text; it changes type names only. The module is
+ *   flagged when a type name the destination defines is missing from the result (every destination type is used by a value the keep
+ *   global retains, so only a merge removes one), and its text then stops by name where types reach output: `LLVMRustPrintModule`,
+ *   `LLVMWriteBitcodeToFile`, `LLVMRustModuleSerialize` (`assert_types_unmerged`; review F1). Objects carry no type names, so
+ *   linking and running are unaffected;
+ * - a source local renamed on a name clash gets its `.N` suffix from the module's `ValueSymbolTable` counter (`LastUnique`), which
+ *   starts at 0 in llvm-link's new module, where rustc's destination keeps the count of its codegen and pre-link passes: a suffix
+ *   can differ (review N4), as a DIFF;
  * - the module's `source_filename` is `llvm-link`: put back below from the destination's text, as IRMover never changes it.
- * Code that runs is the same: nothing reachable is dropped and no definition changes. Where the order is llvm-link's or dead
- * definitions are missing, it shows in `--emit=llvm-ir` text (ir-host) as a DIFF, never as a MATCH; the native suites see the
- * program's behaviour.
+ * Code that runs is the same: nothing reachable is dropped and no definition changes. Where the order is llvm-link's, dead
+ * definitions are missing or a suffix differs, it shows in `--emit=llvm-ir` text (ir-host) as a DIFF, never as a MATCH; the native
+ * suites see the program's behaviour.
  * Other differences avoided: llvm-link enables the debug-info type map (`enableDebugTypeODRUniquing`), which rustc's codegen context
  * does not, so `-disable-debug-info-type-map`; llvm-link's warnings (data layout or triple mismatch, which rustc's diagnostic handler
  * would print) stop by name, as does any failure, kept for ir-diff (D16: the bytes are the port's own or the rlibs').
@@ -1088,12 +1185,13 @@ export function LLVMRustLinkerFree(L: RustLinker): void {
   const linked = link(files);
   const unkept = (t: string): string => (keep === undefined ? t : t.replace(KEEP_LINE, ""));
   let text = unkept(linked);
-  // The destination's order, where it can be put back exactly (`restoreDestinationOrder`); else llvm-link's (header).
+  // The destination's order, where the values the sources touch can be told by name; else llvm-link's (header).
   const out = cutModuleText(text);
-  const c0 = out !== undefined && dst !== undefined ? cutModuleText(unkept(link([files[0]!]))) : undefined;
-  if (out !== undefined && dst !== undefined && c0 !== undefined) {
-    const globals = restoreDestinationOrder(dst.globals, c0.globals, out.globals);
-    const functions = restoreDestinationOrder(dst.functions, c0.functions, out.functions);
+  if (out !== undefined && dst !== undefined) {
+    const srcTexts = L.sources.map((bc, i) => bstrOf(run_pinned_tool_or_ice("llvm-dis", ["-o", "-", "-"], bc, `src${i}`, "bc")));
+    const touched = touchedBySources(dst, sourceLinkNames(srcTexts));
+    const globals = touched === undefined ? undefined : restoreDestinationOrder(dst.globals, out.globals, touched);
+    const functions = touched === undefined ? undefined : restoreDestinationOrder(dst.functions, out.functions, touched);
     if (globals !== undefined && functions !== undefined) text = joinModuleText({ ...out, globals, functions });
   }
   text = restoreNamedMetadataOrder(dstText, text) ?? text;
@@ -1102,6 +1200,9 @@ export function LLVMRustLinkerFree(L: RustLinker): void {
   if (text !== unkept(linked)) text = bstrOf(run_pinned_tool_or_ice("opt", [...cl_args(), "-S", "-o", "-", "-"], bytesOf(text), M.moduleID));
   const src = SOURCE_FILENAME_LINE.exec(dstText);
   text = text.replace(SOURCE_FILENAME_LINE, src === null ? "" : src[0]);
+  // Merged named struct types (header): a type name of the destination that the result no longer defines.
+  const linkedTypes = new Set([...text.matchAll(NAMED_TYPE_LINE)].map((m) => m[1]!));
+  if ([...dstText.matchAll(NAMED_TYPE_LINE)].some((m) => !linkedTypes.has(m[1]!))) MERGED_TYPES.add(M);
   set_module_text(M, text);
   rmSync(dir, { recursive: true, force: true });
 }

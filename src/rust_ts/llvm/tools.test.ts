@@ -21,6 +21,7 @@ import { parseScript, replay } from "./replay.ts";
 import {
   assert_model_current,
   canonical_extra_passes,
+  cutModuleText,
   definitions_carry_global_features,
   forceFullLTOSummary,
   is_tool_text,
@@ -35,6 +36,8 @@ import {
   run_pinned_tool,
   run_pinned_tool_or_ice,
   set_module_text,
+  sourceLinkNames,
+  touchedBySources,
   triple_probe,
   with_cl_args,
 } from "./tools.ts";
@@ -460,6 +463,17 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-features"="+neon"`]), G)).toBe(false);
     expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-features"="${G}x"`]), G)).toBe(false);
     expect(definitions_carry_global_features("define void @c() {\n  ret void\n}\n", G)).toBe(false);
+  });
+
+  test("touchedBySources: replaced declarations and moved globals by name; locals never; a weak definition undecided (review N1)", () => {
+    const dst = cutModuleText(
+      `@g = global i32 0\n@l = internal global i32 0\n@u = appending global [0 x ptr] zeroinitializer\n\ndeclare void @d()\n\ndeclare void @e()\n\ndefine internal void @i() {\n  ret void\n}\n\ndefine weak void @w() {\n  ret void\n}\n`,
+    )!;
+    const src = (t: string) => sourceLinkNames([t]);
+    // A source defining d, declaring g and l (l's is local), appending to u, and defining a local e: d and g are touched.
+    expect([...touchedBySources(dst, src(`@g = external global i32\n@l = internal global i32 1\n@u = appending global [1 x ptr] [ptr @x]\n\ndefine void @d() {\n  ret void\n}\n\ndefine internal void @e() {\n  ret void\n}\n\ndefine void @i() {\n  ret void\n}\n`))!].sort()).toEqual(["d", "g"]);
+    // A source defining w, which the destination defines weakly: `shouldLinkFromSource` decides, so names do not.
+    expect(touchedBySources(dst, src(`define void @w() {\n  ret void\n}\n`))).toBeUndefined();
   });
 
   test("forceFullLTOSummary: a ThinLTO flag of 0, last in !llvm.module.flags, once (lane ir-fix-b)", () => {
