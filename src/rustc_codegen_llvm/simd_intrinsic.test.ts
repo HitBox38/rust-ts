@@ -5,12 +5,13 @@
 // arm branches on it):
 // - simd_oracle/simd.rs (ir-fix-a's arms) and simd_oracle/simd2.rs (cg-intrinsic-b's), whose IR must be the oracle's;
 // - simd_oracle/simd_err.rs and simd_oracle/simd2_err.rs, whose calls fail the arms' checks; their stderr must be the oracle's;
-// - simd_oracle/simd_model.rs, cg-intrinsic-b's arms whose `llvm.*` intrinsic the IR model does not declare yet
-//   (`llvm.masked.{gather,load,store,scatter}`, `llvm.vector.reduce.{fadd,fmul}`; lane ir-fix-b). The port either stops in the
-//   model naming one of those signatures (exit 70), or, once the model has them, its IR must be the oracle's.
+// - simd_oracle/simd_model.rs, cg-intrinsic-b's arms whose `llvm.*` intrinsic the IR model declared only from lane ir-fix-b
+//   (`llvm.masked.{gather,load,store,scatter}`, `llvm.vector.reduce.{fadd,fmul}`). Each arm is behind its own `--cfg` and is
+//   compiled on its own (review cg-intrinsic-b N2, lane fixers-60); each one's IR must be the oracle's.
 // The fixtures are the pinned rustc's output for `--crate-type lib --target x86_64-unknown-linux-gnu --emit=llvm-ir
-// -Cno-prepopulate-passes -O`: `<crate>.x86_64-unknown-linux-gnu.O.ll` (simd.rs's is `x86_64-unknown-linux-gnu.O.ll`) and
-// `<crate>.stderr` (exit 1). With the pinned toolchain present they are re-made and must be unchanged.
+// -Cno-prepopulate-passes -O`: `<crate>.x86_64-unknown-linux-gnu.O.ll` (simd.rs's is `x86_64-unknown-linux-gnu.O.ll`;
+// simd_model.rs's are `simd_model.<arm>.x86_64-unknown-linux-gnu.O.ll`, with `--cfg <arm>`) and `<crate>.stderr` (exit 1). With
+// the pinned toolchain present they are re-made and must be unchanged.
 //
 // The port runs as a child process (`src/rust_ts/main.ts`, the subject of the IR suites), in the fixture's own directory with
 // the same relative file name, so the two sides' texts can be compared directly. The IR is compared without what plan-m7 §1b's
@@ -39,12 +40,22 @@ afterAll(() => rmSync(WORK, { recursive: true, force: true }));
 const ARGS = ["--crate-type", "lib", "--target", "x86_64-unknown-linux-gnu", "--emit=llvm-ir", "-Cno-prepopulate-passes", "-O"];
 const oracle = (file: string): string => readFileSync(join(ORACLE, file), "utf8");
 
-/** Runs `cmd` on the fixture crate `src` in WORK; its stderr, exit code and written IR (if any). */
-function compile(cmd: string[], src: string, out: string): { stderr: string; code: number | null; ir: string | undefined } {
+/** simd_model.rs's arms (its `--cfg`s) and the functions each one compiles. */
+const MODEL_ARMS = {
+  gather: ["h_gather"],
+  scatter: ["h_scatter"],
+  masked_load: ["h_masked_load_element", "h_masked_load_vector"],
+  masked_store: ["h_masked_store_unaligned"],
+  float_reduce: ["h_reduce_add_ordered_f32", "h_reduce_mul_ordered_f64", "h_reduce_add_unordered_f32", "h_reduce_mul_unordered_f64"],
+} as const;
+const modelFixture = (arm: string): string => `simd_model.${arm}.x86_64-unknown-linux-gnu.O.ll`;
+
+/** Runs `cmd` on the fixture crate `src` in WORK (with `extra` arguments); its stderr, exit code and written IR (if any). */
+function compile(cmd: string[], src: string, out: string, extra: string[] = []): { stderr: string; code: number | null; ir: string | undefined } {
   mkdirSync(WORK, { recursive: true });
   copyFileSync(join(ORACLE, src), join(WORK, src));
   rmSync(join(WORK, out), { force: true });
-  const r = Bun.spawnSync([...cmd, ...ARGS, src, "-o", out], { cwd: WORK, env: { ...process.env, RUSTC_ICE: "0" } });
+  const r = Bun.spawnSync([...cmd, ...ARGS, ...extra, src, "-o", out], { cwd: WORK, env: { ...process.env, RUSTC_ICE: "0" } });
   let ir: string | undefined;
   try {
     ir = readFileSync(join(WORK, out), "utf8");
@@ -106,16 +117,18 @@ describe("generic_simd_intrinsic's other arms (lane cg-intrinsic-b) against the 
     expect(r.stderr).toBe(oracle("simd2_err.stderr"));
   });
 
-  test("simd_model.rs: the port stops in the IR model on a missing signature, or its IR is the oracle's", () => {
-    const r = compile([process.execPath, MAIN], "simd_model.rs", "port_model.ll");
-    if (r.code === 70) {
-      expect(r.stderr).toMatch(/^rust-ts: unported: llir: the signature of llvm\.(masked\.(gather|load|store|scatter)|vector\.reduce\.f(add|mul)) \(Intrinsics\.td\) is not in the IR model\n$/);
-    } else {
+  // Review cg-intrinsic-b N1: these are what the gather and masked `Element` alignments, the unordered float reductions' start
+  // value and the IR model's masked/reduce signatures are checked by.
+  for (const [arm, fns] of Object.entries(MODEL_ARMS)) {
+    test(`simd_model.rs --cfg ${arm}: the port's IR is the oracle's`, () => {
+      const r = compile([process.execPath, MAIN], "simd_model.rs", `port_model_${arm}.ll`, ["--cfg", arm]);
       expect(r.stderr).toBe("");
       expect(r.code).toBe(0);
-      expect(comparable(r.ir ?? "")).toEqual(comparable(oracle("simd_model.x86_64-unknown-linux-gnu.O.ll")));
-    }
-  });
+      const want = oracle(modelFixture(arm));
+      expect((want.match(/^define .*$/gm) ?? []).map((l) => /@(\w+)\(/.exec(l)?.[1]).sort()).toEqual([...fns].sort());
+      expect(comparable(r.ir ?? "")).toEqual(comparable(want));
+    });
+  }
 });
 
 describe.skipIf(!HAVE && !REQUIRE)("the oracle fixtures are current", () => {
@@ -139,10 +152,12 @@ describe.skipIf(!HAVE && !REQUIRE)("the oracle fixtures are current", () => {
     expect(r.code).toBe(1);
     expect(r.stderr).toBe(oracle("simd2_err.stderr"));
   });
-  test("simd_model.x86_64-unknown-linux-gnu.O.ll", () => {
-    const r = compile([join(SYSROOT, "bin", "rustc")], "simd_model.rs", "oracle_model.ll");
-    expect(r.stderr).toBe("");
-    expect(r.code).toBe(0);
-    expect(r.ir).toBe(oracle("simd_model.x86_64-unknown-linux-gnu.O.ll"));
-  });
+  for (const arm of Object.keys(MODEL_ARMS)) {
+    test(modelFixture(arm), () => {
+      const r = compile([join(SYSROOT, "bin", "rustc")], "simd_model.rs", `oracle_model_${arm}.ll`, ["--cfg", arm]);
+      expect(r.stderr).toBe("");
+      expect(r.code).toBe(0);
+      expect(r.ir).toBe(oracle(modelFixture(arm)));
+    });
+  }
 });
