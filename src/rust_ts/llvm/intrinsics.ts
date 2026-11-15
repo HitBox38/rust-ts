@@ -8,13 +8,15 @@
 //   where the first target table starts). The table is data from the oracle, as the Unicode tables are; intrinsics.oracle.test.ts
 //   re-reads it from libLLVM.dylib and fails on any difference. An intrinsic's ID is its index in the table plus one, LLVM's own
 //   enum value (`IntrinsicNameOffsetTable[1 + Offset]`, generic `Offset` 0).
-// - **Target tables: only x86's is in the model** (`X86_INTRINSICS`, intrinsics_x86.ts, lane ir-fix-a: std's `spin_loop` reaches
-//   `llvm.x86.sse2.pause` on x86_64). A name whose first component is another of `TARGET_PREFIXES` (the targets of the pinned
+// - **Target tables: only x86's and aarch64's are in the model** (`X86_INTRINSICS`, intrinsics_x86.ts, lane ir-fix-a: std's
+//   `spin_loop` reaches `llvm.x86.sse2.pause` on x86_64; `AARCH64_INTRINSICS`, intrinsics_aarch64.ts, lane ir-fix-b: it reaches
+//   `llvm.aarch64.isb` on aarch64). A name whose first component is another of `TARGET_PREFIXES` (the targets of the pinned
 //   LLVM's `TargetInfos`, from the same read) is looked up in its target's table, which the model does not have: it stops
 //   (`unported`). Looking it up in the generic table instead would answer "not an intrinsic" where LLVM finds one.
 // - **Signatures** (`SIGNATURES`) are written from Intrinsics.td at the pin (`llvm/include/llvm/IR/Intrinsics.td`, cited per
 //   entry) for the intrinsics rustc_codegen_llvm's scalar half names: intrinsic.rs:1-2046 and builder.rs's `call_intrinsic`
-//   uses that are not vector-only, and from IntrinsicsX86.td for the x86 intrinsics run-pass programs reach (lane ir-fix-a).
+//   uses that are not vector-only, from IntrinsicsX86.td for the x86 intrinsics run-pass programs reach (lane ir-fix-a), and from
+//   IntrinsicsAArch64.td for the aarch64 ones the native suites reach (lane ir-fix-b).
 //   `LLVMGetIntrinsicDeclaration` of any other intrinsic stops. intrinsics.oracle.test.ts checks
 //   every signature against libLLVM.dylib's declaration (name and function type) for concrete overload types.
 // - PORT: `Intrinsic::getAttributes` is not applied to a new declaration (llir-core-a PORT decision 5, ir.ts `Function`): the
@@ -22,6 +24,7 @@
 // - `LLVMRustUpgradeIntrinsicFunction` (AutoUpgrade.cpp) stays a stub in ffi.ts.
 import { unported } from "../../std/panic.ts";
 import { Function, FunctionType, IntegerType, type Module, PointerType, StructType, type Type, type Value, VectorType, ArrayType, bstrOfBytes, bstrOfString } from "./ir.ts";
+import { AARCH64_INTRINSICS, AARCH64_INTRINSICS_OFFSET } from "./intrinsics_aarch64.ts";
 import { X86_INTRINSICS, X86_INTRINSICS_OFFSET } from "./intrinsics_x86.ts";
 import { Bool, type PtrLenStr } from "./support.ts";
 
@@ -248,6 +251,7 @@ function findTargetSubtable(name: string): { table: readonly (readonly [string, 
   const target = dot === -1 ? rest : rest.slice(0, dot);
   // We've either found the target or just fall back to the generic set, which is always first.
   if (target === "x86") return { table: X86_INTRINSICS, target, adjust: X86_INTRINSICS_OFFSET + 1 };
+  if (target === "aarch64") return { table: AARCH64_INTRINSICS, target, adjust: AARCH64_INTRINSICS_OFFSET + 1 };
   if (TARGET_PREFIXES.includes(target)) return unported(`llir: the ${target} intrinsic table (${bstrToDisplay(name)}; target intrinsics are not in the IR model)`);
   return { table: GENERIC_INTRINSICS, target: "", adjust: 1 };
 }
@@ -281,10 +285,15 @@ function isTargetIntrinsic(id: number): boolean {
   return id > GENERIC_INTRINSICS.length;
 }
 
-/** The generic or x86 table's entry of an ID the model handed out. */
+/** The generic, aarch64 or x86 table's entry of an ID the model handed out. */
 function entry(id: number): readonly [string, 0 | 1] {
-  const e = id > X86_INTRINSICS_OFFSET ? X86_INTRINSICS[id - X86_INTRINSICS_OFFSET - 1] : GENERIC_INTRINSICS[id - 1];
-  if (id < 1 || e === undefined) return unported(`llir: intrinsic ID ${id} (not in the model's generic or x86 table)`);
+  const e =
+    id > X86_INTRINSICS_OFFSET
+      ? X86_INTRINSICS[id - X86_INTRINSICS_OFFSET - 1]
+      : id > AARCH64_INTRINSICS_OFFSET
+        ? AARCH64_INTRINSICS[id - AARCH64_INTRINSICS_OFFSET - 1]
+        : GENERIC_INTRINSICS[id - 1];
+  if (id < 1 || e === undefined) return unported(`llir: intrinsic ID ${id} (not in the model's generic, aarch64 or x86 table)`);
   return e;
 }
 
@@ -304,9 +313,9 @@ type TdType =
   | { readonly k: "sameVecWidth"; readonly n: number; readonly elt: TdType };
 
 interface Signature {
-  /** Intrinsics.td line of the `def` (IntrinsicsX86.td's when `file` says so). */
+  /** Intrinsics.td line of the `def` (IntrinsicsX86.td's or IntrinsicsAArch64.td's when `file` says so). */
   readonly td: number;
-  readonly file?: "IntrinsicsX86.td";
+  readonly file?: "IntrinsicsX86.td" | "IntrinsicsAArch64.td";
   readonly ret: readonly TdType[];
   readonly params: readonly TdType[];
 }
@@ -408,6 +417,8 @@ const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
   ["llvm.instrprof.increment", { td: 1084, ret: [], params: [ptr, i64, i32, i32] }],
   // lane ir-fix-a: core::arch's `_mm_pause` (std's `spin_loop` on x86_64), `Intrinsic<[], [], []>`.
   ["llvm.x86.sse2.pause", { td: 461, file: "IntrinsicsX86.td", ret: [], params: [] }],
+  // lane ir-fix-b: core::arch's `__isb(SY)` (std's `spin_loop` on aarch64), `Intrinsic<[], [llvm_i32_ty], [IntrNoFree, IntrWillReturn]>`.
+  ["llvm.aarch64.isb", { td: 100, file: "IntrinsicsAArch64.td", ret: [], params: [i32] }],
 ]);
 
 /** The names `SIGNATURES` covers, and each one's overload slots by class, in order (for tests). */
@@ -487,7 +498,7 @@ function decodeFixedType(d: Desc, overloadTys: readonly Type[], m: Module): Type
 function getType(m: Module, id: number, overloadTys: readonly Type[]): FunctionType {
   const name = entry(id)[0];
   const sig = SIGNATURES.get(name);
-  if (sig === undefined) return unported(`llir: the signature of ${name} (${name.startsWith("llvm.x86.") ? "IntrinsicsX86.td" : "Intrinsics.td"}) is not in the IR model`);
+  if (sig === undefined) return unported(`llir: the signature of ${name} (${name.startsWith("llvm.x86.") ? "IntrinsicsX86.td" : name.startsWith("llvm.aarch64.") ? "IntrinsicsAArch64.td" : "Intrinsics.td"}) is not in the IR model`);
   const table = descriptors(sig);
   const nRet = sig.ret.length;
   // The return type: void (no results), the type, or `StructType::get(Context, Elts)` of several (IIT_STRUCT).

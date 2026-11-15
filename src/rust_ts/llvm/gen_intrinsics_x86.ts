@@ -8,6 +8,8 @@
 // `LLVMIntrinsicGetName` / `LLVMIntrinsicIsOverloaded` for every ID from 1 up to the first that is not an intrinsic name. The x86 table
 // is the run of IDs whose first component after `llvm.` is `x86`; its offset is the ID before the first. The text it writes, header
 // included, is the committed file byte for byte. Never edit the table by hand: change this script, run it, and commit both.
+// `readTargetTable` and `renderTargetTable` are shared with gen_intrinsics_aarch64.ts (lane ir-fix-b), which does the same for
+// `aarch64`; importing this file runs nothing (`import.meta.main`).
 import { dlopen, type Pointer, toArrayBuffer } from "bun:ffi";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -24,8 +26,8 @@ const HEADER = `// rust-ts: the IR model's x86 intrinsic name table (lane ir-fix
 // Written by gen_intrinsics_x86.ts (hand-run; review ir-fix-a N3): do not edit the table by hand.
 `;
 
-/** The x86 run of the oracle's intrinsic names: `[offset, [[name, isOverloaded], ...]]`. */
-function readX86(): [number, [string, 0 | 1][]] {
+/** The run of the oracle's intrinsic names whose target component is `target`: `[offset, [[name, isOverloaded], ...]]`. */
+export function readTargetTable(target: string): [number, [string, 0 | 1][]] {
   const r = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"], { env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" } });
   if (r.exitCode !== 0) throw new Error("ERROR: the pinned toolchain is unavailable (rustc +<pin> --print sysroot failed)");
   const sysroot = r.stdout.toString().trim();
@@ -34,7 +36,8 @@ function readX86(): [number, [string, 0 | 1][]] {
     LLVMIntrinsicIsOverloaded: { args: ["u32"], returns: "i32" },
   }).symbols;
   const len = new BigUint64Array(1);
-  const x86: [string, 0 | 1][] = [];
+  const prefix = `llvm.${target}.`;
+  const run: [string, 0 | 1][] = [];
   let first = 0;
   for (let id = 1; ; id++) {
     const p = lib.LLVMIntrinsicGetName(id, len) as Pointer | null;
@@ -42,17 +45,18 @@ function readX86(): [number, [string, 0 | 1][]] {
     if (p === null || n <= 5 || n > 200) break;
     const name = Buffer.from(toArrayBuffer(p, 0, n)).toString("latin1");
     if (!name.startsWith("llvm.")) break;
-    if (name.startsWith("llvm.x86.")) {
-      if (x86.length === 0) first = id;
-      x86.push([name, lib.LLVMIntrinsicIsOverloaded(id) !== 0 ? 1 : 0]);
-    } else if (x86.length > 0) break;
+    if (name.startsWith(prefix)) {
+      if (run.length === 0) first = id;
+      run.push([name, lib.LLVMIntrinsicIsOverloaded(id) !== 0 ? 1 : 0]);
+    } else if (run.length > 0) break;
   }
-  if (x86.length === 0) throw new Error("ERROR: no llvm.x86.* intrinsics in libLLVM.dylib");
-  return [first - 1, x86];
+  if (run.length === 0) throw new Error(`ERROR: no ${prefix}* intrinsics in libLLVM.dylib`);
+  return [first - 1, run];
 }
 
-/** The file's text: the header, the offset, and the table at most 130 columns wide, as committed. */
-function render(offset: number, table: readonly [string, 0 | 1][]): string {
+/** A table file's text: the header, the offset, and the table at most 130 columns wide, as committed. `target` is the target's
+ *  name as the doc comments write it (`x86`), `upper` the constants' prefix (`X86`). */
+export function renderTargetTable(header: string, target: string, upper: string, offset: number, table: readonly [string, 0 | 1][]): string {
   const lines: string[] = [];
   let cur = "  ";
   for (const [name, o] of table) {
@@ -65,13 +69,13 @@ function render(offset: number, table: readonly [string, 0 | 1][]): string {
   }
   if (cur.trim() !== "") lines.push(cur.trimEnd());
   return [
-    HEADER,
-    "/** `TargetInfos[x86].Offset` at the pin: the number of names before the x86 table in `IntrinsicNameTable` (header). */",
-    `export const X86_INTRINSICS_OFFSET = ${offset};`,
+    header,
+    `/** \`TargetInfos[${target}].Offset\` at the pin: the number of names before the ${target} table in \`IntrinsicNameTable\` (header). */`,
+    `export const ${upper}_INTRINSICS_OFFSET = ${offset};`,
     "",
-    "/** `IntrinsicNameTable` (x86 part) at the pin: `[name, isOverloaded]`, sorted (header). */",
+    `/** \`IntrinsicNameTable\` (${target} part) at the pin: \`[name, isOverloaded]\`, sorted (header). */`,
     "// prettier-ignore",
-    "export const X86_INTRINSICS: readonly (readonly [string, 0 | 1])[] = [",
+    `export const ${upper}_INTRINSICS: readonly (readonly [string, 0 | 1])[] = [`,
     ...lines,
     "];",
     "",
@@ -79,8 +83,8 @@ function render(offset: number, table: readonly [string, 0 | 1][]): string {
 }
 
 if (import.meta.main) {
-  const [offset, table] = readX86();
-  const text = render(offset, table);
+  const [offset, table] = readTargetTable("x86");
+  const text = renderTargetTable(HEADER, "x86", "X86", offset, table);
   if (process.argv.includes("--check")) {
     if (readFileSync(OUT, "latin1") !== text) throw new Error("ERROR: intrinsics_x86.ts differs from what gen_intrinsics_x86.ts writes");
   } else {
