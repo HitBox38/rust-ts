@@ -26,7 +26,7 @@
 //   `wants_msvc_seh` (ssa-base, imported from rustc_codegen_ssa/base.ts at integ-w54), `FnAbi::llvm_type` (cg-abi-consts), `llvm_util::get_version`
 //   (cg-write), the autodiff and offload builders (excluded, plan-m7 D18).
 import { AddressSpace, Align, Align_eq, type BackendRepr, type Float, type NumScalableVectors, type Primitive, Scalar, Size, Size_cmp, debug_Align } from "../rustc_abi/lib.ts";
-import { IntTy, UintTy } from "../rustc_ast_ir/lib.ts";
+import { FloatTy, IntTy, Mutability, UintTy } from "../rustc_ast_ir/lib.ts";
 import { TyAndLayout_eq } from "../rustc_abi/layout/ty.ts";
 import { WrappingRange } from "../rustc_abi/wrapping_range.ts";
 import { find_attr } from "../rustc_attr_ir/lib.ts";
@@ -48,6 +48,7 @@ import type { BinOp } from "../rustc_middle/mir/syntax.ts";
 import { Instance } from "../rustc_middle/ty/instance.ts";
 import { type TyAndLayout, debug_TyAndLayout_Ty } from "../rustc_middle/ty/layout.ts";
 import { RawList } from "../rustc_middle/ty/list.ts";
+import type { SimdAlign } from "../rustc_middle/ty/consts/int.ts";
 import { HasAttrs_DefId, Ty } from "../rustc_middle/ty/mod.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import { fnc_typetrees } from "../rustc_middle/ty/typetree.ts";
@@ -61,7 +62,7 @@ import { mangle_internal_symbol } from "../rustc_symbol_mangling/v0.ts";
 import { Arch, PanicStrategy } from "../rustc_target/spec/mod.ts";
 import { Binder, EarlyBinder, fold_Binder } from "../rustc_type_ir/binder.ts";
 import { Unnormalized } from "../rustc_type_ir/unnormalized.ts";
-import { debug_Ty } from "../rustc_middle/ty/structural_impls.ts";
+import { debug_Ty, fold_Ty } from "../rustc_middle/ty/structural_impls.ts";
 import { FnSig, fold_FnSig } from "../rustc_type_ir/ty_kind.ts";
 import type { PolyFnSig, TyKind } from "../rustc_type_ir/decls.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -2073,12 +2074,10 @@ function get_args_from_tuple(bx: Builder, tuple_op: OperandRef<Value>, fn_instan
   }
 }
 
-// The SIMD half (intrinsic.rs:2047-end) is lane cg-intrinsic-b's (plan-m7 §8 wave 43). PORT (lane ir-fix-a): its head is ported
-// ahead of that lane, because run-pass programs reach it through std (`simd_splat` from core's SIMD string search, `simd_shuffle`):
-// the macros, `vector_mask_to_bitmask`, the arms up to `simd_extract_dyn` (intrinsic.rs:2047-2409), `simd_bitmask` (:2443),
-// `minmax_red!` and `bitwise_red!` (:3011-3089), `arith_binary!` and `arith_unary!` (:3308-3355) and the final `span_bug!`, in
-// upstream order. Every other arm stops by the intrinsic's name (`unported`), in its place in the chain, so a program reaching
-// one stops as it did before, with its name.
+// The SIMD half (intrinsic.rs:2047-end): lane ir-fix-a (wave 40r) ported its head, the arms run-pass programs reach through std
+// (the macros, `vector_mask_to_bitmask`, the arms up to `simd_extract_dyn`, `simd_bitmask`, `minmax_red!` / `bitwise_red!`,
+// `arith_binary!` / `arith_unary!` and the final `span_bug!`); lane cg-intrinsic-b (wave 40s) ported every other arm and the
+// nested fns `simd_simple_float_intrinsic`, `llvm_vector_ty` and `llvm_alignment`, in upstream order.
 // - `macro_rules! return_error` / `require!` / `require_simd!` / `require_simd_or_scalable!` and the `*_red!` / `arith_*!` macros
 //   are local closures; a macro's `return` is the caller's `return` of the closure's result.
 // - `if cfg!(debug_assertions)` is false in the oracle's build (rustc ships without debug assertions): the check stays a comment.
@@ -2091,12 +2090,12 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
     return { $: "Err", _0: err };
   };
   /** `require_simd!($ty, $variant)`: the `Err` to return, or the type's `simd_size_and_type`. */
-  const require_simd = (ty: Ty, variant: "SimdArgument" | "SimdInput" | "SimdReturn"): Err | [number, Ty] => {
+  const require_simd = (ty: Ty, variant: "SimdArgument" | "SimdInput" | "SimdReturn" | "SimdFirst" | "SimdSecond" | "SimdThird"): Err | [number, Ty] => {
     if (!ty.is_simd()) return return_error({ $: variant, span, name, ty });
     return ty.simd_size_and_type(bx.tcx);
   };
   /** `require_simd_or_scalable!($ty, $variant)`. */
-  const require_simd_or_scalable = (ty: Ty, variant: "SimdArgument" | "SimdInput"): Err | [number, Ty, NumScalableVectors | undefined] => {
+  const require_simd_or_scalable = (ty: Ty, variant: "SimdArgument" | "SimdInput" | "SimdReturn"): Err | [number, Ty, NumScalableVectors | undefined] => {
     if (!(ty.is_simd() || ty.is_scalable_vector())) return return_error({ $: variant, span, name, ty });
     if (ty.is_simd()) {
       const [len, ty_] = ty.simd_size_and_type(bx.tcx);
@@ -2229,7 +2228,6 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
   const rin = require_simd_or_scalable(args[0]!.layout.ty, "SimdInput");
   if (isErr(rin)) return rin;
   const [in_len, in_elem, in_num_vecs] = rin;
-  void in_num_vecs;
   const in_ty = args[0]!.layout.ty;
 
   let comparison: BinOp | undefined;
@@ -2392,12 +2390,36 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
     return { $: "Ok", _0: bx.extract_element(args[0]!.immediate(debug_Value), index_imm) };
   }
 
-  // The arms from `simd_select` (intrinsic.rs:2411) to `simd_cast` / `simd_as` (:3193), and the nested `simd_simple_float_intrinsic`
-  // (:2496), `llvm_vector_ty` (:2567) and `llvm_alignment` (:2671), are lane cg-intrinsic-b's (header). Each of those arms is
-  // guarded by the intrinsic's name alone, so stopping on exactly those names, in their order, leaves every other name to fall
-  // through to the arms after them, as upstream's chain does.
-  const stop = (): never => unported("cg-intrinsic-b: compiler/rustc_codegen_llvm/src/intrinsic.rs generic_simd_intrinsic " + Symbol.as_str(name));
-  if (name === sym.simd_select) return stop();
+  if (name === sym.simd_select) {
+    const m_elem_ty = in_elem;
+    const m_len = in_len;
+    const rv = require_simd_or_scalable(args[1]!.layout.ty, "SimdArgument");
+    if (isErr(rv)) return rv;
+    const [v_len] = rv;
+    if (!(m_len === v_len)) {
+      return return_error({ $: "MismatchedLengths", span, name, m_len, v_len });
+    }
+
+    let m_i1s: Value;
+    if (args[1]!.layout.ty.is_scalable_vector()) {
+      switch (m_elem_ty.kind().$) {
+        case "Bool":
+          break;
+        default:
+          return return_error({ $: "MaskWrongElementType", span, name, ty: m_elem_ty });
+      }
+      const i1 = bx.type_i1();
+      const i1xn = bx.type_scalable_vector(i1, m_len);
+      m_i1s = bx.trunc_inherent(args[0]!.immediate(debug_Value), i1xn);
+    } else {
+      const rb = require_int_or_uint_ty(m_elem_ty.kind(), { $: "MaskWrongElementType", span, name, ty: m_elem_ty });
+      if (isErr(rb)) return rb;
+      const in_elem_bitwidth = rb;
+      m_i1s = vector_mask_to_bitmask(bx, args[0]!.immediate(debug_Value), in_elem_bitwidth, m_len);
+    }
+
+    return { $: "Ok", _0: bx.select(m_i1s, args[1]!.immediate(debug_Value), args[2]!.immediate(debug_Value)) };
+  }
 
   if (name === sym.simd_bitmask) {
     // The `fn simd_bitmask(vector) -> unsigned integer` intrinsic takes a vector mask and
@@ -2444,6 +2466,85 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
       return return_error({ $: "CannotReturn", span, name, ret_ty, expected_int_bits, expected_bytes });
     }
   }
+  // rustc: compiler/rustc_codegen_llvm/src/intrinsic.rs:2496 simd_simple_float_intrinsic
+  function simd_simple_float_intrinsic(name: Symbol, in_elem: Ty, in_ty: Ty, in_len: number, bx: Builder, span: Span, args: readonly OperandRef<Value>[]): Result<Value, ErrorGuaranteed> {
+    const return_error = (diag: InvalidMonomorphization): Err => {
+      const err = bx.sess().dcx().emit_err(InvalidMonomorphization_diagnostic(diag));
+      return { $: "Err", _0: err };
+    };
+
+    const k = in_elem.kind();
+    if (k.$ !== "Float") {
+      return return_error({ $: "BasicFloatType", span, name, ty: in_ty });
+    }
+    const f = k._0;
+    const elem_ty = bx.cx_.type_float_from_ty(f);
+
+    const vec_ty = bx.type_vector(elem_ty, in_len);
+
+    let intr_name: string;
+    switch (name) {
+      case sym.simd_ceil:
+        intr_name = "llvm.ceil";
+        break;
+      case sym.simd_fabs:
+        intr_name = "llvm.fabs";
+        break;
+      case sym.simd_fcos:
+        intr_name = "llvm.cos";
+        break;
+      case sym.simd_fexp2:
+        intr_name = "llvm.exp2";
+        break;
+      case sym.simd_fexp:
+        intr_name = "llvm.exp";
+        break;
+      case sym.simd_flog10:
+        intr_name = "llvm.log10";
+        break;
+      case sym.simd_flog2:
+        intr_name = "llvm.log2";
+        break;
+      case sym.simd_flog:
+        intr_name = "llvm.log";
+        break;
+      case sym.simd_floor:
+        intr_name = "llvm.floor";
+        break;
+      case sym.simd_fma:
+        intr_name = "llvm.fma";
+        break;
+      case sym.simd_relaxed_fma:
+        intr_name = "llvm.fmuladd";
+        break;
+      case sym.simd_fsin:
+        intr_name = "llvm.sin";
+        break;
+      case sym.simd_fsqrt:
+        intr_name = "llvm.sqrt";
+        break;
+      case sym.simd_round:
+        intr_name = "llvm.round";
+        break;
+      case sym.simd_round_ties_even:
+        intr_name = "llvm.rint";
+        break;
+      case sym.simd_trunc:
+        intr_name = "llvm.trunc";
+        break;
+      default:
+        return return_error({ $: "UnrecognizedIntrinsic", span, name });
+    }
+    return {
+      $: "Ok",
+      _0: bx.call_intrinsic(
+        intr_name,
+        [vec_ty],
+        args.map((arg) => arg.immediate(debug_Value)),
+      ),
+    };
+  }
+
   switch (name) {
     case sym.simd_ceil:
     case sym.simd_fabs:
@@ -2461,20 +2562,335 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
     case sym.simd_round:
     case sym.simd_round_ties_even:
     case sym.simd_trunc:
-      return stop();
+      return simd_simple_float_intrinsic(name, in_elem, in_ty, in_len, bx, span, args);
   }
-  if (name === sym.simd_gather) return stop();
-  if (name === sym.simd_masked_load) return stop();
-  if (name === sym.simd_masked_store) return stop();
-  if (name === sym.simd_scatter) return stop();
-  // `arith_red!` (:2938) and its four expansions (:2994-3009).
-  switch (name) {
-    case sym.simd_reduce_add_ordered:
-    case sym.simd_reduce_mul_ordered:
-    case sym.simd_reduce_add_unordered:
-    case sym.simd_reduce_mul_unordered:
-      return stop();
+
+  // rustc: compiler/rustc_codegen_llvm/src/intrinsic.rs:2567 llvm_vector_ty
+  function llvm_vector_ty(cx: CodegenCx, elem_ty: Ty, vec_len: number): Type {
+    const k = elem_ty.kind();
+    let elem_ty_: Type;
+    switch (k.$) {
+      case "Int":
+        elem_ty_ = cx.type_int_from_ty(k._0);
+        break;
+      case "Uint":
+        elem_ty_ = cx.type_uint_from_ty(k._0);
+        break;
+      case "Float":
+        elem_ty_ = cx.type_float_from_ty(k._0);
+        break;
+      case "RawPtr":
+        elem_ty_ = cx.type_ptr();
+        break;
+      default:
+        return unreachable("internal error: entered unreachable code");
+    }
+    return cx.type_vector(elem_ty_, vec_len);
   }
+
+  // PORT: `matches!(*ty.kind(), ty::RawPtr(p_ty, ..) if .. p_ty.kind() == other.kind())`: `Ty` is interned, so two kinds are equal
+  // exactly when the types are (`===`).
+  if (name === sym.simd_gather) {
+    // simd_gather(values: <N x T>, pointers: <N x *_ T>,
+    //             mask: <N x i{M}>) -> <N x T>
+    // * N: number of elements in the input vectors
+    // * T: type of the element to load
+    // * M: any integer width is supported, will be truncated to i1
+
+    // All types must be simd vector types
+
+    // The second argument must be a simd vector with an element type that's a pointer
+    // to the element type of the first argument
+    const r0 = require_simd(in_ty, "SimdFirst");
+    if (isErr(r0)) return r0;
+    const [, element_ty0] = r0;
+    const r1 = require_simd(args[1]!.layout.ty, "SimdSecond");
+    if (isErr(r1)) return r1;
+    const [out_len, element_ty1] = r1;
+    // The element type of the third argument must be a signed integer type of any width:
+    const r2 = require_simd(args[2]!.layout.ty, "SimdThird");
+    if (isErr(r2)) return r2;
+    const [out_len2, element_ty2] = r2;
+    const rr = require_simd(ret_ty, "SimdReturn");
+    if (isErr(rr)) return rr;
+
+    // Of the same length:
+    if (!(in_len === out_len)) {
+      return return_error({ $: "SecondArgumentLength", span, name, in_len, in_ty, arg_ty: args[1]!.layout.ty, out_len });
+    }
+    if (!(in_len === out_len2)) {
+      return return_error({ $: "ThirdArgumentLength", span, name, in_len, in_ty, arg_ty: args[2]!.layout.ty, out_len: out_len2 });
+    }
+
+    // The return type must match the first argument type
+    if (!(ret_ty === in_ty)) {
+      return return_error({ $: "ExpectedReturnType", span, name, in_ty, ret_ty });
+    }
+
+    const k1 = element_ty1.kind();
+    if (!(k1.$ === "RawPtr" && k1._0 === in_elem && k1._0 === element_ty0)) {
+      return return_error({ $: "ExpectedElementType", span, name, expected_element: element_ty1, second_arg: args[1]!.layout.ty, in_elem, in_ty, mutability: "Not" });
+    }
+
+    const rb = require_int_or_uint_ty(element_ty2.kind(), { $: "MaskWrongElementType", span, name, ty: element_ty2 });
+    if (isErr(rb)) return rb;
+    const mask_elem_bitwidth = rb;
+
+    // Alignment of T, must be a constant integer value:
+    const alignment = bx.align_of(in_elem).bytes();
+
+    // Truncate the mask vector to a vector of i1s:
+    const mask = vector_mask_to_bitmask(bx, args[2]!.immediate(debug_Value), mask_elem_bitwidth, in_len);
+
+    // Type of the vector of pointers:
+    const llvm_pointer_vec_ty = llvm_vector_ty(bx.cx_, element_ty1, in_len);
+
+    // Type of the vector of elements:
+    const llvm_elem_vec_ty = llvm_vector_ty(bx.cx_, element_ty0, in_len);
+
+    const call = bx.call_intrinsic("llvm.masked.gather", [llvm_elem_vec_ty, llvm_pointer_vec_ty], [args[1]!.immediate(debug_Value), mask, args[0]!.immediate(debug_Value)]);
+    attributes.apply_to_callsite(call, { $: "Argument", _0: 0 }, [llvm.CreateAlignmentAttr(bx.llcx(), BigInt(alignment))]);
+    return { $: "Ok", _0: call };
+  }
+
+  // rustc: compiler/rustc_codegen_llvm/src/intrinsic.rs:2671 llvm_alignment
+  function llvm_alignment(bx: Builder, alignment: SimdAlign, vector_ty: Ty, element_ty: Ty): number {
+    switch (alignment) {
+      case "Unaligned":
+        return 1;
+      case "Element":
+        return bx.align_of(element_ty).bytes();
+      case "Vector":
+        return bx.align_of(vector_ty).bytes();
+    }
+  }
+
+  if (name === sym.simd_masked_load) {
+    // simd_masked_load<_, _, _, const ALIGN: SimdAlign>(mask: <N x i{M}>, pointer: *_ T, values: <N x T>) -> <N x T>
+    // * N: number of elements in the input vectors
+    // * T: type of the element to load
+    // * M: any integer width is supported, will be truncated to i1
+    // Loads contiguous elements from memory behind `pointer`, but only for
+    // those lanes whose `mask` bit is enabled.
+    // The memory addresses corresponding to the “off” lanes are not accessed.
+
+    const alignment_ = GenericArg.expect_const(fn_args[3]!).to_branch()[0]!.to_leaf().to_simd_alignment();
+
+    // The element type of the "mask" argument must be a signed integer type of any width
+    const mask_ty = in_ty;
+    const [mask_len, mask_elem] = [in_len, in_elem];
+
+    // The second argument must be a pointer matching the element type
+    const pointer_ty = args[1]!.layout.ty;
+
+    // The last argument is a passthrough vector providing values for disabled lanes
+    const values_ty = args[2]!.layout.ty;
+    const rv = require_simd(values_ty, "SimdThird");
+    if (isErr(rv)) return rv;
+    const [values_len, values_elem] = rv;
+
+    const rr = require_simd(ret_ty, "SimdReturn");
+    if (isErr(rr)) return rr;
+
+    // Of the same length:
+    if (!(values_len === mask_len)) {
+      return return_error({ $: "ThirdArgumentLength", span, name, in_len: mask_len, in_ty: mask_ty, arg_ty: values_ty, out_len: values_len });
+    }
+
+    // The return type must match the last argument type
+    if (!(ret_ty === values_ty)) {
+      return return_error({ $: "ExpectedReturnType", span, name, in_ty: values_ty, ret_ty });
+    }
+
+    const pk = pointer_ty.kind();
+    if (!(pk.$ === "RawPtr" && pk._0 === values_elem)) {
+      return return_error({ $: "ExpectedElementType", span, name, expected_element: values_elem, second_arg: pointer_ty, in_elem: values_elem, in_ty: values_ty, mutability: "Not" });
+    }
+
+    const rb = require_int_or_uint_ty(mask_elem.kind(), { $: "MaskWrongElementType", span, name, ty: mask_elem });
+    if (isErr(rb)) return rb;
+    const m_elem_bitwidth = rb;
+
+    const mask = vector_mask_to_bitmask(bx, args[0]!.immediate(debug_Value), m_elem_bitwidth, mask_len);
+
+    // Alignment of T, must be a constant integer value:
+    const alignment = llvm_alignment(bx, alignment_, values_ty, values_elem);
+
+    const llvm_pointer = bx.type_ptr();
+
+    // Type of the vector of elements:
+    const llvm_elem_vec_ty = llvm_vector_ty(bx.cx_, values_elem, values_len);
+
+    const call = bx.call_intrinsic("llvm.masked.load", [llvm_elem_vec_ty, llvm_pointer], [args[1]!.immediate(debug_Value), mask, args[2]!.immediate(debug_Value)]);
+    attributes.apply_to_callsite(call, { $: "Argument", _0: 0 }, [llvm.CreateAlignmentAttr(bx.llcx(), BigInt(alignment))]);
+    return { $: "Ok", _0: call };
+  }
+
+  if (name === sym.simd_masked_store) {
+    // simd_masked_store<_, _, _, const ALIGN: SimdAlign>(mask: <N x i{M}>, pointer: *mut T, values: <N x T>) -> ()
+    // * N: number of elements in the input vectors
+    // * T: type of the element to load
+    // * M: any integer width is supported, will be truncated to i1
+    // Stores contiguous elements to memory behind `pointer`, but only for
+    // those lanes whose `mask` bit is enabled.
+    // The memory addresses corresponding to the “off” lanes are not accessed.
+
+    const alignment_ = GenericArg.expect_const(fn_args[3]!).to_branch()[0]!.to_leaf().to_simd_alignment();
+
+    // The element type of the "mask" argument must be a signed integer type of any width
+    const mask_ty = in_ty;
+    const [mask_len, mask_elem] = [in_len, in_elem];
+
+    // The second argument must be a pointer matching the element type
+    const pointer_ty = args[1]!.layout.ty;
+
+    // The last argument specifies the values to store to memory
+    const values_ty = args[2]!.layout.ty;
+    const rv = require_simd(values_ty, "SimdThird");
+    if (isErr(rv)) return rv;
+    const [values_len, values_elem] = rv;
+
+    // Of the same length:
+    if (!(values_len === mask_len)) {
+      return return_error({ $: "ThirdArgumentLength", span, name, in_len: mask_len, in_ty: mask_ty, arg_ty: values_ty, out_len: values_len });
+    }
+
+    // The second argument must be a mutable pointer type matching the element type
+    const pk = pointer_ty.kind();
+    if (!(pk.$ === "RawPtr" && pk._0 === values_elem && Mutability.is_mut(pk._1))) {
+      return return_error({ $: "ExpectedElementType", span, name, expected_element: values_elem, second_arg: pointer_ty, in_elem: values_elem, in_ty: values_ty, mutability: "Mut" });
+    }
+
+    const rb = require_int_or_uint_ty(mask_elem.kind(), { $: "MaskWrongElementType", span, name, ty: mask_elem });
+    if (isErr(rb)) return rb;
+    const m_elem_bitwidth = rb;
+
+    const mask = vector_mask_to_bitmask(bx, args[0]!.immediate(debug_Value), m_elem_bitwidth, mask_len);
+
+    // Alignment of T, must be a constant integer value:
+    const alignment = llvm_alignment(bx, alignment_, values_ty, values_elem);
+
+    const llvm_pointer = bx.type_ptr();
+
+    // Type of the vector of elements:
+    const llvm_elem_vec_ty = llvm_vector_ty(bx.cx_, values_elem, values_len);
+
+    const call = bx.call_intrinsic("llvm.masked.store", [llvm_elem_vec_ty, llvm_pointer], [args[2]!.immediate(debug_Value), args[1]!.immediate(debug_Value), mask]);
+    attributes.apply_to_callsite(call, { $: "Argument", _0: 1 }, [llvm.CreateAlignmentAttr(bx.llcx(), BigInt(alignment))]);
+    return { $: "Ok", _0: call };
+  }
+
+  if (name === sym.simd_scatter) {
+    // simd_scatter(values: <N x T>, pointers: <N x *mut T>,
+    //             mask: <N x i{M}>) -> ()
+    // * N: number of elements in the input vectors
+    // * T: type of the element to load
+    // * M: any integer width is supported, will be truncated to i1
+
+    // All types must be simd vector types
+    // The second argument must be a simd vector with an element type that's a pointer
+    // to the element type of the first argument
+    const r0 = require_simd(in_ty, "SimdFirst");
+    if (isErr(r0)) return r0;
+    const [, element_ty0] = r0;
+    const r1 = require_simd(args[1]!.layout.ty, "SimdSecond");
+    if (isErr(r1)) return r1;
+    const [element_len1, element_ty1] = r1;
+    const r2 = require_simd(args[2]!.layout.ty, "SimdThird");
+    if (isErr(r2)) return r2;
+    const [element_len2, element_ty2] = r2;
+
+    // Of the same length:
+    if (!(in_len === element_len1)) {
+      return return_error({ $: "SecondArgumentLength", span, name, in_len, in_ty, arg_ty: args[1]!.layout.ty, out_len: element_len1 });
+    }
+    if (!(in_len === element_len2)) {
+      return return_error({ $: "ThirdArgumentLength", span, name, in_len, in_ty, arg_ty: args[2]!.layout.ty, out_len: element_len2 });
+    }
+
+    const k1 = element_ty1.kind();
+    if (!(k1.$ === "RawPtr" && k1._0 === in_elem && Mutability.is_mut(k1._1) && k1._0 === element_ty0)) {
+      return return_error({ $: "ExpectedElementType", span, name, expected_element: element_ty1, second_arg: args[1]!.layout.ty, in_elem, in_ty, mutability: "Mut" });
+    }
+
+    // The element type of the third argument must be an integer type of any width:
+    const rb = require_int_or_uint_ty(element_ty2.kind(), { $: "MaskWrongElementType", span, name, ty: element_ty2 });
+    if (isErr(rb)) return rb;
+    const mask_elem_bitwidth = rb;
+
+    // Alignment of T, must be a constant integer value:
+    const alignment = bx.align_of(in_elem).bytes();
+
+    // Truncate the mask vector to a vector of i1s:
+    const mask = vector_mask_to_bitmask(bx, args[2]!.immediate(debug_Value), mask_elem_bitwidth, in_len);
+
+    // Type of the vector of pointers:
+    const llvm_pointer_vec_ty = llvm_vector_ty(bx.cx_, element_ty1, in_len);
+
+    // Type of the vector of elements:
+    const llvm_elem_vec_ty = llvm_vector_ty(bx.cx_, element_ty0, in_len);
+
+    const call = bx.call_intrinsic("llvm.masked.scatter", [llvm_elem_vec_ty, llvm_pointer_vec_ty], [args[0]!.immediate(debug_Value), args[1]!.immediate(debug_Value), mask]);
+    attributes.apply_to_callsite(call, { $: "Argument", _0: 1 }, [llvm.CreateAlignmentAttr(bx.llcx(), BigInt(alignment))]);
+    return { $: "Ok", _0: call };
+  }
+
+  // `macro_rules! arith_red` (:2938): `$integer_reduce` and `$float_reduce` are calls, `$op` the ordered combination.
+  const arith_red = (
+    sym_name: Symbol,
+    integer_reduce: (src: Value) => Value,
+    float_reduce: (acc: Value, src: Value) => Value,
+    ordered: boolean,
+    op: (lhs: Value, rhs: Value) => Value,
+    identity: number,
+  ): Result<Value, ErrorGuaranteed> => {
+    if (!(ret_ty === in_elem)) {
+      return return_error({ $: "ReturnType", span, name, in_elem, in_ty, ret_ty });
+    }
+    const k = in_elem.kind();
+    switch (k.$) {
+      case "Int":
+      case "Uint": {
+        const r = integer_reduce(args[0]!.immediate(debug_Value));
+        if (ordered) {
+          // if overflow occurs, the result is the
+          // mathematical result modulo 2^n:
+          return { $: "Ok", _0: op(args[1]!.immediate(debug_Value), r) };
+        } else {
+          return { $: "Ok", _0: integer_reduce(args[0]!.immediate(debug_Value)) };
+        }
+      }
+      case "Float": {
+        const f = k._0;
+        let acc: Value;
+        if (ordered) {
+          // ordered arithmetic reductions take an accumulator
+          acc = args[1]!.immediate(debug_Value);
+        } else {
+          // unordered arithmetic reductions use the identity accumulator
+          const v = FloatTy.bit_width(f);
+          switch (v) {
+            case 32:
+              acc = bx.const_real(bx.type_f32(), identity);
+              break;
+            case 64:
+              acc = bx.const_real(bx.type_f64(), identity);
+              break;
+            default:
+              return return_error({ $: "UnsupportedSymbolOfSize", span, name, symbol: sym_name, in_ty, in_elem, size: v, ret_ty });
+          }
+        }
+        return { $: "Ok", _0: float_reduce(acc, args[0]!.immediate(debug_Value)) };
+      }
+      default:
+        return return_error({ $: "UnsupportedSymbol", span, name, symbol: sym_name, in_ty, in_elem, ret_ty });
+    }
+  };
+
+  if (name === sym.simd_reduce_add_ordered) return arith_red(sym.simd_reduce_add_ordered, (src) => bx.vector_reduce_add(src), (acc, src) => bx.vector_reduce_fadd(acc, src), true, (l, r) => bx.add(l, r), -0.0);
+  if (name === sym.simd_reduce_mul_ordered) return arith_red(sym.simd_reduce_mul_ordered, (src) => bx.vector_reduce_mul(src), (acc, src) => bx.vector_reduce_fmul(acc, src), true, (l, r) => bx.mul(l, r), 1.0);
+  if (name === sym.simd_reduce_add_unordered) return arith_red(sym.simd_reduce_add_unordered, (src) => bx.vector_reduce_add(src), (acc, src) => bx.vector_reduce_fadd_reassoc(acc, src), false, (l, r) => bx.add(l, r), -0.0);
+  if (name === sym.simd_reduce_mul_unordered) return arith_red(sym.simd_reduce_mul_unordered, (src) => bx.vector_reduce_mul(src), (acc, src) => bx.vector_reduce_fmul_reassoc(acc, src), false, (l, r) => bx.mul(l, r), 1.0);
 
   // `macro_rules! minmax_red` (:3011).
   const minmax_red = (sym_name: Symbol, int_red: (src: Value, is_signed: boolean) => Value): Result<Value, ErrorGuaranteed> => {
@@ -2533,10 +2949,150 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
   if (name === sym.simd_reduce_all) return bitwise_red(sym.simd_reduce_all, (src) => bx.vector_reduce_and(src), true);
   if (name === sym.simd_reduce_any) return bitwise_red(sym.simd_reduce_any, (src) => bx.vector_reduce_or(src), true);
 
-  if (name === sym.simd_cast_ptr) return stop();
-  if (name === sym.simd_expose_provenance) return stop();
-  if (name === sym.simd_with_exposed_provenance) return stop();
-  if (name === sym.simd_cast || name === sym.simd_as) return stop();
+  if (name === sym.simd_cast_ptr) {
+    const rr = require_simd(ret_ty, "SimdReturn");
+    if (isErr(rr)) return rr;
+    const [out_len, out_elem] = rr;
+    if (!(in_len === out_len)) {
+      return return_error({ $: "ReturnLengthInputType", span, name, in_len, in_ty, ret_ty, out_len });
+    }
+
+    const normalize = (ty: Unnormalized<Ty>): Ty => bx.tcx.normalize_erasing_regions(bx.typing_env_(), ty, fold_Ty);
+    const ik = in_elem.kind();
+    if (ik.$ === "RawPtr") {
+      const metadata = ik._0.ptr_metadata_ty(bx.tcx, normalize);
+      if (!metadata.is_unit()) {
+        return return_error({ $: "CastWidePointer", span, name, ty: in_elem });
+      }
+    } else {
+      return return_error({ $: "ExpectedPointer", span, name, ty: in_elem });
+    }
+    const ok = out_elem.kind();
+    if (ok.$ === "RawPtr") {
+      const metadata = ok._0.ptr_metadata_ty(bx.tcx, normalize);
+      if (!metadata.is_unit()) {
+        return return_error({ $: "CastWidePointer", span, name, ty: out_elem });
+      }
+    } else {
+      return return_error({ $: "ExpectedPointer", span, name, ty: out_elem });
+    }
+
+    return { $: "Ok", _0: args[0]!.immediate(debug_Value) };
+  }
+
+  if (name === sym.simd_expose_provenance) {
+    const rr = require_simd(ret_ty, "SimdReturn");
+    if (isErr(rr)) return rr;
+    const [out_len, out_elem] = rr;
+    if (!(in_len === out_len)) {
+      return return_error({ $: "ReturnLengthInputType", span, name, in_len, in_ty, ret_ty, out_len });
+    }
+
+    if (in_elem.kind().$ !== "RawPtr") {
+      return return_error({ $: "ExpectedPointer", span, name, ty: in_elem });
+    }
+    const ok = out_elem.kind();
+    if (!(ok.$ === "Uint" && ok._0 === "Usize")) {
+      return return_error({ $: "ExpectedUsize", span, name, ty: out_elem });
+    }
+
+    return { $: "Ok", _0: bx.ptrtoint(args[0]!.immediate(debug_Value), llret_ty) };
+  }
+
+  if (name === sym.simd_with_exposed_provenance) {
+    const rr = require_simd(ret_ty, "SimdReturn");
+    if (isErr(rr)) return rr;
+    const [out_len, out_elem] = rr;
+    if (!(in_len === out_len)) {
+      return return_error({ $: "ReturnLengthInputType", span, name, in_len, in_ty, ret_ty, out_len });
+    }
+
+    const ik = in_elem.kind();
+    if (!(ik.$ === "Uint" && ik._0 === "Usize")) {
+      return return_error({ $: "ExpectedUsize", span, name, ty: in_elem });
+    }
+    if (out_elem.kind().$ !== "RawPtr") {
+      return return_error({ $: "ExpectedPointer", span, name, ty: out_elem });
+    }
+
+    return { $: "Ok", _0: bx.inttoptr(args[0]!.immediate(debug_Value), llret_ty) };
+  }
+
+  if (name === sym.simd_cast || name === sym.simd_as) {
+    const rr = require_simd_or_scalable(ret_ty, "SimdReturn");
+    if (isErr(rr)) return rr;
+    const [out_len, out_elem, out_num_vecs] = rr;
+    if (!(in_len === out_len)) {
+      return return_error({ $: "ReturnLengthInputType", span, name, in_len, in_ty, ret_ty, out_len });
+    }
+    if (!(in_num_vecs === out_num_vecs)) {
+      return return_error({
+        $: "ReturnNumVecsInputType",
+        span,
+        name,
+        in_num_vecs: in_num_vecs ?? (1 as NumScalableVectors),
+        in_ty,
+        ret_ty,
+        out_num_vecs: out_num_vecs ?? (1 as NumScalableVectors),
+      });
+    }
+
+    // Casting cares about nominal type, not just structural type
+    if (in_elem === out_elem) {
+      return { $: "Ok", _0: args[0]!.immediate(debug_Value) };
+    }
+
+    // `enum Sign { Unsigned, Signed }`, `enum Style { Float, Int(Sign), Unsupported }`.
+    type Sign = "Unsigned" | "Signed";
+    type Style = { $: "Float" } | { $: "Int"; _0: Sign } | { $: "Unsupported" };
+
+    const pointer_width = bx.tcx_().sess.target.pointer_width;
+    const style_of = (elem: Ty): [Style, number] => {
+      const k = elem.kind();
+      switch (k.$) {
+        // vectors of pointer-sized integers should've been
+        // disallowed before here, so this unwrap is safe.
+        case "Int":
+          return [{ $: "Int", _0: "Signed" }, IntTy.bit_width(IntTy.normalize(k._0, pointer_width)) ?? panic("called `Option::unwrap()` on a `None` value")];
+        case "Uint":
+          return [{ $: "Int", _0: "Unsigned" }, UintTy.bit_width(UintTy.normalize(k._0, pointer_width)) ?? panic("called `Option::unwrap()` on a `None` value")];
+        case "Float":
+          return [{ $: "Float" }, FloatTy.bit_width(k._0)];
+        default:
+          return [{ $: "Unsupported" }, 0];
+      }
+    };
+    const [in_style, in_width] = style_of(in_elem);
+    const [out_style, out_width] = style_of(out_elem);
+
+    if (in_style.$ === "Int" && out_style.$ === "Int") {
+      const sign = in_style._0;
+      if (in_width > out_width) return { $: "Ok", _0: bx.trunc_inherent(args[0]!.immediate(debug_Value), llret_ty) };
+      if (in_width === out_width) return { $: "Ok", _0: args[0]!.immediate(debug_Value) };
+      switch (sign) {
+        case "Signed":
+          return { $: "Ok", _0: bx.sext(args[0]!.immediate(debug_Value), llret_ty) };
+        case "Unsigned":
+          return { $: "Ok", _0: bx.zext(args[0]!.immediate(debug_Value), llret_ty) };
+      }
+    } else if (in_style.$ === "Int" && in_style._0 === "Signed" && out_style.$ === "Float") {
+      return { $: "Ok", _0: bx.sitofp(args[0]!.immediate(debug_Value), llret_ty) };
+    } else if (in_style.$ === "Int" && in_style._0 === "Unsigned" && out_style.$ === "Float") {
+      return { $: "Ok", _0: bx.uitofp(args[0]!.immediate(debug_Value), llret_ty) };
+    } else if (in_style.$ === "Float" && out_style.$ === "Int") {
+      const sign = out_style._0;
+      const is_as = name === sym.simd_as;
+      if (sign === "Unsigned" && !is_as) return { $: "Ok", _0: bx.fptoui(args[0]!.immediate(debug_Value), llret_ty) };
+      if (sign === "Signed" && !is_as) return { $: "Ok", _0: bx.fptosi(args[0]!.immediate(debug_Value), llret_ty) };
+      return { $: "Ok", _0: bx.cast_float_to_int(sign === "Signed", args[0]!.immediate(debug_Value), llret_ty) };
+    } else if (in_style.$ === "Float" && out_style.$ === "Float") {
+      if (in_width > out_width) return { $: "Ok", _0: bx.fptrunc(args[0]!.immediate(debug_Value), llret_ty) };
+      if (in_width === out_width) return { $: "Ok", _0: args[0]!.immediate(debug_Value) };
+      return { $: "Ok", _0: bx.fpext(args[0]!.immediate(debug_Value), llret_ty) };
+    } else {
+      return return_error({ $: "UnsupportedCast", span, name, in_ty, in_elem, ret_ty, out_elem });
+    }
+  }
 
   // `macro_rules! arith_binary` (:3308) and its expansion (:3323): for each name, the call of the first arm whose kinds hold the
   // element's kind, else `UnsupportedOperation`.
@@ -2580,8 +3136,7 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
     return arith([[["Int"], () => bx.neg(a0())], [["Float"], () => bx.fneg(a0())]]);
   }
 
-  // Unary integer intrinsics (:3357), `simd_arith_offset` (:3425), `simd_saturating_add` / `simd_saturating_sub` (:3446): lane
-  // cg-intrinsic-b's (header).
+  // Unary integer intrinsics
   switch (name) {
     case sym.simd_bswap:
     case sym.simd_bitreverse:
@@ -2590,11 +3145,115 @@ export function generic_simd_intrinsic(bx: Builder, name: Symbol, fn_args: Gener
     case sym.simd_cttz:
     case sym.simd_carryless_mul:
     case sym.simd_funnel_shl:
-    case sym.simd_funnel_shr:
-      return stop();
+    case sym.simd_funnel_shr: {
+      const k = in_elem.kind();
+      let elem: Type;
+      switch (k.$) {
+        case "Int":
+          elem = bx.cx_.type_int_from_ty(k._0);
+          break;
+        case "Uint":
+          elem = bx.cx_.type_uint_from_ty(k._0);
+          break;
+        default:
+          return return_error({ $: "UnsupportedOperation", span, name, in_ty, in_elem });
+      }
+      const vec_ty = bx.cx_.type_vector(elem, in_len);
+      let llvm_intrinsic: string;
+      switch (name) {
+        case sym.simd_bswap:
+          llvm_intrinsic = "llvm.bswap";
+          break;
+        case sym.simd_bitreverse:
+          llvm_intrinsic = "llvm.bitreverse";
+          break;
+        case sym.simd_ctlz:
+          llvm_intrinsic = "llvm.ctlz";
+          break;
+        case sym.simd_ctpop:
+          llvm_intrinsic = "llvm.ctpop";
+          break;
+        case sym.simd_cttz:
+          llvm_intrinsic = "llvm.cttz";
+          break;
+        case sym.simd_funnel_shl:
+          llvm_intrinsic = "llvm.fshl";
+          break;
+        case sym.simd_funnel_shr:
+          llvm_intrinsic = "llvm.fshr";
+          break;
+        case sym.simd_carryless_mul:
+          llvm_intrinsic = "llvm.clmul";
+          break;
+        default:
+          return unreachable("internal error: entered unreachable code");
+      }
+      const int_size = in_elem.int_size_and_signed(bx.tcx_())[0].bits();
+
+      // byte swap is no-op for i8/u8
+      if (name === sym.simd_bswap && int_size === 8) return { $: "Ok", _0: args[0]!.immediate(debug_Value) };
+      switch (name) {
+        case sym.simd_ctlz:
+        case sym.simd_cttz: {
+          // for the (int, i1 immediate) pair, the second arg adds `(0, true) => poison`
+          const dont_poison_on_zero = bx.const_int(bx.type_i1(), 0n);
+          return { $: "Ok", _0: bx.call_intrinsic(llvm_intrinsic, [vec_ty], [args[0]!.immediate(debug_Value), dont_poison_on_zero]) };
+        }
+        case sym.simd_bswap:
+        case sym.simd_bitreverse:
+        case sym.simd_ctpop:
+          // simple unary argument cases
+          return { $: "Ok", _0: bx.call_intrinsic(llvm_intrinsic, [vec_ty], [args[0]!.immediate(debug_Value)]) };
+        case sym.simd_funnel_shl:
+        case sym.simd_funnel_shr:
+          return { $: "Ok", _0: bx.call_intrinsic(llvm_intrinsic, [vec_ty], [args[0]!.immediate(debug_Value), args[1]!.immediate(debug_Value), args[2]!.immediate(debug_Value)]) };
+        case sym.simd_carryless_mul:
+          return { $: "Ok", _0: bx.call_intrinsic(llvm_intrinsic, [vec_ty], [args[0]!.immediate(debug_Value), args[1]!.immediate(debug_Value)]) };
+        default:
+          return unreachable("internal error: entered unreachable code");
+      }
+    }
   }
-  if (name === sym.simd_arith_offset) return stop();
-  if (name === sym.simd_saturating_add || name === sym.simd_saturating_sub) return stop();
+
+  if (name === sym.simd_arith_offset) {
+    // This also checks that the first operand is a ptr type.
+    const pointee = in_elem.builtin_deref(true) ?? span_bug(span, "must be called with a vector of pointer types as first argument");
+    const layout = bx.layout_of(pointee);
+    const ptrs = args[0]!.immediate(debug_Value);
+    // The second argument must be a ptr-sized integer.
+    // (We don't care about the signedness, this is wrapping anyway.)
+    const [, offsets_elem] = args[1]!.layout.ty.simd_size_and_type(bx.tcx_());
+    const ok = offsets_elem.kind();
+    if (!((ok.$ === "Int" && ok._0 === "Isize") || (ok.$ === "Uint" && ok._0 === "Usize"))) {
+      span_bug(span, "must be called with a vector of pointer-sized integers as second argument");
+    }
+    const offsets = args[1]!.immediate(debug_Value);
+
+    return { $: "Ok", _0: bx.gep(bx.backend_type(layout), ptrs, [offsets]) };
+  }
+
+  if (name === sym.simd_saturating_add || name === sym.simd_saturating_sub) {
+    const lhs = args[0]!.immediate(debug_Value);
+    const rhs = args[1]!.immediate(debug_Value);
+    const is_add = name === sym.simd_saturating_add;
+    const k = in_elem.kind();
+    let signed: boolean;
+    let elem_ty: Type;
+    switch (k.$) {
+      case "Int":
+        [signed, elem_ty] = [true, bx.cx_.type_int_from_ty(k._0)];
+        break;
+      case "Uint":
+        [signed, elem_ty] = [false, bx.cx_.type_uint_from_ty(k._0)];
+        break;
+      default:
+        return return_error({ $: "ExpectedVectorElementType", span, name, expected_element: args[0]!.layout.ty.simd_size_and_type(bx.tcx_())[1], vector_type: args[0]!.layout.ty });
+    }
+    const llvm_intrinsic = `llvm.${signed ? "s" : "u"}${is_add ? "add" : "sub"}.sat`;
+    const vec_ty = bx.cx_.type_vector(elem_ty, in_len);
+
+    return { $: "Ok", _0: bx.call_intrinsic(llvm_intrinsic, [vec_ty], [lhs, rhs]) };
+  }
 
   return span_bug(span, "unknown SIMD intrinsic");
 }
