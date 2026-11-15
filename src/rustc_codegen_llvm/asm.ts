@@ -17,7 +17,7 @@
 // - `FxHashMap<usize, usize>` `op_idx` is a `Map`; `op_idx[&idx]` panics when absent, as `index_op_idx` does.
 // - `char` modifiers are code points (`number`), as `InlineAsmTemplatePiece::Placeholder::modifier` is.
 // - `u64` lane counts are `number` (at most `MAX_SIMD_LANES`).
-import { type BackendRepr, type Float, Float as FloatC, type Primitive, Scalar, Size, Size_eq } from "../rustc_abi/lib.ts";
+import { BackendLaneCount, type BackendRepr, type Float, Float as FloatC, type Primitive, Scalar, Size, Size_eq } from "../rustc_abi/lib.ts";
 import { InlineAsmOptions, type InlineAsmTemplatePiece } from "../rustc_ast/lib.ts";
 import { asm_const_to_str } from "../rustc_codegen_ssa/common.ts";
 import { escape_symbol_name } from "../rustc_codegen_ssa/back/symbol_export.ts";
@@ -1662,7 +1662,8 @@ function is_class(reg: InlineAsmRegClass, arch: InlineAsmRegClass["$"], ...class
 
 /** `count.as_u64()` of a `BackendLaneCount`. */
 function lanes(repr: Extract<BackendRepr, { $: "SimdVector" }>): number {
-  return repr.count as number;
+  // PORT: `as_u64` returns a `bigint`; a lane count is at most `MAX_SIMD_LANES`, so it fits a `number`.
+  return Number(BackendLaneCount.as_u64(repr.count));
 }
 
 /// Fix up an input value to work around LLVM bugs.
@@ -1693,7 +1694,7 @@ function llvm_fixup_input(bx: Builder, value: Value, reg: InlineAsmRegClass, lay
     return bx.insert_element(bx.const_undef(vec_ty), value, bx.const_i32(0));
   } else if (is_class(reg, "AArch64", "vreg_low16") && repr.$ === "SimdVector" && layout.size.bytes() === 8) {
     const elem_ty = llvm_asm_scalar_type(bx.cx_, repr.element);
-    const count = lanes(repr);
+    const count = BackendLaneCount.as_u32(repr.count);
     const vec_ty = bx.cx_.type_vector(elem_ty, count);
     const indices: Value[] = [];
     for (let x = 0; x < count * 2; x++) indices.push(bx.const_u32(x));
