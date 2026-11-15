@@ -726,7 +726,7 @@ M7b is met (milestone recorded; gate-20261114-162816-root-vc2v). M7c needs `run-
 | lane | scope | status |
 |---|---|---|
 | ir-fix-b | the IR model: the aarch64 intrinsic table, `LLVMRustModuleCost`, `FoldBitCast` scalar-to-vector, then the next first differences of `run-pass-native` / `ir-host` | started |
-| cg-intrinsic-b | `rustc_codegen_llvm/src/intrinsic.rs`'s remaining SIMD arms (`generic_simd_intrinsic`), `va_arg.rs`'s other ABIs | started |
+| cg-intrinsic-b | `rustc_codegen_llvm/src/intrinsic.rs`'s remaining SIMD arms (`generic_simd_intrinsic`), `va_arg.rs`'s other ABIs | done (t3/port-simd-vaarg-abis, d4aa3ac2): intrinsic.rs 31/31, va_arg.rs 15/15; `simd2.rs` (60 fns) IR and `simd2_err.rs` (35 errors) stderr equal the oracle's; 10 of the gate's 16 SIMD stops in run-pass-native now MATCH, 6 stop in the model (six signatures and a fold sent to ir-fix-b); powerpc/s390x/hexagon/xtensa have no oracle target; root: drop `"cg-intrinsic-b": 2` in skeleton.test.ts; in review |
 | cg-asm | `rustc_codegen_llvm/src/asm.rs` (16 of 18 left) and the model's `InlineAsm::verify` | started |
 | llir-di | the IR model's debuginfo builder (`LLVMDI*`, `LLVMCreateDIBuilder`; plan-m7 D9, wave 44 brought forward) | started |
 | fixers-59 | queued src nits: w40q-audit N2, fixers-58 N1-N3, mono-run-head N3's base.ts note, vendor-object-write N1, N3, ssa-link-b N2, N6, ir-fix-a re-check notes, root-w58-recheck notes | started |
