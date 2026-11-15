@@ -41,6 +41,7 @@
     "llvm/include/llvm/IR/Instructions.h": "9395f33a5569cdf65f6bd34af224e97128a16729878694d7d26ff887a45ace24",
     "llvm/include/llvm/IR/IntrinsicInst.h": "2e695b261f7578b2a2351c0f86259a50772654f44f8ba387ccf18d5db93e6e1b",
     "llvm/include/llvm/IR/Intrinsics.td": "b5a8d57479913bdc760451288d21f594d272bb02f9853e1959f1497def9d659c",
+    "llvm/include/llvm/IR/IntrinsicsAArch64.td": "8200e34f97e0094b58c3c207fc4e4db771da8eaf352dce579a5b83346bf0d78b",
     "llvm/include/llvm/IR/IntrinsicsARM.td": "5c9d58bc436e2a467d2d009b2b05dcfc11c5937a4a0f7c7df69b1a8e4e147d74",
     "llvm/include/llvm/IR/IntrinsicsX86.td": "c62fccf00f1c3c2fae7dce707794428c714e0107f57c4550793f2970f392beaa",
     "llvm/include/llvm/IR/Metadata.h": "ae0ed801424c3ac5da4b32c567d1706e57d1321b0cdddacee885fc2a1909b2ab",
@@ -48,6 +49,7 @@
     "llvm/include/llvm/IR/Operator.h": "cf03b2cf8e06897305f8fac5761a895c8ac586d3182b7aa9c55f64911c8432c9",
     "llvm/include/llvm/IR/Type.h": "cc95e6bdf046206c1548da67c514980cf2a08591aa8a4ebaffc3d97abf1245e6",
     "llvm/include/llvm/IR/ValueSymbolTable.h": "a358a117bf6b27da4ba486b33cc6ee3d12e00eec437b1e4f9f56fbf15a0c2d8f",
+    "llvm/include/llvm/Linker/Linker.h": "11316540451fa01420843e1f5531c28197a3a04339f773e028d7a86248b96d28",
     "llvm/include/llvm/MC/TargetRegistry.h": "88b374b553d751320d17d9827d7d9b8120644fd8f22d5a4a87097ccdb5ca5784",
     "llvm/include/llvm/Support/AtomicOrdering.h": "96870e67296da7f55c9097c4a2bfde7d0138ab002dcb4d2d024d9a04bd14b47b",
     "llvm/include/llvm/Support/CodeGen.h": "e27db427217a24349edc12a5ac4c15f1d7a8270aa9704c1c9b586e0f10a9f5c9",
@@ -61,6 +63,7 @@
     "llvm/lib/AsmParser/LLParser.cpp": "11f44b0dd2e0db06e830ba6463b234c76c74bc7e3499660d4c7a07e105268dc2",
     "llvm/lib/BinaryFormat/Dwarf.cpp": "7e07936e725f80d695091107772cb8110cb6422264a3a8baea9929e0a8c361f7",
     "llvm/lib/Bitcode/Writer/BitWriter.cpp": "ea7fc3d387988c11c62c13034bedc27c32c0c8fa4a59e4f0236f6659fa716b0c",
+    "llvm/lib/CodeGen/CommandFlags.cpp": "72c386af57331550478552e36c5ae0af52a8a0cf497e291424218c486f482efd",
     "llvm/lib/IR/AsmWriter.cpp": "8dd401fc99373558367e84a7afb07ab884d0e32a24b7221d595747328da7650c",
     "llvm/lib/IR/Attributes.cpp": "144ac04c59a7d4767054deb18989875c3117466bc3973d15d710db37a7c37240",
     "llvm/lib/IR/AutoUpgrade.cpp": "c7a8fa1c4383a3135cfd8d13dac01923418d6ebafd4852dd54dd60daddd68eb8",
@@ -92,10 +95,13 @@
     "llvm/lib/IR/TypeFinder.cpp": "ddb1d7f7680a8947be0d3cf21ee179ec14bebd963adfc006cd368e9a9793b079",
     "llvm/lib/IR/Value.cpp": "30edab1754b9259601f5033e2cacfa778d6ee806df6ef070b02c8014cda2f774",
     "llvm/lib/IR/ValueSymbolTable.cpp": "d5b5be8374f4afb3229e0dfb474d210ce24bc03ee756a0937a7a0ad27f40aaea",
+    "llvm/lib/Linker/IRMover.cpp": "5ca08d42c97a8b63987e56652502608b557fffcc21bb680d48a7424e161efd71",
+    "llvm/lib/Linker/LinkModules.cpp": "b6055bdc24bfa0dcd508c149bc4451f642da810158399e82f0a6225b3ccfcbe8",
     "llvm/lib/MC/MCSubtargetInfo.cpp": "b8daf0cb61640b87bca999f9a6ff95f7d4e49fb928059d9c13708a409423a7cf",
     "llvm/lib/MC/TargetRegistry.cpp": "3d81758cf79cd1cc26e3bc4d5ee3ecde54b964582bc881ed33e7f388ba06c10b",
     "llvm/lib/Support/APFloat.cpp": "199e7d48a3ffaacbe1cdf85068aada7aef822272383857fff29d2916e024f5b4",
     "llvm/lib/Support/ErrorHandling.cpp": "41d5b31250aac91b016a07c831fc55bcaf74d54edd36c09817c69a6cd534c9f0",
+    "llvm/lib/Support/GlobPattern.cpp": "4931255e795b29496c6476eb3549a88e56fd28fddba73bcc55d29bd50dd90176",
     "llvm/lib/Support/ModRef.cpp": "2aa2aee8a1637400e52b36ce3ef4412c922de9ac4b2ab7270c4fb3b633aa6447",
     "llvm/lib/Support/StringExtras.cpp": "a070ab2e8bef6cea90b5debd9ea63735a511d1373d4a6dd2b368f18a8adef768",
     "llvm/lib/Support/Unix/Signals.inc": "462bb0fdf8510d5d1fdc2462dec6deccc14fd36a976c978e1ad6b108937c3901",
@@ -110,6 +116,8 @@
     "llvm/lib/Target/X86/X86TargetMachine.cpp": "6efb2a39ae2127e2ec628751b832c39b011930a314c090edee6c715ccc665d72",
     "llvm/lib/TargetParser/SubtargetFeature.cpp": "41bb167858d1402c6f08d7623d64b045042604dd4e288fdfce398ba816d0f495",
     "llvm/lib/TargetParser/TargetDataLayout.cpp": "3a9df3c42cde02ce1e43e300a305a57c524a1198839360542a04629adda663e7",
-    "llvm/lib/TargetParser/Triple.cpp": "bfc720c6a7638eafa4c52eaa9ca66de3510635c5e5307017c7774dd36aae4966"
+    "llvm/lib/TargetParser/Triple.cpp": "bfc720c6a7638eafa4c52eaa9ca66de3510635c5e5307017c7774dd36aae4966",
+    "llvm/lib/Transforms/IPO/Internalize.cpp": "7709e2ba0e8363b5a55c11fd6ed28499e41d432b1b9fae31841ffed7e95fb20c",
+    "llvm/tools/llvm-link/llvm-link.cpp": "41cf1b2cb08a9f18ebde60c134a65ba377069cbf20a8ef1d47e5cea3f806a8e1"
   }
 }

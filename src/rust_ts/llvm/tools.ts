@@ -1106,8 +1106,8 @@ export function restoreDestinationOrder(dst: readonly TextChunk[], out: readonly
   return [...untouched.map((x) => byName.get(x.name)!), ...out.slice(untouched.length)];
 }
 
-/** A named struct type's definition line (`%T = type ...`), by its printed name. */
-const NAMED_TYPE_LINE = /^(%(?:"(?:[^"\\]|\\.)*"|[-a-zA-Z$._0-9]+)) = type /gm;
+/** A whole named struct type definition line (`%T = type ...`). */
+const NAMED_TYPE_DEF = /^%(?:"(?:[^"\\]|\\.)*"|[-a-zA-Z$._0-9]+) = type /;
 /** Modules whose fat-LTO link merged named struct types of the destination (lane ir-fix-b, review F1). */
 const MERGED_TYPES = new WeakSet<Module>();
 
@@ -1144,8 +1144,9 @@ export function LLVMRustLinkerNew(DstRef: Module): RustLinker {
  * - **isomorphic named struct types of the destination are merged** (`IdentifiedStructTypeSet::findNonOpaque`: the first link maps
  *   the destination's types as a source's, so `%"alloc::alloc::Global" = type {}` and `%"core::marker::PhantomData<..>" = type {}`
  *   become one, where rustc's destination keeps both). This cannot be undone from the text; it changes type names only. The module is
- *   flagged when a type name the destination defines is missing from the result (every destination type is used by a value the keep
- *   global retains, so only a merge removes one), and its text then stops by name where types reach output: `LLVMRustPrintModule`,
+ *   flagged when a type definition line (name and body) of the destination is missing from the result (a merge removes one; a value
+ *   the keep global cannot hold can too, a false flag on output that would differ anyway: review ir-fix-b-recheck notes 1, 3), and its
+ *   text then stops by name where types reach output: `LLVMRustPrintModule`,
  *   `LLVMWriteBitcodeToFile`, `LLVMRustModuleSerialize` (`assert_types_unmerged`; review F1). Objects carry no type names, so
  *   linking and running are unaffected;
  * - a source local renamed on a name clash gets its `.N` suffix from the module's `ValueSymbolTable` counter (`LastUnique`), which
@@ -1202,9 +1203,11 @@ export function LLVMRustLinkerFree(L: RustLinker): void {
   if (text !== unkept(linked)) text = bstrOf(run_pinned_tool_or_ice("opt", [...cl_args(), "-S", "-o", "-", "-"], bytesOf(text), M.moduleID));
   const src = SOURCE_FILENAME_LINE.exec(dstText);
   text = text.replace(SOURCE_FILENAME_LINE, src === null ? "" : src[0]);
-  // Merged named struct types (header): a type name of the destination that the result no longer defines.
-  const linkedTypes = new Set([...text.matchAll(NAMED_TYPE_LINE)].map((m) => m[1]!));
-  if ([...dstText.matchAll(NAMED_TYPE_LINE)].some((m) => !linkedTypes.has(m[1]!))) MERGED_TYPES.add(M);
+  // Merged named struct types (header): a definition line of the destination (`%T = type ...`, name and body) that the result no
+  // longer has. Whole lines, not names (review ir-fix-b-recheck note 1, root at integ-w59): after a merge frees a name, a later
+  // source may define another type under it, so a name check alone would miss the merge.
+  const linkedTypes = new Set(text.split("\n").filter((l) => NAMED_TYPE_DEF.test(l)));
+  if (dstText.split("\n").some((l) => NAMED_TYPE_DEF.test(l) && !linkedTypes.has(l))) MERGED_TYPES.add(M);
   set_module_text(M, text);
   rmSync(dir, { recursive: true, force: true });
 }
