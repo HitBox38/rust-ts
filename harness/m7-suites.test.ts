@@ -170,6 +170,13 @@ const libc = {
       unknown: "#[cfg(some_feature_check(1))]\\nextern crate libc;",
       string: 'fn f() { let s = "extern crate libc;"; }',
       block: "/* extern crate libc; */ fn f() {}",
+      // Review harness-m7b-recheck note 4: a commented-out cfg is no gate; a real one after it still is, read with its string value.
+      lineCommentCfg: '// #[cfg(target_os = "linux")]\\nextern crate libc;',
+      blockCommentCfg: '/* #[cfg(target_os = "linux")] */\\nextern crate libc;',
+      nestedCommentCfg: '/* a /* #[cfg(target_os = "linux")] */ b */ extern crate libc;',
+      commentThenCfg: '// #[cfg(unix)]\\n#[cfg(target_os = "linux")]\\nextern crate libc;',
+      commentedFnCfg: '// #[cfg(target_os = "linux")]\\nfn main() {\\n    extern crate libc;\\n}',
+      parenInString: '#[cfg(target_os = "li)nux")]\\nextern crate libc;',
     };
     return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, [s.libcLoadedOn(v, linux), s.libcLoadedOn(v, mac)]]));
   })(),
@@ -242,6 +249,12 @@ console.log(JSON.stringify({
     unknown: [true, true],
     string: [false, false],
     block: [false, false],
+    lineCommentCfg: [true, true],
+    blockCommentCfg: [true, true],
+    nestedCommentCfg: [true, true],
+    commentThenCfg: [true, false],
+    commentedFnCfg: [true, true],
+    parenInString: [false, false],
   });
   // The review's cases on this host: the two cfg(linux) ones load no libc here (kept), out-of-stack's cfg(unix) one does (skipped).
   expect(j.libc.reviewThree).toEqual([false, false, true]);
@@ -264,7 +277,8 @@ console.log(JSON.stringify({
   expect(j.harnessSkips).toEqual(["tests/ui/process-termination/process-termination-blocking-io.rs"]);
   expect(j.linkEnv).toEqual(["SDKROOT", "DEVELOPER_DIR", "LIBRARY_PATH"]);
   expect(j.optsBadEnv).toContain("exec-env");
-  // Report only: no baseline, so not in the gate's defaults.
+  // Their criteria stay report only, but the suites are protected now: the wave 40r gate named them (decision 2026-11-14T16:27) and its
+  // accept (gate-20261114-162816-root-vc2v, 4ec9a565) gave each a baseline, so the gate runs them by default.
   const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));
-  for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "native-hello", "run-pass-native", "run-fail-native"]) expect(baseline.has(n)).toBe(false);
+  for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "native-hello", "run-pass-native", "run-fail-native"]) expect(baseline.has(n)).toBe(true);
 }, 120_000);
