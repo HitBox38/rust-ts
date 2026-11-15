@@ -255,15 +255,10 @@ function getPointerAlignment(V: GlobalValue, M: Module): number {
       if (isSized(ObjectType)) {
         // If the object is defined in the current Module, we'll be giving it the preferred alignment. Otherwise, we have to
         // assume that it may only have the minimum ABI alignment.
-        // PORT: the model computes only the ABI alignment of integers, pointers and arrays of them (`DataLayout::getAlignment`,
-        // DataLayout.cpp:871; pointers: lane ir-fix-a): a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) or
-        // another type stops.
+        // PORT: the model computes only the ABI alignment (`DataLayout::getABITypeAlign`, `Module.abiTypeAlign`; structs and floats:
+        // lane ir-fix-b): a definition (`isStrongDefinitionForLinker`, `getPreferredAlign`) stops.
         if (!V.isDeclaration()) return unported("llir: Value::getPointerAlignment of a defined global variable without an alignment (DataLayout::getPreferredAlign)");
-        let t = ObjectType;
-        while (t instanceof ArrayType) t = t.elementType;
-        if (t instanceof PointerType) return M.pointerABIAlignment(t.addressSpace);
-        if (!(t instanceof IntegerType)) return unported(`llir: DataLayout::getABITypeAlign of ${t.typeID} (not modelled)`);
-        return M.integerABIAlignment(t.bits);
+        return M.abiTypeAlign(ObjectType);
       }
     }
     // `Alignment.valueOrOne()`: also an unsized object's (review llir-folder N4).

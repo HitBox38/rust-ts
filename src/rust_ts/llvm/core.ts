@@ -5,7 +5,7 @@
 // every function exported here into ffi.ts; ffi.ts's signatures are the contract these must satisfy (tsc checks it).
 import { writeFileSync } from "node:fs";
 import { unported } from "../../std/panic.ts";
-import { module_text } from "./tools.ts";
+import { assert_types_unmerged, module_text } from "./tools.ts";
 import {
   type AsmDialect,
   AttributeKind,
@@ -189,8 +189,9 @@ export function LLVMRustSetNormalizedTarget(M: Module, triple: string | undefine
   if (!NORMAL_TRIPLES.includes(triple)) return unported(`llir: Triple::normalize(${JSON.stringify(triple)})`);
   M.targetTriple = cstrArg(triple, "StringRef", "LLVMRustSetNormalizedTarget");
 }
-/** Triples checked to be their own `Triple::normalize` (capi.oracle.test.ts). */
-export const NORMAL_TRIPLES: readonly string[] = ["x86_64-unknown-linux-gnu", "arm64-apple-macosx11.0.0"];
+/** Triples checked to be their own `Triple::normalize` (capi.oracle.test.ts); aarch64-unknown-linux-gnu: lane ir-fix-b, for
+ *  cg-intrinsic-b's AAPCS `va_arg` fixture. */
+export const NORMAL_TRIPLES: readonly string[] = ["x86_64-unknown-linux-gnu", "arm64-apple-macosx11.0.0", "aarch64-unknown-linux-gnu"];
 
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:929 LLVMRustAddModuleFlagU32
 export function LLVMRustAddModuleFlagU32(M: Module, MergeBehavior: ModuleFlagMergeBehavior, Name: PtrLenStr | undefined, NameLen: number, Value: number): void {
@@ -1212,7 +1213,9 @@ export function LLVMRustPrintModule(M: Module, Output: string | undefined, _Dema
   }
   // PORT: the oracle prints through an annotation writer that adds `; <demangled>` comments; the normal form drops every
   // comment line (plan-m7 §1b), so the model prints none.
-  // Once a tool (tools.ts, lane llir-tools) has rewritten the module, its text is the module.
+  // Once a tool (tools.ts, lane llir-tools) has rewritten the module, its text is the module. A fat-LTO module whose link merged
+  // named struct types stops here (lane ir-fix-b, review F1).
+  assert_types_unmerged(M);
   const text = module_text(M);
   try {
     writeFileSync(Output, Buffer.from(text, "latin1"));
