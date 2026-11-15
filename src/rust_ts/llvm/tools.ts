@@ -860,6 +860,7 @@ export class RustLinker {
   /** Copies of the bitcode `LLVMRustLinkerAdd` was given, in order. */
   readonly sources: Uint8Array[] = [];
   freed = false;
+  // rustc: compiler/rustc_llvm/llvm-wrapper/Linker.cpp:14 RustLinker
   constructor(readonly Dst: Module) {}
 }
 
