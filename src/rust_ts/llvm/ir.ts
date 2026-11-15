@@ -1051,8 +1051,9 @@ function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
   if (v.isAllOnesValue()) return getAllOnesValue(destTy);
   // Handle ConstantInt -> Constant{Byte, FP} (the model has no byte types)
   if (v instanceof ConstantInt) {
-    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts.
-    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
+    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts. This allows for other simplifications (although some
+    // of them can only be handled by Analysis/ConstantFolding.cpp).
+    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return getBitCast(getConstantVector([v]), destTy);
     // Make sure dest type is compatible with the folded fp constant. See note below regarding the PPC_FP128 restriction.
     const destScalar = destTy.getScalarType();
     if (destScalar.isFloatingPointTy() && destTy.typeID !== "PPC_FP128" && scalarSizeInBits(destTy) === scalarSizeInBits(srcTy)) {
@@ -1067,8 +1068,9 @@ function foldBitCast(v: Constant, destTy: Type): Constant | undefined {
       const val = v.getValueAPF().bitcastToAPInt();
       return getConstantFPOfAPFloat(destTy.context, APFloat.fromAPInt(destTy.getFltSemantics(), val));
     }
-    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts.
-    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return unported("llir: FoldBitCast scalar-to-vector");
+    // Canonicalize scalar-to-vector bitcasts into vector-to-vector bitcasts. This allows for other simplifications (although some
+    // of them can only be handled by Analysis/ConstantFolding.cpp).
+    if (destTy.isVectorTy() && !srcTy.isVectorTy()) return getBitCast(getConstantVector([v]), destTy);
     // PPC_FP128 is really the sum of two consecutive doubles, where the first double is always stored first in memory,
     // regardless of the target endianness. The memory layout of i128, however, depends on the target endianness, and so we
     // can't fold this without target endianness information.

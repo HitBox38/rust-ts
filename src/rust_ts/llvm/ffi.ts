@@ -14,7 +14,7 @@ export type { Attribute, BasicBlock, Buffer, Builder, Comdat, ConstantInt, Conte
 export * from "./ffi_types.ts";
 export * from "./support.ts";
 
-/** The 286 of 381 functions an implementation module provides; every other one is a stub. */
+/** The 287 of 381 functions an implementation module provides; every other one is a stub. */
 export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMContextCreate",
   "LLVMContextDispose",
@@ -296,6 +296,7 @@ export const IMPLEMENTED: ReadonlySet<string> = new Set([
   "LLVMRustBufferPtr",
   "LLVMRustBufferLen",
   "LLVMRustBufferFree",
+  "LLVMRustModuleCost",
   "LLVMRustModuleSerialize",
   "LLVMRustParseBitcodeForLTO",
   "LLVMRustContextGetDiagnosticHandler",
@@ -1364,7 +1365,7 @@ export const LLVMRustBufferLen: (p: Buffer) => number = bind("LLVMRustBufferLen"
 export const LLVMRustBufferFree: (p: Buffer) => void = bind("LLVMRustBufferFree", impl4.LLVMRustBufferFree);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2538 LLVMRustModuleCost
-export const LLVMRustModuleCost: (M: Module) => bigint = stub("LLVMRustModuleCost");
+export const LLVMRustModuleCost: (M: Module) => bigint = bind("LLVMRustModuleCost", impl4.LLVMRustModuleCost);
 
 // rustc: compiler/rustc_codegen_llvm/src/llvm/ffi.rs:2539 LLVMRustModuleInstructionStats
 export const LLVMRustModuleInstructionStats: (M: Module) => bigint = stub("LLVMRustModuleInstructionStats");

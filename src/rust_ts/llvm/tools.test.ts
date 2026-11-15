@@ -427,6 +427,27 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     expect(existsSync(join(plain.dir, "opt.bc"))).toBe(true);
   }, 60_000);
 
+  test("LLVMRustModuleCost: every function, defined or declared, of the model or of a tool's text (lane ir-fix-b)", () => {
+    // The model: two definitions and two declarations (an intrinsic among them).
+    const C = new Context();
+    const M = L.LLVMModuleCreateWithNameInContext("cost", C);
+    const fnTy = L.LLVMFunctionType(L.LLVMVoidTypeInContext(C), [], 0, L.FALSE);
+    const B = L.LLVMCreateBuilderInContext(C);
+    for (const n of ["a", "b"]) {
+      L.LLVMPositionBuilderAtEnd(B, L.LLVMAppendBasicBlockInContext(C, L.LLVMAddFunction(M, n, fnTy), "start"));
+      L.LLVMBuildRetVoid(B);
+    }
+    L.LLVMAddFunction(M, "c", fnTy);
+    L.LLVMGetIntrinsicDeclaration(M, L.LLVMLookupIntrinsicID("llvm.trap", 9), [], 0);
+    expect(L.LLVMRustModuleCost(M)).toBe(4n);
+    // A tool's text: a declaration with metadata attachments counts; an indented `#dbg_declare`, a string holding "define " and a
+    // comment do not.
+    const T = L.LLVMModuleCreateWithNameInContext("cost-text", new Context());
+    set_module_text(T, `; ModuleID = 'x'\n@s = constant [8 x i8] c"define \\0A"\n\n; define void @no()\ndefine void @f() !dbg !3 {\n  #dbg_declare(ptr null, !4, !DIExpression(), !5)\n  ret void\n}\n\ndeclare !dbg !6 void @g()\n\ndeclare void @h()\n`);
+    expect(L.LLVMRustModuleCost(T)).toBe(3n);
+    expect(L.LLVMRustModuleCost(L.LLVMModuleCreateWithNameInContext("empty", new Context()))).toBe(0n);
+  });
+
   test("N5: a model read after a tool rewrote the module stops", () => {
     const M = smallModule();
     expect(() => assert_model_current(M, "LLVMRustModuleCost")).toThrow(Unported);

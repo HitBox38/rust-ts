@@ -11,7 +11,8 @@
 // `module_text`. A model mutation after that point would be lost, so `module_text` compares the model's printed text with the
 // text it had when the tool's text was set, and stops if it changed. A *read* of the model after that point (the model's
 // objects describe the module before the passes) is not caught by itself. No reachable consumer at the pin does one (review
-// llir-tools N5: `create_msvc_imps` is Windows, D18; `LLVMRustModuleInstructionStats` and `LLVMRustModuleCost` are stubs).
+// llir-tools N5: `create_msvc_imps` is Windows, D18; `LLVMRustModuleInstructionStats` is a stub; `LLVMRustModuleCost` reads
+// `module_text`, lane ir-fix-b).
 // **A lane that implements a function reading a module's contents from the model** (globals, functions, instructions, counts:
 // `LLVMRustModuleCost`, `LLVMRustModuleInstructionStats`, `LLVMGetFirstGlobal`, ...) must call `assert_model_current(M, fn)` first,
 // or read `module_text(M)` instead (`LLVMRustModuleCost` must count the `define`s of the text: it picks fat LTO's base module).
@@ -705,6 +706,19 @@ export function LLVMRustBufferPtr(Buffer: LLVMRustBuffer): Uint8Array | undefine
 // rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1483 LLVMRustBufferLen
 export function LLVMRustBufferLen(Buffer: LLVMRustBuffer): number {
   return live(Buffer).data.length;
+}
+
+/** The first line of a function in a module's text: AsmWriter's `printFunction` (AsmWriter.cpp:4166-4173) starts it with `declare`
+ *  followed by a space or by metadata attachments and a space, or with `define `, at the start of a line; no other top-level line
+ *  starts so (an instruction is indented, a string constant has no raw newline). */
+const FUNCTION_LINE = /^(?:define|declare) /gm;
+
+// rustc: compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp:1487 LLVMRustModuleCost
+/** `std::distance` over `Module::functions()`: the number of the module's functions, definitions and declarations alike. It picks
+ *  fat LTO's base module (lto.rs:247-254), after the pre-LTO `opt` run has rewritten the modules, so it reads `module_text` (header):
+ *  `printModule` prints every function of the module's list (`for (const Function &F : *M)`, AsmWriter.cpp:3191). */
+export function LLVMRustModuleCost(M: Module): bigint {
+  return BigInt(module_text(M).match(FUNCTION_LINE)?.length ?? 0);
 }
 
 /** A module flag named `EnableSplitLTOUnit` in a module's text (`!<n> = !{i32 <behavior>, !"EnableSplitLTOUnit", ...}`). */

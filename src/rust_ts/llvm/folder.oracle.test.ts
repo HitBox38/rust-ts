@@ -14,6 +14,8 @@
 //    null, another address space (`evaluateICmpRelation`, `areGlobalsPotentiallyEqual`).
 // 9. `armExclusiveIntrinsic` (and so `LLVMRustGetElementTypeArgIndex`) against libLLVM's intrinsic IDs, and the ARM names it
 //    relies on.
+// 10. `FoldBitCast` of a scalar integer or float constant to a vector type (lane ir-fix-b): `ConstantVector::get` of the one
+//    element, then `ConstantExpr::getBitCast` (simd-bitmask's `bitcast i8 3 to <8 x i1>`).
 import { describe, expect, test } from "bun:test";
 import { CString, dlopen, type Pointer, toArrayBuffer } from "bun:ffi";
 import { existsSync } from "node:fs";
@@ -98,6 +100,8 @@ const C_API = {
   LLVMAddGlobalInAddressSpace: { args: [P, P, P, "u32"], returns: P },
   LLVMBuildGEPWithNoWrapFlags: { args: [P, P, P, P, "u32", P, "u32"], returns: P },
   LLVMBuildFCmp: { args: [P, "u32", P, P, P], returns: P },
+  LLVMBuildBitCast: { args: [P, P, P, P], returns: P },
+  LLVMConstReal: { args: [P, "f64"], returns: P },
   LLVMIntrinsicGetName: { args: ["u32", P], returns: P },
   LLVMLookupIntrinsicID: { args: [P, "usize"], returns: "u32" },
 } as const;
@@ -564,6 +568,57 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
       got.push(printValueToString(mF as never).trim());
       expect(got.map((g) => `${dl}: ${g}`)).toEqual(want.map((w) => `${dl}: ${w}`));
     }
+  });
+
+  test("bitcast of a scalar constant to a vector type folds as libLLVM's (lane ir-fix-b)", () => {
+    const rc = lib.LLVMContextCreate();
+    const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
+    const mc = L.LLVMContextCreate();
+    const mm = L.LLVMModuleCreateWithNameInContext("m", mc);
+    const rI = (n: number) => lib.LLVMIntTypeInContext(rc, n);
+    const mI = (n: number) => L.LLVMIntTypeInContext(mc, n);
+    const rF = lib.LLVMAddFunction(rm, cstr("f"), lib.LLVMFunctionType(lib.LLVMVoidTypeInContext(rc), ptrs([]), 0, 0));
+    const mF = L.LLVMAddFunction(mm, "f", L.LLVMFunctionType(L.LLVMVoidTypeInContext(mc), [], 0, L.FALSE));
+    const rB = lib.LLVMCreateBuilderInContext(rc);
+    const mB = L.LLVMCreateBuilderInContext(mc);
+    lib.LLVMPositionBuilderAtEnd(rB, lib.LLVMAppendBasicBlockInContext(rc, rF, cstr("start")));
+    L.LLVMPositionBuilderAtEnd(mB, L.LLVMAppendBasicBlockInContext(mc, mF, "start"));
+    const got: string[] = [];
+    const want: string[] = [];
+    const show = (r: Pointer, m: L.Value): void => {
+      const isInst = L.LLVMIsAInstruction(m) !== undefined;
+      want.push(isInst ? "(instruction)" : message(lib.LLVMPrintValueToString(r)));
+      got.push(isInst ? "(instruction)" : printValueToString(m as never));
+    };
+    // Scalars: integers (zero, all ones, others) and floats (zero, negative zero, others), each to vectors of the same width.
+    const ints: [number, bigint][] = [[8, 0n], [8, 3n], [8, 255n], [16, 0x8001n], [32, 1n], [32, 0xffffffffn], [64, 42n]];
+    const vecsOf = (bits: number): [number, number][] => [[1, bits], [bits, 1], [bits / 8, 8], [2, bits / 2]].filter(([n, w]) => n >= 1 && w >= 1 && Number.isInteger(n) && Number.isInteger(w)) as [number, number][];
+    for (const [bits, v] of ints) {
+      for (const [n, w] of vecsOf(bits)) {
+        show(lib.LLVMBuildBitCast(rB, lib.LLVMConstInt(rI(bits), v, 0), lib.LLVMVectorType(rI(w), n), cstr("")), L.LLVMBuildBitCast(mB, L.LLVMConstInt(mI(bits), v, L.FALSE), L.LLVMVectorType(mI(w), n), ""));
+      }
+    }
+    // i32 / i64 to float vectors, float / double to integer and float vectors.
+    show(lib.LLVMBuildBitCast(rB, lib.LLVMConstInt(rI(32), 0x3f800000n, 0), lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 1), cstr("")), L.LLVMBuildBitCast(mB, L.LLVMConstInt(mI(32), 0x3f800000n, L.FALSE), L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 1), ""));
+    show(lib.LLVMBuildBitCast(rB, lib.LLVMConstInt(rI(64), 0x3f8000003f800000n, 0), lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 2), cstr("")), L.LLVMBuildBitCast(mB, L.LLVMConstInt(mI(64), 0x3f8000003f800000n, L.FALSE), L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 2), ""));
+    for (const x of [0, -0, 1.5, -2.25]) {
+      const rd = lib.LLVMConstReal(lib.LLVMDoubleTypeInContext(rc), x);
+      const md = L.LLVMConstReal(L.LLVMDoubleTypeInContext(mc), x);
+      const rf = lib.LLVMConstReal(lib.LLVMFloatTypeInContext(rc), x);
+      const mf = L.LLVMConstReal(L.LLVMFloatTypeInContext(mc), x);
+      show(lib.LLVMBuildBitCast(rB, rd, lib.LLVMVectorType(rI(64), 1), cstr("")), L.LLVMBuildBitCast(mB, md, L.LLVMVectorType(mI(64), 1), ""));
+      show(lib.LLVMBuildBitCast(rB, rd, lib.LLVMVectorType(rI(32), 2), cstr("")), L.LLVMBuildBitCast(mB, md, L.LLVMVectorType(mI(32), 2), ""));
+      show(lib.LLVMBuildBitCast(rB, rd, lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 2), cstr("")), L.LLVMBuildBitCast(mB, md, L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 2), ""));
+      show(lib.LLVMBuildBitCast(rB, rd, lib.LLVMVectorType(lib.LLVMDoubleTypeInContext(rc), 1), cstr("")), L.LLVMBuildBitCast(mB, md, L.LLVMVectorType(L.LLVMDoubleTypeInContext(mc), 1), ""));
+      show(lib.LLVMBuildBitCast(rB, rf, lib.LLVMVectorType(rI(1), 32), cstr("")), L.LLVMBuildBitCast(mB, mf, L.LLVMVectorType(mI(1), 32), ""));
+      show(lib.LLVMBuildBitCast(rB, rf, lib.LLVMVectorType(rI(16), 2), cstr("")), L.LLVMBuildBitCast(mB, mf, L.LLVMVectorType(mI(16), 2), ""));
+    }
+    lib.LLVMBuildRetVoid(rB);
+    L.LLVMBuildRetVoid(mB);
+    want.push(noComments(message(lib.LLVMPrintValueToString(rF))));
+    got.push(printValueToString(mF as never).trim());
+    expect(got).toEqual(want);
+    expect(got.length).toBeGreaterThan(40);
   });
 
   test("icmp of pointer constants folds as libLLVM's", () => {
