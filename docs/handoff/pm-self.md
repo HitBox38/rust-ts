@@ -157,3 +157,18 @@ subject against the subject-built aux, compared with the oracle's against the or
 be reused). Map the aux dir path in the subject's output. The full 282-case run (with the per-step oracle rebuild for the byte check) took about 6 minutes at `-j6`.
 
 ## Samples
+
+`bun scripts/difftest.ts --suite <s> --sample 200 --jobs 6`, `RUST_TS_AGENT=pm-self`, at 81219b31 (protected suites use
+oracle-built aux):
+
+| suite | result | run |
+|---|---|---|
+| pm-ui | 200/200 MATCH (skipped 2) | 20261115-090220-pm-self-cbao |
+| pm-expanded | 200/200 MATCH (skipped 2) | 20261115-090338-pm-self-r7av |
+| check-ui | 200/200 MATCH | 20261115-090430-pm-self-4ers |
+| run-pass-native | 199 MATCH, 1 UNSTABLE (`tests/ui/threads-sendsync/yield.rs`, a listed race), 0 DIFF | 20261115-090527-pm-self-f8y8 |
+
+No protected case left MATCH.
+
+**pm-expanded with port-built aux** (scratch driver, all 282 cases, `-Zunpretty=expanded` appended): 281 MATCH, 1 DIFF.
+The DIFF is `tests/ui/proc-macro/load-panic-backtrace.rs`, which differs only in the masked panic thread id, as in pm-ui.
