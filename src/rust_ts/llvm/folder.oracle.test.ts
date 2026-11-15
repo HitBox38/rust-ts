@@ -478,7 +478,7 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
   });
 
   test("constant extractelement / insertelement and and(ptrtoint @g, C) fold as libLLVM's", () => {
-    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64", "e-p:32:16-p1:16:32"];
+    const layouts = ["", "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128", "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32", "e-Fi8", "e-Fn64-i32:64", "e-p:32:16-p1:16:32", "e-a:0:64-f64:32:64-f32:16", "e-a:32"];
     for (const dl of layouts) {
       const rc = lib.LLVMContextCreate();
       const rm = lib.LLVMModuleCreateWithNameInContext(cstr("m"), rc);
@@ -551,6 +551,24 @@ describe.skipIf(!HAVE && !REQUIRE)("llir-folder vs libLLVM", () => {
         const rp = lib.LLVMPointerTypeInContext(rc, as);
         const mp = L.LLVMPointerTypeInContext(mc, as);
         globals.push([lib.LLVMAddGlobal(rm, n === 0 ? rp : lib.LLVMArrayType2(rp, BigInt(n)), cstr(name)), L.LLVMAddGlobal(mm, n === 0 ? mp : L.LLVMArrayType2(mp, BigInt(n)), name)]);
+      }
+      // Declarations of structs (plain, packed, empty, nested in an array, holding a double) and of floats (lane ir-fix-b):
+      // `DataLayout::getABITypeAlign` through `StructLayout` and the `a` and `f` specs.
+      {
+        const st = (r: Pointer[], m: L.Type[], packed: boolean): [Pointer, L.Type] => [lib.LLVMStructTypeInContext(rc, ptrs(r), r.length, packed ? 1 : 0), L.LLVMStructTypeInContext(mc, m, m.length, packed ? L.TRUE : L.FALSE)];
+        const [rD, mD] = [lib.LLVMDoubleTypeInContext(rc), L.LLVMDoubleTypeInContext(mc)];
+        const [rS, mS] = st([rI(8), rI(64)], [mI(8), mI(64)], false);
+        const types: [string, Pointer, L.Type][] = [
+          ["ds", rS, mS],
+          ["dsp", ...st([rI(8), rI(64)], [mI(8), mI(64)], true)],
+          ["dse", ...st([], [], false)],
+          ["dsa", lib.LLVMArrayType2(rS, 3n), L.LLVMArrayType2(mS, 3n)],
+          ["dsd", ...st([rI(16), rD], [mI(16), mD], false)],
+          ["dd", rD, mD],
+          ["dh", lib.LLVMHalfTypeInContext(rc), L.LLVMHalfTypeInContext(mc)],
+          ["dfl", lib.LLVMFloatTypeInContext(rc), L.LLVMFloatTypeInContext(mc)],
+        ];
+        for (const [name, rt, mt] of types) globals.push([lib.LLVMAddGlobal(rm, rt, cstr(name)), L.LLVMAddGlobal(mm, mt, name)]);
       }
       // A declaration of an opaque struct: unsized, so `getPointerAlignment` is `valueOrOne()` = 1 and nothing folds (review llir-folder N4).
       globals.push([lib.LLVMAddGlobal(rm, lib.LLVMStructCreateNamed(rc, cstr("O")), cstr("dO")), L.LLVMAddGlobal(mm, L.LLVMStructCreateNamed(mc, "O"), "dO")]);

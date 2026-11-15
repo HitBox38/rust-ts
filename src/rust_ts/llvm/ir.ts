@@ -1843,6 +1843,60 @@ export class Module {
     return I[1];
   }
 
+  // llvm: llvm/lib/IR/DataLayout.cpp:871 DataLayout::getAlignment
+  /** The ABI alignment in bytes of a sized type (`abi_or_pref` true; lane ir-fix-b): pointers, arrays, structs (with their
+   *  `StructLayout` alignment, DataLayout.cpp:48-88, and the layout's `a` spec), integers and floating-point types. A vector, which
+   *  needs the layout's `v` specs and the type's store size, stops. */
+  abiTypeAlign(Ty: Type): number {
+    if (Ty instanceof PointerType) return this.pointerABIAlignment(Ty.addressSpace);
+    if (Ty instanceof ArrayType) return this.abiTypeAlign(Ty.elementType);
+    if (Ty instanceof StructType) {
+      // Packed structure types always have an ABI alignment of one.
+      if (Ty.packed) return 1;
+      if (Ty.body === undefined) throw new Error("llvm: Cannot get layout of opaque structs");
+      // `StructLayout::StructLayout`: the largest of its elements' ABI alignments (`StructAlignment` starts at 1).
+      let StructAlignment = 1;
+      for (const e of Ty.body) StructAlignment = Math.max(StructAlignment, this.abiTypeAlign(e));
+      return Math.max(this.structABIAlignment(), StructAlignment);
+    }
+    if (Ty instanceof IntegerType) return this.integerABIAlignment(Ty.bits);
+    if (Ty.isFloatingPointTy()) {
+      const BitWidth = Ty.fpBits();
+      const specs = new Map<number, number>([
+        [16, 2],
+        [32, 4],
+        [64, 8],
+        [128, 16],
+      ]);
+      for (const s of this.dataLayout.split("-")) {
+        if (!s.startsWith("f")) continue;
+        const m = /^f(\d+):(\d+)(:\d+)?$/.exec(s);
+        if (m === null) return unported(`llir: data layout float spec ${JSON.stringify(s)} (DataLayout parsing)`);
+        specs.set(Number(m[1]), Number(m[2]) / 8);
+      }
+      const I = specs.get(BitWidth);
+      if (I !== undefined) return I;
+      // The first power of two greater-or-equal to the store size of the type.
+      let a = 1;
+      while (a < BitWidth / 8) a *= 2;
+      return a;
+    }
+    return unported(`llir: DataLayout::getABITypeAlign of ${Ty.typeID} (not modelled)`);
+  }
+
+  /** The layout's `a[<size>]:<abi>[:<pref>]` spec's ABI alignment in bytes (`parseAggregateSpec`, DataLayout.cpp:405: zero means one
+   *  byte); `StructABIAlignment` is 1 without one (DataLayout.h:151). */
+  structABIAlignment(): number {
+    let r = 1;
+    for (const s of this.dataLayout.split("-")) {
+      if (!s.startsWith("a")) continue;
+      const m = /^a(0?):(\d+)(:\d+)?$/.exec(s);
+      if (m === null) return unported(`llir: data layout aggregate spec ${JSON.stringify(s)} (DataLayout parsing)`);
+      r = Math.max(1, Number(m[2]) / 8);
+    }
+    return r;
+  }
+
   /** The default address spaces of the data layout (`DataLayout::getProgramAddressSpace`, `getDefaultGlobalsAddressSpace`). */
   layoutAddressSpace(component: "P" | "G"): number {
     // PORT: the model does not parse data layouts. Both default to 0, and no layout the D3 targets use names `P` or `G`;
