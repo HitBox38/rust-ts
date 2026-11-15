@@ -281,4 +281,8 @@ console.log(JSON.stringify({
   // accept (gate-20261114-162816-root-vc2v, 4ec9a565) gave each a baseline, so the gate runs them by default.
   const baseline = new Set(readdirSync(join(REPO, "harness/baseline")).map((f) => f.replace(/\.txt$/, "")));
   for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "native-hello", "run-pass-native", "run-fail-native"]) expect(baseline.has(n)).toBe(true);
+  // Review harness-w40s N2: native-hello's protected set is its one case, as ir-hello's is pinned above; the growing ones are at least not empty.
+  const ids = (n: string) => readFileSync(join(REPO, "harness/baseline", `${n}.txt`), "utf8").split("\n").filter(Boolean);
+  expect(ids("native-hello")).toEqual(["hello"]);
+  for (const n of ["ir-run-pass", "ir-run-pass-o0", "ir-host", "run-pass-native", "run-fail-native"]) expect(ids(n).length).toBeGreaterThan(0);
 }, 120_000);

@@ -142,6 +142,37 @@ describe("a count group: check-rg's crates", () => {
   });
 });
 
+test("M7d: the plan's four figures (plan-m7 §6 Gates; lane harness-m7d), one group each", () => {
+  const m7d = GROUPS.filter((g) => g.milestone === "M7d");
+  expect(m7d.map((g) => [g.suites.join("+"), g.count ? `${g.count.atLeast} of ${g.count.of}` : g.percent, g.allCases === true, g.minMatch ?? null])).toEqual([
+    ["rg-build", 100, true, null],
+    ["rg-behaviour", 100, true, null],
+    ["check-rg", "34 of 34", false, null],
+    ["pm-self", 0, false, 1],
+  ]);
+  const withUnstable = (suite: string, match: number, total: number, unstable: string[] = [], oracleTimeouts: string[] = []) => ({ ...s(suite, match, total, oracleTimeouts), unstable });
+  // rg-build's one case and every scripted query: an oracle timeout or an UNSTABLE query is not met.
+  const build = m7d[0]!;
+  expect(groupResult(build, gate([withUnstable("rg-build", 1, 1)])).met).toBe(true);
+  expect(groupResult(build, gate([withUnstable("rg-build", 0, 1, [], ["ripgrep-15.2.0"])])).met).toBe(false);
+  const behaviour = m7d[1]!;
+  expect(groupResult(behaviour, gate([withUnstable("rg-behaviour", 62, 63)])).met).toBe(false);
+  expect(groupResult(behaviour, gate([withUnstable("rg-behaviour", 62, 63, ["json"])])).met).toBe(false);
+  expect(groupResult(behaviour, gate([withUnstable("rg-behaviour", 63, 63)])).met).toBe(true);
+  // pm-self: one MATCH is enough, none is not, whatever the percent.
+  const pm = m7d[3]!;
+  const one = groupResult(pm, gate([withUnstable("pm-self", 1, 282)]));
+  expect([one.match, one.of, one.minMatch, one.met]).toEqual([1, 282, 1, true]);
+  expect(groupResult(pm, gate([withUnstable("pm-self", 0, 282)])).met).toBe(false);
+  // check-rg needs all 34 crates now: 33 is M7a's figure, not M7d's.
+  const rg = m7d[2]!;
+  const base = readFileSync(join(import.meta.dir, "..", "harness", "baseline", "check-rg.txt"), "utf8").split("\n").filter(Boolean);
+  const lost = (ids: string[]) => groupResult(rg, gate([{ ...s("check-rg", 0, 36), lost: ids, gained: [] }]), [], new Map([["check-rg", base]]));
+  expect([lost([]).match, lost([]).met]).toEqual([34, true]);
+  expect([lost(["ripgrep-15.2.0|bstr"]).match, lost(["ripgrep-15.2.0|bstr"]).met]).toEqual([33, false]);
+  expect(groupResult(group("M7a check-rg"), gate([{ ...s("check-rg", 0, 36), lost: ["ripgrep-15.2.0|bstr"], gained: [] }]), [], new Map([["check-rg", base]])).met).toBe(true);
+});
+
 test("each milestone gets its own verdict line, and the last line says what the exit status means (review harness-m7b-recheck note 1)", () => {
   // M7a and M7b met, M7c not: `--milestone M7` exits 1, which says nothing about M7a or M7b.
   const m7 = [

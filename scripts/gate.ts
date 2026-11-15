@@ -55,7 +55,10 @@
 // when a run starts (or it stops with `ERROR:`), and a run fails if a suite changes it (scripts/lib/upstream.ts).
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, NATIVE_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, NATIVE_RUN, PM_SELF_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
+import { RG_BUILD } from "./rg-build.ts";
+import { RG_BEHAVIOUR } from "./rg-behaviour.ts";
+import { parsePmSelfArgs } from "./pm-self-run.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
 import { DATA, ORACLE_CACHE, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
@@ -230,12 +233,17 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
  * (the IR suites), its compiler, for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo, and for
  * scripts/native-run.ts (the native suites), its compiler: the program it builds and runs is that compiler's output, linked by `cc`
- * as rustc links, and run under `sandbox-exec` through `perl`, which are the host's, not oracles (lane harness-m7b).
+ * as rustc links, and run under `sandbox-exec` through `perl`, which are the host's, not oracles (lane harness-m7b). For scripts/rg-build.ts
+ * and scripts/rg-behaviour.ts (rg-build, rg-behaviour, rg-behaviour-rgtest), the oracle rustc through its cargo, as for check-rg; what they
+ * run besides is that rustc's output (`rg`, ripgrep's build scripts and its test binary). For scripts/pm-self-run.ts (pm-self), its
+ * `--compiler` (lane harness-m7d).
  * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`, `parseNativeRunArgs`).
  */
 export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
+  if (cmd[0] === process.execPath && (cmd[1] === RG_BUILD || cmd[1] === RG_BEHAVIOUR)) return ["rustc"];
+  if (cmd[0] === process.execPath && cmd[1] === PM_SELF_RUN) return [parsePmSelfArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === HOST_RLIB_RUN) return [parseHostRlibRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RLIB_NATIVE_RUN) return [parseRlibNativeRunArgs(cmd.slice(2)).compiler[0]!];

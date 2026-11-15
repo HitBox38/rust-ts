@@ -9,8 +9,9 @@
 // (lane harness-m7b): `native-hello` MATCH, `run-pass-native` >= 80% and `ir-run-pass` >= 70%; then `run-pass-native` >= 98%,
 // `run-fail-native` >= 95% and `ir-run-pass` >= 95%. Those suites have no baseline either, so a gate must name them with `--suites`.
 // The M7 percent groups leave UNSTABLE cases out of the denominator as well as ORACLE_TIMEOUT (`excludeUnstable`, plan-m7 §6); M6's do not.
-// M7c's `run-pass-native` "+ heavy" is that suite alone until a heavy sibling exists (docs/handoff/harness-m7b.md). M7d's suites do
-// not exist yet. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
+// M7c's `run-pass-native` "+ heavy" is that suite alone until a heavy sibling exists (docs/handoff/harness-m7b.md). M7d (lane
+// harness-m7d): `rg-build` MATCH (its one case), `rg-behaviour` MATCH (the scripted queries, every case), `check-rg` 34 of its 34 crates and at
+// least one `pm-self` MATCH (`minMatch`); only `check-rg` has a baseline, so a gate must name the others with `--suites`. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
 // MATCH is exactly (the baseline at the gate's commit - lost) + gained, as scripts/gate.ts computes those two.
 //
 // Every number comes from that run's `gate.json`, one snapshot of one commit: a `<suite>.summary.json` can be overwritten
@@ -42,6 +43,8 @@ export interface CriteriaGroup {
    * Read from the protected set and gate.json's `lost` and `gained` (see the header).
    */
   count?: { cases: RegExp; atLeast: number; of: number; what: string };
+  /** At least this many MATCH among the group's cases, besides `percent` (plan-m7 §6 M7d: "1 `pm-self` case"). */
+  minMatch?: number;
 }
 
 export const GROUPS: CriteriaGroup[] = [
@@ -61,6 +64,11 @@ export const GROUPS: CriteriaGroup[] = [
   { name: "plan-m7 M7c run-pass-native", milestone: "M7c", suites: ["run-pass-native"], percent: 98, excludeUnstable: true },
   { name: "plan-m7 M7c run-fail-native", milestone: "M7c", suites: ["run-fail-native"], percent: 95, excludeUnstable: true },
   { name: "plan-m7 M7c ir-run-pass", milestone: "M7c", suites: ["ir-run-pass"], percent: 95, excludeUnstable: true },
+  // One case each way: an oracle timeout or an unstable case must not leave either met (as ir-hello).
+  { name: "plan-m7 M7d rg-build", milestone: "M7d", suites: ["rg-build"], percent: 100, allCases: true },
+  { name: "plan-m7 M7d rg-behaviour", milestone: "M7d", suites: ["rg-behaviour"], percent: 100, allCases: true },
+  { name: "plan-m7 M7d check-rg", milestone: "M7d", suites: ["check-rg"], percent: 0, count: { cases: /^ripgrep-[^|]+\|\w+$/, atLeast: 34, of: 34, what: "crates" } },
+  { name: "plan-m7 M7d pm-self", milestone: "M7d", suites: ["pm-self"], percent: 0, minMatch: 1, excludeUnstable: true },
 ];
 
 /** The fields of `gate.json` this reads. */
@@ -85,6 +93,8 @@ export interface GroupResult {
   met: boolean;
   /** A count group's `atLeast`, and what it counts. */
   count?: { atLeast: number; what: string };
+  /** The group's `minMatch`. */
+  minMatch?: number;
   /** Why this is not a figure of one clean gate: the gate's own state, and suites it did not run. */
   problems: string[];
 }
@@ -193,8 +203,8 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
   }
   const percent = of ? Math.round(((100 * match) / of) * 100) / 100 : 0;
   // On the exact counts, not the rounded percentage.
-  const met = problems.length === 0 && of > 0 && 100 * match >= group.percent * of;
-  return { name: group.name, match, of, oracleTimeouts, unstable, percent, target: group.percent, met, problems };
+  const met = problems.length === 0 && of > 0 && 100 * match >= group.percent * of && match >= (group.minMatch ?? 0);
+  return { name: group.name, match, of, oracleTimeouts, unstable, percent, target: group.percent, met, problems, ...(group.minMatch !== undefined ? { minMatch: group.minMatch } : {}) };
 }
 
 if (import.meta.main) {
@@ -243,7 +253,8 @@ if (import.meta.main) {
     allMet &&= r.met;
     verdicts.push({ milestone: group.milestone, met: r.met });
     const why = r.problems.length ? ` (${r.problems.join("; ")})` : "";
-    if (r.count) console.log(`${r.name}: MATCH ${r.match} of ${r.of} ${r.count.what} vs >= ${r.count.atLeast}, ${r.oracleTimeouts} oracle timeouts: ${r.met ? "met" : "not met"}${why}`);
+    if (r.minMatch !== undefined) console.log(`${r.name}: MATCH ${r.match} of ${r.of} cases vs >= ${r.minMatch}, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}: ${r.met ? "met" : "not met"}${why}`);
+    else if (r.count) console.log(`${r.name}: MATCH ${r.match} of ${r.of} ${r.count.what} vs >= ${r.count.atLeast}, ${r.oracleTimeouts} oracle timeouts: ${r.met ? "met" : "not met"}${why}`);
     else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}${group.excludeUnstable && !group.allCases ? `, ${r.unstable} unstable excluded` : ""}: ${r.met ? "met" : "not met"}${why}`);
   }
   for (const line of milestoneVerdicts(verdicts)) console.log(line);
