@@ -148,6 +148,19 @@ describe.skipIf(!HAVE && !REQUIRE)("intrinsic table vs libLLVM", () => {
           return alt === 0
             ? [lib.LLVMVectorType(lib.LLVMIntTypeInContext(rc, 32), 4), L.LLVMVectorType(L.LLVMIntTypeInContext(mc, 32), 4)]
             : [lib.LLVMVectorType(lib.LLVMIntTypeInContext(rc, 1), 16), L.LLVMVectorType(L.LLVMIntTypeInContext(mc, 1), 16)];
+        // lane ir-fix-b: any vector, a float vector, a vector of pointers; 4 lanes, then 2 (so a gather's slots agree in each set).
+        case "vec":
+          return alt === 0
+            ? [lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 4), L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 4)]
+            : [lib.LLVMVectorType(lib.LLVMIntTypeInContext(rc, 64), 2), L.LLVMVectorType(L.LLVMIntTypeInContext(mc, 64), 2)];
+        case "vecfloat":
+          return alt === 0
+            ? [lib.LLVMVectorType(lib.LLVMFloatTypeInContext(rc), 4), L.LLVMVectorType(L.LLVMFloatTypeInContext(mc), 4)]
+            : [lib.LLVMVectorType(lib.LLVMDoubleTypeInContext(rc), 2), L.LLVMVectorType(L.LLVMDoubleTypeInContext(mc), 2)];
+        case "vecptr":
+          return alt === 0
+            ? [lib.LLVMVectorType(lib.LLVMPointerTypeInContext(rc, 0), 4), L.LLVMVectorType(L.LLVMPointerTypeInContext(mc, 0), 4)]
+            : [lib.LLVMVectorType(lib.LLVMPointerTypeInContext(rc, 1), 2), L.LLVMVectorType(L.LLVMPointerTypeInContext(mc, 1), 2)];
         default:
           return alt === 0 ? [lib.LLVMPointerTypeInContext(rc, 0), L.LLVMPointerTypeInContext(mc, 0)] : [lib.LLVMIntTypeInContext(rc, 16), L.LLVMIntTypeInContext(mc, 16)];
       }

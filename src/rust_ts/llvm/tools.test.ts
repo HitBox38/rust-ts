@@ -21,6 +21,7 @@ import { parseScript, replay } from "./replay.ts";
 import {
   assert_model_current,
   canonical_extra_passes,
+  definitions_carry_global_features,
   forceFullLTOSummary,
   is_tool_text,
   llc_target_flags,
@@ -447,6 +448,18 @@ describe.skipIf(!HAVE && !REQUIRE)("tools.ts against the oracle", () => {
     set_module_text(T, `; ModuleID = 'x'\n@s = constant [8 x i8] c"define \\0A"\n\n; define void @no()\ndefine void @f() !dbg !3 {\n  #dbg_declare(ptr null, !4, !DIExpression(), !5)\n  ret void\n}\n\ndeclare !dbg !6 void @g()\n\ndeclare void @h()\n`);
     expect(L.LLVMRustModuleCost(T)).toBe(3n);
     expect(L.LLVMRustModuleCost(L.LLVMModuleCreateWithNameInContext("empty", new Context()))).toBe(0n);
+  });
+
+  test("definitions_carry_global_features: every definition's own target-features starts with the global list (lane ir-fix-b)", () => {
+    const G = "+v8a,+outline-atomics";
+    const mod = (attrs: string[]) =>
+      `define void @a() #0 {\n  ret void\n}\n\ndefine internal void @b(ptr %x) unnamed_addr #1 personality ptr @p {\n  ret void\n}\n\ndeclare void @p()\n\n${attrs.map((a, i) => `attributes #${i} = { ${a} }`).join("\n")}\n`;
+    expect(definitions_carry_global_features(mod([`nounwind "target-features"="${G}"`, `"target-cpu"="generic" "target-features"="${G},+neon"`]), G)).toBe(true);
+    // `__rust_try`-like: a definition without the attribute; one with other features; a prefix that is not a whole feature.
+    expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-cpu"="generic"`]), G)).toBe(false);
+    expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-features"="+neon"`]), G)).toBe(false);
+    expect(definitions_carry_global_features(mod([`"target-features"="${G}"`, `"target-features"="${G}x"`]), G)).toBe(false);
+    expect(definitions_carry_global_features("define void @c() {\n  ret void\n}\n", G)).toBe(false);
   });
 
   test("forceFullLTOSummary: a ThinLTO flag of 0, last in !llvm.module.flags, once (lane ir-fix-b)", () => {

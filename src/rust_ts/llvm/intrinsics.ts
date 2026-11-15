@@ -302,9 +302,13 @@ const bstrToDisplay = (s: string): string => JSON.stringify(s);
 // ---- signatures (Intrinsics.td) ----------------------------------------------------------------------------------------
 
 /** An Intrinsics.td type: `llvm_any*_ty` (an overload slot, numbered in order of appearance, return types first), `LLVMMatchType<n>`,
- *  a fixed type, `LLVMScalarOrSameVectorWidth<n, elt>`, or `LLVMVectorElementType<n>` (`IIT_VEC_ELEMENT`). */
+ *  a fixed type, `LLVMScalarOrSameVectorWidth<n, elt>`, `LLVMVectorElementType<n>` (`IIT_VEC_ELEMENT`), or
+ *  `LLVMVectorOfAnyPointersToElt<n>` (`IIT_VEC_OF_ANYPTRS_TO_ELT`, a partially dependent type: it takes an overload slot of its own,
+ *  Intrinsics.td:476-487, and decodes as that slot's type, Intrinsics.cpp:590). */
+type OverloadClass = "any" | "int" | "float" | "ptr" | "vecint" | "vec" | "vecfloat" | "vecptr";
 type TdType =
-  | { readonly k: "any"; readonly cls: "any" | "int" | "float" | "ptr" | "vecint" }
+  | { readonly k: "any"; readonly cls: Exclude<OverloadClass, "vecptr"> }
+  | { readonly k: "vecAnyPtrs"; readonly n: number }
   | { readonly k: "match"; readonly n: number }
   | { readonly k: "vecElement"; readonly n: number }
   | { readonly k: "int"; readonly bits: number }
@@ -326,6 +330,10 @@ const anyptr: TdType = { k: "any", cls: "ptr" };
 const any_: TdType = { k: "any", cls: "any" };
 /** `llvm_any_vector_int_ty` (Intrinsics.td:577). */
 const any_vector_int: TdType = { k: "any", cls: "vecint" };
+/** `llvm_anyvector_ty` (Intrinsics.td:610) and `llvm_any_vector_float_ty` (Intrinsics.td:588) (lane ir-fix-b). */
+const anyvector: TdType = { k: "any", cls: "vec" };
+const any_vector_float: TdType = { k: "any", cls: "vecfloat" };
+const vecAnyPtrs = (n: number): TdType => ({ k: "vecAnyPtrs", n });
 const m = (n: number): TdType => ({ k: "match", n });
 const i1: TdType = { k: "int", bits: 1 };
 const i32: TdType = { k: "int", bits: 32 };
@@ -338,6 +346,11 @@ const binaryInt = (td: number): Signature => ({ td, ret: [anyint], params: [m(0)
 const withOverflow = (td: number): Signature => ({ td, ret: [anyint, { k: "sameVecWidth", n: 0, elt: i1 }], params: [m(0), m(0)] });
 /** `DefaultAttrsIntrinsic<[LLVMVectorElementType<0>], [llvm_any_vector_int_ty]>`: the integer reductions (Intrinsics.td:2917-2934). */
 const intReduction = (td: number): Signature => ({ td, ret: [{ k: "vecElement", n: 0 }], params: [any_vector_int] });
+/** `DefaultAttrsIntrinsic<[LLVMVectorElementType<0>], [LLVMVectorElementType<0>, llvm_any_vector_float_ty]>`: the ordered float
+ *  reductions (Intrinsics.td:2911-2916). The start value's `LLVMVectorElementType<0>` refers to overload slot 0, the vector. */
+const floatReduction = (td: number): Signature => ({ td, ret: [{ k: "vecElement", n: 0 }], params: [{ k: "vecElement", n: 0 }, any_vector_float] });
+/** `LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>`: the masks of the masked intrinsics. */
+const mask0: TdType = { k: "sameVecWidth", n: 0, elt: i1 };
 
 /** The signatures the model declares, by intrinsic name (header); each cites its `def` in Intrinsics.td. */
 const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
@@ -402,6 +415,13 @@ const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
   ["llvm.is.constant", { td: 2129, ret: [i1], params: [any_] }],
   ["llvm.ptrmask", { td: 2139, ret: [any_], params: [m(0), anyint] }],
   ["llvm.threadlocal.address", { td: 2142, ret: [anyptr], params: [m(0)] }],
+  // lane ir-fix-b (cg-intrinsic-b's SIMD arms): the masked intrinsics (Intrinsics.td:2722-2745) and the ordered float reductions.
+  ["llvm.masked.load", { td: 2723, ret: [anyvector], params: [anyptr, mask0, m(0)] }],
+  ["llvm.masked.store", { td: 2729, ret: [], params: [anyvector, anyptr, mask0] }],
+  ["llvm.masked.gather", { td: 2735, ret: [anyvector], params: [vecAnyPtrs(0), mask0, m(0)] }],
+  ["llvm.masked.scatter", { td: 2741, ret: [], params: [anyvector, vecAnyPtrs(0), mask0] }],
+  ["llvm.vector.reduce.fadd", floatReduction(2911)],
+  ["llvm.vector.reduce.fmul", floatReduction(2914)],
   ["llvm.vector.reduce.add", intReduction(2917)],
   ["llvm.vector.reduce.mul", intReduction(2919)],
   ["llvm.vector.reduce.and", intReduction(2921)],
@@ -423,10 +443,10 @@ const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
 
 /** The names `SIGNATURES` covers, and each one's overload slots by class, in order (for tests). */
 export const MODELLED_SIGNATURES: readonly string[] = [...SIGNATURES.keys()];
-export function overloadClasses(name: string): ("any" | "int" | "float" | "ptr" | "vecint")[] {
+export function overloadClasses(name: string): OverloadClass[] {
   const sig = SIGNATURES.get(name);
   if (sig === undefined) throw new Error(`no modelled signature for ${name}`);
-  return [...sig.ret, ...sig.params].flatMap((t) => (t.k === "any" ? [t.cls] : []));
+  return [...sig.ret, ...sig.params].flatMap((t): OverloadClass[] => (t.k === "any" ? [t.cls] : t.k === "vecAnyPtrs" ? ["vecptr"] : []));
 }
 
 /** The IIT descriptors of a signature, as `getIntrinsicInfoTableEntries` decodes them: an `any` type becomes an `Overloaded`
@@ -438,6 +458,8 @@ function descriptors(sig: Signature): Desc[] {
   const one = (t: TdType): Desc => {
     switch (t.k) {
       case "any":
+      // `IITDescriptor::VecOfAnyPtrsToElt`: its own overload index (`Lo`) is what `DecodeFixedType` substitutes (Intrinsics.cpp:590).
+      case "vecAnyPtrs":
         return { k: "overloaded", idx: next++ };
       case "match":
         return { k: "match", idx: t.n };

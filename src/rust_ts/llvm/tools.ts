@@ -229,8 +229,35 @@ function tm_(T: TargetMachine): TargetMachine {
  * 128-bit, `_mm256_shuffle_epi8` crashed llc with `Cannot select`). opt without `-mattr` gives a definition without the attribute
  * (`__rust_try`, intrinsic.rs:1751, gets `target-cpu` only) no features, where rustc gives it the global ones, which changes TTI
  * and inline compatibility; opt with `-mattr` would also write the list onto every function it prints. The x86_64-linux and
- * aarch64-apple-darwin machines without `-Ctarget-feature` have none (cg-write's recorded `.tm`s).
+ * aarch64-apple-darwin machines without `-Ctarget-feature` have none (cg-write's recorded `.tm`s). `LLVMRustOptimize` stops only when a
+ * definition lacks them (`definitions_carry_global_features`, lane ir-fix-b: aarch64-unknown-linux-gnu's `+v8a,+outline-atomics`).
  */
+/** An attribute group line, with its `"target-features"` value if it has one. */
+const ATTR_GROUP_LINE = /^attributes #(\d+) = \{(.*)\}$/gm;
+const TARGET_FEATURES_ATTR = /"target-features"="([^"]*)"/;
+
+/**
+ * Whether every function definition of a module's text has a `target-features` attribute that starts with `features`, the machine's
+ * global features (lane ir-fix-b). rustc writes that attribute on every function it defines from `target_features_attr`
+ * (attributes.rs:440: the global features, then the function's own), so this holds unless a definition was made without it (such as
+ * `__rust_try`, intrinsic.rs). Then the machine's feature string reaches nothing in a function pass: a target machine builds a
+ * function's subtarget, and so its TTI, from the function's own `target-features` and takes its own string only when the attribute is
+ * absent (`AArch64TargetMachine::getSubtargetImpl(const Function &)`, and every target's alike).
+ */
+export function definitions_carry_global_features(text: string, features: string): boolean {
+  const groups = new Map<string, string | undefined>();
+  for (const m of text.matchAll(ATTR_GROUP_LINE)) groups.set(m[1]!, TARGET_FEATURES_ATTR.exec(m[2]!)?.[1]);
+  for (const line of text.split("\n")) {
+    if (!line.startsWith("define ")) continue;
+    // AsmWriter and the model's printer write a definition's function attributes as one group, `#<n>`, after its parameter list.
+    const refs = [...line.matchAll(/ #(\d+)\b/g)];
+    if (refs.length !== 1) return false;
+    const tf = groups.get(refs[0]![1]!);
+    if (tf === undefined || (tf !== features && !tf.startsWith(`${features},`))) return false;
+  }
+  return true;
+}
+
 function stop_on_global_features(tm: TargetMachineArgs, fn: string, why: string): void {
   if (tm.Features !== undefined && tm.Features !== "") unported(`llir: ${fn} with global target features ${JSON.stringify(tm.Features)} (${why}; review llir-tools F1/F2)`);
 }
@@ -501,7 +528,11 @@ export function LLVMRustOptimize(
   LLVMPluginsLen: number,
 ): LLVMRustResult {
   const tm = tm_(TM);
-  stop_on_global_features(tm, "LLVMRustOptimize", "opt cannot give them only to definitions without `target-features`, such as `__rust_try`");
+  // Global features change nothing opt does when every definition carries them itself (`definitions_carry_global_features`), so opt
+  // runs without `-mattr`, which would append them to every function's attribute (lane ir-fix-b). Otherwise they stop by name.
+  if (tm.Features === undefined || tm.Features === "" || !definitions_carry_global_features(module_text(M), tm.Features)) {
+    stop_on_global_features(tm, "LLVMRustOptimize", "opt cannot give them only to definitions without `target-features`, such as `__rust_try`");
+  }
   // `EmitLifetimeMarkers` is not read by the wrapper at the pin.
   if (llvm_selfprofiler !== undefined && llvm_selfprofiler !== null) return unported("llir: LLVMRustOptimize with an LLVM self-profiler (-Z self-profile-events=llvm)");
   if (PGOGenPath !== undefined || PGOUsePath !== undefined || PGOSampleUsePath !== undefined || DebugInfoForProfiling) {
