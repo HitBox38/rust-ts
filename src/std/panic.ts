@@ -87,6 +87,17 @@ export function assert_eq<T>(left: T, right: T, debug: (v: T) => string, eq: (a:
 }
 
 /**
+ * `assert_eq!(left, right, args..)`: panics with core's text (library/core/src/panicking.rs
+ * `assert_failed_inner`, `AssertKind::Eq`, `Some(args)`) when `eq(left, right)` is false: the formatted
+ * `args` follow `failed: `, then the `left:`/`right:` lines. `args` is only formatted on failure.
+ */
+export function assert_eq_args<T>(left: T, right: T, debug: (v: T) => string, args: () => string, eq: (a: T, b: T) => boolean = strict_eq): void {
+  if (!eq(left, right)) {
+    throw new Panic(`assertion \`left == right\` failed: ${args()}\n  left: ${debug(left)}\n right: ${debug(right)}`);
+  }
+}
+
+/**
  * `assert_matches!(left, <pattern>)`: panics with core's text (`assert_matches_failed` →
  * `assert_failed_inner`, `AssertKind::Match`, no args) when `matches` is false. `pattern` is
  * the macro's `stringify!` of the pattern (e.g. `"Error | Warning(_)"`).

@@ -28,12 +28,12 @@
 // - `build_compile_unit_di_node`'s `c""` flags is `""`.
 // - `TUPLE_FIELD_NAMES.get(i).map(Cow::from).unwrap_or_else(..)`: the table lookup, else the formatted name.
 // - `tracing::debug!` / `#[instrument]` are comments.
-import { Align, type Endian, FieldsShape, type NumScalableVectors, Size, Size_eq } from "../../rustc_abi/lib.ts";
+import { Align, debug_Align, debug_Size, type Endian, FieldsShape, type NumScalableVectors, Size, Size_eq } from "../../rustc_abi/lib.ts";
 import { FloatTy, IntTy, UintTy } from "../../rustc_ast_ir/lib.ts";
-import { tag_base_type as _tag_base_type } from "../../rustc_codegen_ssa/debuginfo/mod.ts";
 import { compute_debuginfo_type_name, compute_debuginfo_vtable_name, cpp_like_debuginfo, VTableNameKind } from "../../rustc_codegen_ssa/debuginfo/type_names.ts";
 import { Lto, OptLevel, type OutputFilenames } from "../../rustc_session/config.ts";
 import { CodegenUnits } from "../../rustc_session/session.ts";
+import { debug_target_spec_other } from "../../rustc_target/lib.ts";
 import { typeid_for_trait_ref } from "../../rustc_symbol_mangling/lib.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
 import { GenericArg } from "../../rustc_middle/ty/generic_args.ts";
@@ -41,12 +41,12 @@ import type { Generics } from "../../rustc_middle/ty/generics.ts";
 import { Instance } from "../../rustc_middle/ty/instance.ts";
 import { type TyAndLayout, WIDE_PTR_ADDR, WIDE_PTR_EXTRA } from "../../rustc_middle/ty/layout.ts";
 import type { AdtDef } from "../../rustc_middle/ty/adt.ts";
-import { Ty, type Visibility } from "../../rustc_middle/ty/mod.ts";
+import { Ty } from "../../rustc_middle/ty/mod.ts";
 import { display_Ty } from "../../rustc_middle/ty/print/pretty.ts";
 import { ClosureArgs, CoroutineArgs, CoroutineClosureArgs } from "../../rustc_type_ir/ty_kind/closure.ts";
 import { debug_Ty, fold_Ty } from "../../rustc_middle/ty/structural_impls.ts";
 import { COMMON_VTABLE_ENTRIES, type VtblEntry } from "../../rustc_middle/ty/vtable.ts";
-import { LOCAL_CRATE, type DefId, type ModId } from "../../rustc_span/def_id.ts";
+import { LOCAL_CRATE, type DefId } from "../../rustc_span/def_id.ts";
 import { walk_chain_collapsed } from "../../rustc_span/hygiene.ts";
 import { DUMMY_SP, ExternalSource, FileName, RemapPathScopeComponents, type SourceFile, Span } from "../../rustc_span/lib.ts";
 import { bug } from "../../rustc_span/macros.ts";
@@ -57,9 +57,9 @@ import { fold_with_TraitRef, try_fold_with_TraitRef, visit_with_TraitRef } from 
 import type { TraitRef } from "../../rustc_type_ir/predicate.ts";
 import { FnSig, fold_FnSig, UnsafeBinderInner_deref } from "../../rustc_type_ir/ty_kind.ts";
 import { Unnormalized } from "../../rustc_type_ir/unnormalized.ts";
-import { PLAIN } from "../../std/fmt.ts";
+import { debug_tuple, PLAIN } from "../../std/fmt.ts";
 import { path_join, path_strip_prefix } from "../../std/path.ts";
-import { assert, assert_eq, panic, unported, unreachable, unwrap } from "../../std/panic.ts";
+import { assert, assert_eq, assert_eq_args, assert_matches, unported, unreachable, unwrap } from "../../std/panic.ts";
 import { utf8, utf8_len } from "../../std/str.ts";
 import type { CodegenCx } from "../context.ts";
 import * as llvm from "../llvm/mod.ts";
@@ -208,10 +208,13 @@ function build_pointer_or_reference_di_node(cx: CodegenCx, ptr_type: Ty, pointee
   const wide_pointer_kind_ = wide_pointer_kind(cx, pointee_type);
   if (wide_pointer_kind_ === undefined) {
     // This is a thin pointer. Create a regular pointer type and give it the correct name.
-    const [s, a] = cx.size_and_align_of(ptr_type);
-    if (!(Size_eq(pointer_size, s) && pointer_align.abi.pow2 === a.pow2)) {
-      panic(`assertion \`left == right\` failed: ptr_type=${display_Ty(ptr_type)}, pointee_type=${display_Ty(pointee_type)}`);
-    }
+    assert_eq_args<readonly [Size, Align]>(
+      [pointer_size, pointer_align.abi],
+      cx.size_and_align_of(ptr_type),
+      debug_size_and_align,
+      () => `ptr_type=${display_Ty(ptr_type)}, pointee_type=${display_Ty(pointee_type)}`,
+      size_and_align_eq,
+    );
 
     const di_node = create_pointer_type(cx, pointee_type_di_node, pointer_size, pointer_align.abi, ptr_type_debuginfo_name);
 
@@ -1011,7 +1014,7 @@ export function create_member_type(
 // rustc: compiler/rustc_codegen_llvm/src/debuginfo/metadata.rs:1041 visibility_di_flags
 export function visibility_di_flags(cx: CodegenCx, did: DefId, type_did: DefId): DIFlags {
   const parent_did = cx.tcx.parent(type_did);
-  const visibility = cx.tcx.visibility(did) as Visibility<ModId>;
+  const visibility = cx.tcx.visibility(did);
   switch (visibility.$) {
     case "Public":
       return llvm.DIFlags.FlagPublic;
@@ -1119,9 +1122,7 @@ function build_scalable_vector_di_node(
   assert(adt_def.repr().is_scalable(), "assertion failed: adt_def.repr().scalable()");
   // This logic is specific to AArch64 for the moment, but can be extended for other architectures
   // later.
-  if (cx.tcx.sess.target.arch.$ !== "AArch64") {
-    panic(`assertion \`matches!(cx.tcx.sess.target.arch, Arch::AArch64)\` failed`);
-  }
+  assert_matches(cx.tcx.sess.target.arch, cx.tcx.sess.target.arch.$ === "AArch64", "Arch::AArch64", debug_target_spec_other);
 
   let file_metadata: DIFile;
   let line_number: number;
@@ -1559,7 +1560,7 @@ export function apply_vcall_visibility_metadata(cx: CodegenCx, ty: Ty, trait_ref
   const vtable = find_vtable_behind_cast(vtable0);
   const trait_ref_self = ExistentialTraitRef.with_self_ty(trait_ref, as_interner(cx.tcx), ty);
   const trait_def_id = trait_ref_self.def_id;
-  const trait_vis = cx.tcx.visibility(trait_def_id) as Visibility<ModId>;
+  const trait_vis = cx.tcx.visibility(trait_def_id);
 
   const cgus = CodegenUnits.as_usize(cx.sess().codegen_units());
   const single_cgu = cgus === 1;
@@ -1669,9 +1670,17 @@ export function file_metadata_from_def_id(cx: CodegenCx, def_id: DefId | undefin
   }
 }
 
-/** `assert_eq!(a, b)` on `(Size, Align)` pairs (the message prints both; the pair is compared by value). */
-function assert_size_and_align_eq(a: readonly [Size, Align], b: readonly [Size, Align]): void {
-  if (!(Size_eq(a[0], b[0]) && a[1].pow2 === b[1].pow2)) {
-    panic(`assertion \`left == right\` failed\n  left: (${a[0].bytes()}, ${a[1].bytes()})\n right: (${b[0].bytes()}, ${b[1].bytes()})`);
-  }
+/** The derived `PartialEq` of a `(Size, Align)` pair. */
+function size_and_align_eq(a: readonly [Size, Align], b: readonly [Size, Align]): boolean {
+  return Size_eq(a[0], b[0]) && a[1].pow2 === b[1].pow2;
+}
+
+/** The `{:?}` of a `(Size, Align)` pair: `(Size(8 bytes), Align(8 bytes))`. */
+function debug_size_and_align(v: readonly [Size, Align]): string {
+  return debug_tuple(PLAIN, "", [debug_Size(v[0], PLAIN), debug_Align(v[1], PLAIN)]);
+}
+
+/** `assert_eq!(a, b)` on `(Size, Align)` pairs, with core's text. */
+export function assert_size_and_align_eq(a: readonly [Size, Align], b: readonly [Size, Align]): void {
+  assert_eq(a, b, debug_size_and_align, size_and_align_eq);
 }
