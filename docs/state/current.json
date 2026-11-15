@@ -12,7 +12,7 @@
     "emit": 1466,
     "thir-tree": 1851,
     "run-pass-aux-miri": 356,
-    "run-pass-native": 3389,
+    "run-pass-native": 3385,
     "mir-minicore": 87,
     "ir-run-pass": 3422,
     "check-ui-encode-mir": 146,
@@ -70,7 +70,7 @@
     "pm-expanded": 282,
     "miri-pass-heavy": 8
   },
-  "updated": "2026-11-15T11:56:16.437Z",
+  "updated": "2026-11-15T12:03:03.298Z",
   "open_stops": [],
   "coverage": {
     "ported": 26262,
