@@ -32,8 +32,13 @@ test.skipIf(not_macos)("lookup_sdk", () => {
   expect(stderr).toBe("");
 
   // Test that the SDK root is a subdir of the developer directory.
-  // PORT: upstream asserts this only when `SDKROOT` is set; unit tests may not read that variable
-  // (scripts/lib/unit-steps.test.ts), so the branch is left out. Only that one assertion is lost.
+  const developer_dir = xcode_select_developer_dir();
+  if (developer_dir !== undefined) {
+    // Only run this test if SDKROOT is not set (otherwise xcrun may look up via. that).
+    // PORT: upstream asserts `sdk_path.starts_with(&developer_dir)` only when `SDKROOT` is set; unit tests may not read that
+    // variable (scripts/lib/unit-steps.test.ts), so only the assertion is left out. The `xcode-select` call is kept, as upstream
+    // makes it unconditionally (review vendor-object-write N3).
+  }
 });
 
 // rustc: compiler/rustc_codegen_ssa/src/back/apple/tests.rs:40 lookup_sdk_verbose

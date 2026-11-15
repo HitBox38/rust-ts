@@ -32,7 +32,7 @@ import type { CrateType } from "../rustc_structures/crate_type.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
 import type { MetadataLoaderDyn } from "../rustc_metadata/creader.ts";
 import { internal_target_features } from "../rustc_codegen_ssa/target_features.ts";
-import { ArArchiveBuilderBuilder, type ArchiveBuilderBuilder } from "../rustc_codegen_ssa/back/archive.ts";
+import { ArArchiveBuilderBuilder, type ArchiveBuilderBuilder, type ImportLibraryItem } from "../rustc_codegen_ssa/back/archive.ts";
 import { link_binary } from "../rustc_codegen_ssa/back/link.ts";
 import { CompiledModules, type CrateInfo } from "../rustc_codegen_ssa/lib.ts";
 import * as diagnostics from "./diagnostics.gen.ts";
@@ -362,11 +362,18 @@ export class DummyCodegenBackend implements CodegenBackend {
 }
 
 // struct DummyArchiveBuilderBuilder;
-// PORT: `create_dll_import_lib` is not on the interface yet (back/archive.ts): only `link_natively` reaches it.
+// PORT: `create_dll_import_lib` overrides the provided method through the interface's optional member (back/archive.ts);
+// `link_rlib` reaches it on Windows targets through `create_raw_dylib_dll_import_libs` (link.rs:685, raw_dylib.rs:101).
 const DummyArchiveBuilderBuilder: ArchiveBuilderBuilder = {
   // rustc: compiler/rustc_interface/src/util.rs:492 new_archive_builder
   new_archive_builder(sess) {
     return ArArchiveBuilderBuilder.new_archive_builder(sess);
+  },
+
+  // rustc: compiler/rustc_interface/src/util.rs:499 create_dll_import_lib
+  create_dll_import_lib(sess: Session, _lib_name: string, _items: ImportLibraryItem[], output_path: string): void {
+    // Build an empty static library to avoid calling an external dlltool on mingw
+    ArArchiveBuilderBuilder.new_archive_builder(sess).build(output_path, undefined);
   },
 };
 

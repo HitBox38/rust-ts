@@ -1,6 +1,5 @@
 //! A module for searching for libraries
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync } from "node:fs";
 import type { PathBuf } from "../rustc_span/lib.ts";
 import { relative_target_rustlib_path } from "../rustc_target/lib.ts";
 import type { Target } from "../rustc_target/spec/mod.ts";
@@ -8,7 +7,7 @@ import { path_join } from "../std/path.ts";
 import { unported } from "../std/panic.ts";
 import { slice_sort_unstable_by } from "../std/slice_sort.ts";
 import { PathKind, type SearchPath } from "./search_paths.ts";
-import { oracle_sysroot_env } from "../rust_ts/oracle_sysroot_env.ts";
+import { oracle_toolchain, type PrintSysrootOutput, spawn_print_sysroot } from "../rust_ts/oracle_sysroot_env.ts";
 
 export class FileSearch {
   constructor(
@@ -158,9 +157,6 @@ export function make_target_bin_path(sysroot: PathBuf, target_triple: string): P
 // Not ported (no markers): `dll_path` (filesearch.rs:153/220/261) and `current_dll_path` (:265) find the
 // loaded `librustc_driver` through `dladdr`/`GetModuleFileNameW`; rust-ts has no such library.
 
-/** The repository root, where `UPSTREAM.json` pins the oracle toolchain. */
-const REPO = join(import.meta.dir, "..", "..");
-
 let DEFAULT_SYSROOT: PathBuf | undefined;
 
 /// This function checks if sysroot is found using env::args().next(), and if it
@@ -171,7 +167,7 @@ let DEFAULT_SYSROOT: PathBuf | undefined;
  * PORT (decision 2026-11-14, wave 40q, docs/reviews/ssa-linker.md §2): the default sysroot is the pinned oracle toolchain's
  * sysroot, the exact string `rustc +<UPSTREAM.json rust.toolchain> --print sysroot` prints, found the way
  * rust_ts/llvm/tools.ts `oracle_sysroot` finds the pinned toolchain: one spawn that never installs anything
- * (`RUSTUP_AUTO_INSTALL=0`), cached for the process.
+ * (`RUSTUP_AUTO_INSTALL=0`), cached for the process. Both make it through rust_ts/oracle_sysroot_env.ts `spawn_print_sysroot`.
  * - Upstream derives the default from rustc's own location: `argv[0]` when it is a symlink (`from_env_args_next`), else the
  *   loaded `librustc_driver` (`default_from_rustc_driver_dll`). The port's binary is Bun and it has no `librustc_driver`, so
  *   neither has a counterpart. The port stands in for the oracle's binary, so its sysroot is the oracle's.
@@ -188,26 +184,21 @@ let DEFAULT_SYSROOT: PathBuf | undefined;
  */
 export function default_sysroot(): PathBuf {
   if (DEFAULT_SYSROOT !== undefined) return DEFAULT_SYSROOT;
-  const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { toolchain: string } };
-  const what = `rustc_session::filesearch::default_sysroot (rustc +${pin.rust.toolchain} --print sysroot failed`;
-  let r: { exitCode: number | null; stdout: Buffer; stderr: Buffer };
+  const toolchain = oracle_toolchain();
+  const what = `rustc_session::filesearch::default_sysroot (rustc +${toolchain} --print sysroot failed`;
+  let r: PrintSysrootOutput;
   try {
-    r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], {
-      env: oracle_sysroot_env(),
-      stdin: "ignore",
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    r = spawn_print_sysroot(toolchain);
   } catch (e) {
     // Bun throws when `rustc` is not on `PATH` at all.
     return unported(`${what}: ${e instanceof Error ? e.message : String(e)})`);
   }
   if (r.exitCode !== 0) {
-    const first = r.stderr.toString().split("\n").find((l) => l.trim() !== "") ?? "(no message)";
+    const first = r.stderr.split("\n").find((l) => l.trim() !== "") ?? "(no message)";
     return unported(`${what}: ${first})`);
   }
   // `println!`'s newline is not part of the path.
-  return (DEFAULT_SYSROOT = r.stdout.toString().replace(/\n$/, ""));
+  return (DEFAULT_SYSROOT = r.stdout.replace(/\n$/, ""));
 }
 
 /** `current_dll_path` (not ported, see above). */

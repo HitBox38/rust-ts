@@ -34,7 +34,7 @@ import { llvm_cl_args, type TargetMachineArgs } from "./target.ts";
 import { type Context, Module } from "./ir.ts";
 import { printModule } from "./printer.ts";
 import type { PtrLenStr, SanitizerOptions } from "./support.ts";
-import { oracle_sysroot_env } from "../oracle_sysroot_env.ts";
+import { oracle_toolchain, spawn_print_sysroot } from "../oracle_sysroot_env.ts";
 
 // ---- the pinned tools ----------------------------------------------------------------------------------------------------
 
@@ -68,10 +68,12 @@ let SYSROOT: string | undefined;
  */
 export function oracle_sysroot(): string {
   if (SYSROOT !== undefined) return SYSROOT;
-  const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")) as { rust: { toolchain: string } };
-  const r = Bun.spawnSync(["rustc", `+${pin.rust.toolchain}`, "--print", "sysroot"], { env: oracle_sysroot_env(), stdout: "pipe", stderr: "pipe" });
-  if (r.exitCode !== 0) panic(`llir: cannot find the pinned LLVM tools: rustc +${pin.rust.toolchain} --print sysroot failed: ${firstLine(r.stderr.toString())}`);
-  return (SYSROOT = r.stdout.toString().trim());
+  const toolchain = oracle_toolchain();
+  const r = spawn_print_sysroot(toolchain);
+  if (r.exitCode !== 0) panic(`llir: cannot find the pinned LLVM tools: rustc +${toolchain} --print sysroot failed: ${firstLine(r.stderr)}`);
+  // `.trim()`, kept as it was: it equals `default_sysroot`'s removal of the final newline unless the path starts or ends in
+  // whitespace (review root-w58-recheck N1).
+  return (SYSROOT = r.stdout.trim());
 }
 
 /** The host tuple (rustc_session's `host_tuple`, `RUST_TS_HOST_TUPLE`), loaded lazily so the model does not load the session. */

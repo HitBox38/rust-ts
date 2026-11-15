@@ -25,17 +25,6 @@ test.skipIf(process.platform === "win32")("diff_paths: a `..` in the base gives 
 // `camino` feature is not enabled in rustc's build). Unix only, as the port of `diff_paths` is checked there; upstream's
 // Windows variant of `abs` (`C:\`) is not run.
 describe.skipIf(process.platform === "win32")("pathdiff mod tests", () => {
-  /** `assert_eq!(diff_paths(path, base), expected.map(|s| s.into()))`: `PathBuf ==` compares components. */
-  // crate: pathdiff-0.2.3/src/lib.rs:247 assert_diff_paths
-  function assert_diff_paths(path: string, base: string, expected: string | undefined): void {
-    const got = diff_paths(path, base);
-    if (expected === undefined || got === undefined) {
-      expect(got).toBe(expected);
-    } else {
-      expect([got, path_eq(got, expected)]).toEqual([got, true]);
-    }
-  }
-
   // crate: pathdiff-0.2.3/src/lib.rs:176 test_absolute
   test("test_absolute", () => {
     // Absolute paths look different on Windows vs Unix.
@@ -100,4 +89,16 @@ describe.skipIf(process.platform === "win32")("pathdiff mod tests", () => {
     assert_diff_paths("foo", ".", "foo");
     assert_diff_paths("/foo", "/.", "foo");
   });
+
+  // Last, as upstream (review fixers-58 N3); a function declaration is hoisted, so the tests above can call it.
+  /** `assert_eq!(diff_paths(path, base), expected.map(|s| s.into()))`: `PathBuf ==` compares components. */
+  // crate: pathdiff-0.2.3/src/lib.rs:247 assert_diff_paths
+  function assert_diff_paths(path: string, base: string, expected: string | undefined): void {
+    const got = diff_paths(path, base);
+    if (expected === undefined || got === undefined) {
+      expect(got).toBe(expected);
+    } else {
+      expect([got, path_eq(got, expected)]).toEqual([got, true]);
+    }
+  }
 });

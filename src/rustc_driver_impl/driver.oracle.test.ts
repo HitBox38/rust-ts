@@ -110,6 +110,15 @@ const PENDING: [string[], string][] = [
 /** The executable a MATCH case links, compared byte for byte too (review root-w58-check N4): both sides write it in `WORK`. */
 const LINKED: Record<string, string> = { "x.rs": "x", "-ooptimize x.rs": "optimize" };
 
+/** `"equal"`, or where the port's `got` first differs from the oracle's `want`, with both sizes (review root-w58-recheck N2). */
+function compare_bytes(name: string, got: Uint8Array, want: Uint8Array): string {
+  const n = Math.min(got.length, want.length);
+  let i = 0;
+  while (i < n && got[i] === want[i]) i++;
+  if (i === n && got.length === want.length) return "equal";
+  return `${name}: port ${got.length} bytes, oracle ${want.length} bytes, first difference at offset ${i}`;
+}
+
 for (const args of MATCH) {
   test.skipIf(SKIP)(`rustc ${args.join(" ")}`, () => {
     requireRustc();
@@ -123,7 +132,7 @@ for (const args of MATCH) {
     expect(got.stderr).toBe(want.stderr);
     expect(got.stdout).toBe(want.stdout);
     expect(got.code).toBe(want.code);
-    if (out !== undefined) expect(Buffer.compare(readFileSync(out), want_bin!)).toBe(0);
+    if (out !== undefined) expect(compare_bytes(linked!, readFileSync(out), want_bin!)).toBe("equal");
   });
 }
 

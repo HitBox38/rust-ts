@@ -12,6 +12,7 @@ import { dlopen, type Pointer, toArrayBuffer } from "bun:ffi";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIN } from "../../../scripts/lib/common.ts";
+import { write_stderr } from "../../std/io.ts";
 
 const OUT = join(import.meta.dir, "intrinsics_x86.ts");
 
@@ -82,7 +83,11 @@ if (import.meta.main) {
   const [offset, table] = readX86();
   const text = render(offset, table);
   if (process.argv.includes("--check")) {
-    if (readFileSync(OUT, "latin1") !== text) throw new Error("ERROR: intrinsics_x86.ts differs from what gen_intrinsics_x86.ts writes");
+    // One `ERROR:` line and exit 1, no throw (AGENTS.md section 4; review ir-fix-a-recheck note 2).
+    if (readFileSync(OUT, "latin1") !== text) {
+      write_stderr("ERROR: intrinsics_x86.ts differs from what gen_intrinsics_x86.ts writes\n");
+      process.exitCode = 1;
+    }
   } else {
     writeFileSync(OUT, text, "latin1");
   }
