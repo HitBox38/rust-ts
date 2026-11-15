@@ -1,4 +1,4 @@
-// Port of object 0.39.1 `src/write/util.rs` `mod tests`.
+// Port of object 0.39.1 `src/write/util.rs` `mod tests` (`bytes_mut`), plus one test of rust-ts's own, marked below.
 import { expect, test } from "bun:test";
 import { Err, Ok } from "../../../std/result.ts";
 import { write_at, write_sleb128, write_uleb128 } from "./util.ts";
@@ -27,6 +27,8 @@ test("bytes_mut", () => {
   expect(write_at(new Uint8Array(0), 0, Uint8Array.of(0, 0, 0x89, 0xab))).toEqual(Err(null));
 });
 
+// rust-ts's own, not in upstream's `mod tests` (review vendor-object-write N3): `write_uleb128` / `write_sleb128` on the
+// DWARF spec's examples.
 test("LEB128 writers (DWARF spec examples)", () => {
   const u = (v: bigint): number[] => {
     const buf: number[] = [];
