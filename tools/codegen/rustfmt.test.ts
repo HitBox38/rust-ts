@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 import { PIN, UPSTREAM } from "../../scripts/lib/common.ts";
 import { test_scratch_dir } from "../../src/rust_ts/test_scratch.ts";
 import * as CT from "./config_type.ts";
-import { renderRustDefault, renderRustOverrideValue, renderRustPrintDocs } from "./create_config.ts";
+import { renderRustDefault, renderRustOverrideValue, renderRustPrintDocs, usizeSaturatingAddSigned } from "./create_config.ts";
 import { firstTokenDiff, normRust } from "./rust_tokens.ts";
 import { CANON, CONTRACT, generateRustfmt } from "./rustfmt.ts";
 import { readFixture, stripDerived } from "./rustfmt_oracle.ts";
@@ -87,6 +87,26 @@ test("contract: blocks name only missing modules, by specifiers no file outside 
   }
   expect(users).toEqual([]);
   expect(relative(SRC, join(SRC, CONTRACT))).toBe("rustfmt/contract.gen.d.ts");
+});
+
+// `Config::adjust_max_width`'s `usize::saturating_add_signed` over the port's `usize::MAX` (`USIZE_MAX` = `Number.MAX_SAFE_INTEGER`,
+// config/options.ts), as emitted into create_config.gen.ts (review rustfmt-contract-1 N1).
+test("usize_saturating_add_signed: ordinary values, underflow to 0, saturation at the port's usize::MAX", () => {
+  const lines = usizeSaturatingAddSigned("USIZE_MAX");
+  // the emitted helper is exactly these lines
+  expect(readFileSync(join(SRC, "rustfmt/config/create_config.gen.ts"), "utf8")).toContain(lines.join("\n"));
+  const USIZE_MAX = Number.MAX_SAFE_INTEGER;
+  const js = new Bun.Transpiler({ loader: "ts" }).transformSync(`${lines.join("\n")}\nexport const __f = usize_saturating_add_signed;`);
+  const add = new Function("USIZE_MAX", `${js.replace("export const __f =", "return")}`)(USIZE_MAX) as (v: number, d: number) => number;
+  const ISIZE_MAX = 2 ** 63 - 1; // as create_config.gen.ts writes `isize::MAX`
+  // ordinary widths: exact
+  expect([add(100, -8), add(92, 8), add(0, 0), add(60, 0)]).toEqual([92, 100, 0, 60]);
+  // underflow saturates at 0 (`reduce_max_width(8)` of a small width; `reduce_max_width(usize::MAX)`, upstream's test_adjust_max_width)
+  expect([add(5, -8), add(8, -8), add(100, -ISIZE_MAX)]).toEqual([0, 0, 0]);
+  // usize::MAX: `use_small_heuristics = "Off"` widths, then a macro body's reduce_max_width(8) / increase_max_width(4)
+  expect([add(USIZE_MAX, 4), add(USIZE_MAX, -8), add(add(USIZE_MAX, -8), 4)]).toEqual([USIZE_MAX, USIZE_MAX, USIZE_MAX]);
+  // a real width pushed past 2^53 saturates at the port's usize::MAX (`increase_max_width(usize::MAX)`)
+  expect([add(100, ISIZE_MAX), add(USIZE_MAX - 1, 5)]).toEqual([USIZE_MAX, USIZE_MAX]);
 });
 
 // ---- refusals ----

@@ -273,6 +273,7 @@ export const HAND_DECLS: Record<string, { prelude: string[]; decls: Record<strin
   "rustfmt/config/options.ts": {
     prelude: [RES, SER, DES],
     decls: {
+      USIZE_MAX: "// `usize::MAX` (root's decision \"rustfmt-contract-1 PORT decisions\" (1): `Number.MAX_SAFE_INTEGER`)\nexport const USIZE_MAX: number;",
       ...fnDecls("WidthHeuristics", G("options", "WidthHeuristics"), undefined, false),
       ...fnDecls("IgnoreList", G("options", "IgnoreList"), undefined, true),
     },

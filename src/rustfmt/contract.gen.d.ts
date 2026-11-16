@@ -64,6 +64,8 @@ declare module "../../rustfmt/config/options.ts*" {
   type Serializer<O, E> = import("../../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
   type Deserializer<E> = import("../../vendor/serde_core/de/mod.ts").Deserializer<E>;
   export function IgnoreList_eq(self: import("./config/options.gen.ts").IgnoreList, other: import("./config/options.gen.ts").IgnoreList): boolean;
+  // `usize::MAX` (root's decision "rustfmt-contract-1 PORT decisions" (1): `Number.MAX_SAFE_INTEGER`)
+  export const USIZE_MAX: number;
   export function WidthHeuristics_eq(self: import("./config/options.gen.ts").WidthHeuristics, other: import("./config/options.gen.ts").WidthHeuristics): boolean;
   export function deserialize_IgnoreList<E>(deserializer: Deserializer<E>): Result<import("./config/options.gen.ts").IgnoreList, E>;
   export function display_IgnoreList(self: import("./config/options.gen.ts").IgnoreList): string;
