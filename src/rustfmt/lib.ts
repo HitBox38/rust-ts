@@ -1,7 +1,7 @@
 // Port of src/tools/rustfmt/src/lib.rs (lane rustfmt-contract-1).
 // The modules lib.rs uses that later lanes port are imported as `../rustfmt/<path>` and declared in contract_lib.d.ts until
 // they exist (see there). `mod x;` declarations become imports here as each module lands (PORTING §5 "Methods defined in
-// another file"): `formatting.rs` adds `Session::format_input_inner` (declared on `Session` below).
+// another file"): `formatting.rs` adds `Session::format_input_inner` and `handle_formatted_file` (attached below the class).
 import "./config/mod.ts";
 import { type Config, clone_Config, type EmitMode, FileName, type NewlineStyle, type Verbosity } from "./config/mod.ts";
 import { LineClasses } from "../rustfmt/comment.ts";
@@ -15,7 +15,16 @@ import {
   default_JsonEmitter,
   default_ModifiedLinesEmitter,
 } from "../rustfmt/emitter.ts";
-import { type FormattingError, type ReportedErrors, type SourceFile, default_ReportedErrors, new_FormatErrorMap, type FormatErrorMap } from "../rustfmt/formatting.ts";
+import {
+  type FormattingError,
+  type ReportedErrors,
+  type SourceFile,
+  default_ReportedErrors,
+  format_input_inner,
+  handle_formatted_file,
+  new_FormatErrorMap,
+  type FormatErrorMap,
+} from "./formatting.ts";
 import { type ModuleResolutionError, debug_ModuleResolutionError, display_ModuleResolutionError } from "../rustfmt/modules.ts";
 import type { DirectoryOwnership } from "../rustfmt/parse/parser.ts";
 import { Indent } from "./shape.ts";
@@ -568,10 +577,11 @@ export class Session<T extends Write = Write> {
   }
 }
 
-// formatting.rs (lane rustfmt-contract-2) adds this method (`impl<'b, T: Write + 'b> Session<'b, T>`, formatting.rs:31):
-export interface Session<T extends Write = Write> {
-  format_input_inner(input: Input, is_macro_def: boolean): Result<FormatReport, ErrorKind>;
-}
+// PORT: the methods formatting.rs adds to `Session` (`impl Session`, formatting.rs:30; `impl FormatHandler for Session`,
+// formatting.rs:283), declared there. formatting.ts exports them as function declarations and they are attached here, after the
+// class: formatting.ts's body runs before this module's when this module loads first (ESM cycle), so it cannot assign them.
+Session.prototype.format_input_inner = format_input_inner;
+Session.prototype.handle_formatted_file = handle_formatted_file;
 
 // rustc: src/tools/rustfmt/src/lib.rs:520 create_emitter
 export function create_emitter(config: Config): Emitter {

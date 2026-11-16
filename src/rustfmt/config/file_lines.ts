@@ -88,7 +88,7 @@ export function serialize_FileName<O, E>(self: FileName, serializer: Serializer<
 
 /** `#[derive(PartialEq, Eq, Hash)]` of `FileName` as a map key: `PathBuf`'s `Eq`/`Hash` compare components.
  *  PORT: a canonical string for `KeyedMap` (equal exactly when the `FileName`s are `==`). */
-function key_FileName(f: FileName): string {
+export function key_FileName(f: FileName): string {
   if (f.$ === "Stdin") return "S";
   const c = path_components(f._0);
   let k = "R";
