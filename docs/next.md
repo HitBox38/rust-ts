@@ -759,7 +759,7 @@ M7 is done (gate-20261115-141315-root-qswd; milestone recorded; PLAN.md updated)
 | cargo-fix-a | aarch64 intrinsic signatures `crc32b`, `crypto.sha1h`, `crypto.sha256h`; proved on `crc32fast`, `sha1`, `sha2` alone (D22) | **merged** (b75df78c; 22 signatures; review PASS WITH NOTES); crc32fast byte-identical, sha1/sha2 differ only by pm-self F1 |
 | codegen-clippy-macros, codegen-fmt-serde | D5, D6 (after tools-prep-m8) | started |
 | clippy-contract-a, clippy-contract-b, rustfmt-contract | contracts (after steps 1-2) | queued |
-| harness-m8a-build | D8 project-build harness, D15, watchdog, `cargo-build`/`cargo-smoke` (`neverProtect`); rg-build proof (after harness-m8a-gate) | queued |
+| harness-m8a-build | D8 project-build harness, D15, watchdog, `cargo-build`/`cargo-smoke` (`neverProtect`); rg-build proof (after harness-m8a-gate) | started (cargo-build proof run waits on host) |
 | m8-measure | root, alone | **waits on host** (D20) |
 
 **Wave 41 notes:** main's runner unit step failed from the 40t accept until b75df78c (m7d-suites.test.ts expected no M7d baselines; w40t-audit N5, fixed and checked in root-w61-check). Queued: root-w61-check 1 (the misplaced `git submodule status` comment in upstream.ts) and 2 (use `UNIT_TEST_TIMEOUT_MS`); review tools-prep-m8 N4-N7 (`tools-src status` exit code and stale done marker, lock parser skipping odd entries, tool `build.rs` outside counted roots, `--crate` crash on a missing tree), N8 (lanes must not run `upstream.ts fetch` before merging main; optionally make `fetch` refuse to drop sparse paths); review harness-m8a-gate N2 (the watchdog writes its stop record before the build exits, or the gate reads once more: harness-m8a-build).
