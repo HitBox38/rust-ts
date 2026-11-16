@@ -14,7 +14,7 @@ rustfmt or the test crate. Nothing under `src/` was touched.
 | `scripts/lib/scope.ts`, `scripts/lib/scope.test.ts` | `tools` scope: `toolPathScopes`, `toolsExcluded`, `toolsEntryErrors`, `toolMarkerError`; `scopeOfPath` knows tool roots. 11 new tests (fixture tree + scope.json at the pin) |
 | `scripts/coverage.ts`, `scripts/coverage.test.ts` | the tool crates as coverage crates (D4), see below. 4 new tests |
 | `harness/scope.json` | new `tools` section (`crates` and `excluded`); see "Decisions" |
-| `harness/m7-suites.test.ts` | **the one harness/ edit outside scope.json:** its test "the sparse list adds exactly the directories root approved" pins `sparse` exactly, so D3's two entries are added to its expectation (with a comment naming plan-m8 D3). Without it the gate's runner unit step fails. Root/reviewer: please confirm this is acceptable in this batch |
+| `harness/m7-suites.test.ts` | the one harness/ edit outside scope.json (owner-approved): its test "the sparse list adds exactly the directories root approved" pins `sparse` exactly, so D3's two entries are added to its expectation (with a comment naming plan-m8 D3) |
 | `README.md` | Setup gains `bun scripts/tools-src.ts setup` |
 
 ## D3: sources, with sizes (measured on the root host, $RUST_TS_DATA = the main checkout's `.data`)
@@ -22,11 +22,11 @@ rustfmt or the test crate. Nothing under `src/` was touched.
 | Fetch | Size on disk | Notes |
 |---|---|---|
 | sparse `src/tools/clippy` + `src/tools/rustfmt` (`bun scripts/upstream.ts fetch`) | **37.0 MiB** (clippy 26.9, rustfmt 10.2) | `.git` did not grow (its blobs were already in the object store); 3.4 s. `upstream.ts status`: `ok sparse: 11 paths checked out`, `ok cargo 29c5daa1… (gitlink …)`; HEAD at the pin, so the files are the pin's. Checkout status clean |
-| `cargo-src`: tarball | **4.3 MiB** | SHA-256 equals D3's |
+| `cargo-src`: tarball | **4.3 MiB** | SHA-256 equals D3's. **Deleted after unpacking** (owner: disk is tight); nothing reads it, and `setup cargo` downloads and re-checks it if run again |
 | `cargo-src`: unpacked source `cargo-29c5daa1…/` | **25.4 MiB** | |
 | `cargo-src/cargo-home` (`cargo fetch --locked`, oracle cargo) | **669.3 MiB** (500 crates: 561 MiB unpacked `registry/src`, 77 MiB `.crate`s, 32 MiB index) | **D23 says 365 MiB.** This is the plan's command (all targets). A host-only fetch (`--target aarch64-apple-darwin`) would hold about 216 MiB of sources (391 crates, measured from `cargo tree --workspace --target aarch64-apple-darwin -e normal,build,dev` over the fetched sources); I did not switch, since it is not what D3/D23 say and the cargo-build harness may need other targets' crates to resolve offline. Root's call |
 | `tools-deps` (`setup tools-deps`) | **117.0 MiB** CARGO_HOME (116 packages) | D23 estimated ~0.1 GiB |
-| **Total added** | **about 853 MiB** (37 + 699 + 117) | free space went from ~15.1 GiB to ~14.3 GiB. D23's "1.1–1.4 GiB without the testsuite trees" becomes about 1.4–1.7 GiB with the measured CARGO_HOME |
+| **Total kept** | **about 849 MiB** (37 + 695 + 117) | free space went from ~15.1 GiB to ~14.3 GiB. D23's "1.1–1.4 GiB without the testsuite trees" becomes about 1.4–1.7 GiB with the measured CARGO_HOME |
 
 `tools-deps` (re-check2 P7a): a scratch workspace at `$RUST_TS_DATA/tools-deps` whose root manifest lists `src/tools/clippy/clippy_config`
 and `src/tools/rustfmt` (resolver 2, as the root workspace). Each package of those two and of their path dependencies (`clippy_utils`,
@@ -71,7 +71,7 @@ crate, excluded entries without a reason or overlapping a root). `--missing` on 
 
 `--check --offline`: 2.4 s before, 2.8 s after. Full run: 2.7 s.
 
-## Decisions (for root to record; I did not write `docs/state/`)
+## Decisions (approved by the owner, recorded in `docs/state/history.jsonl` by this lane)
 
 1. **The tool crates count in TOTAL**, as Miri does (D4 says "following Miri (plan-m6 D2)"). The alternative, a separate TOOLS
    figure like WRAPPER, would keep TOTAL at the compiler + Miri.
@@ -84,6 +84,7 @@ crate, excluded entries without a reason or overlapping a root). `--missing` on 
    rustfmt's `config_proc_macro` (proc macros, replaced by tools/codegen per D5, as `rustc_macros` is in `excluded`).
 4. **UPSTREAM.json `cargo` is top-level**, beside `rust`. `harness-m8a-gate` adds `tools` for D2; root merges the two edits.
 5. **`cargo fetch --locked` for cargo is all targets**, per D3 (669 MiB, not 365); a host-only fetch would save about 0.35 GiB.
+6. **`harness/m7-suites.test.ts`'s sparse-list pin includes D3's two tool paths** (approved).
 
 ## Things root should know
 
@@ -109,6 +110,9 @@ crate, excluded entries without a reason or overlapping a root). `--missing` on 
 - No difftest runs: nothing under `src/` changed. No `unported(...)` and no `// PORT:` decisions (no port code in this lane).
 
 ## Environment notes
+
+The decisions were recorded while a gate was running in the main checkout: `state.ts record` wrote only this worktree's
+`docs/state/`, never the gate's tree. Temporary output (the scratch coverage run and the cargo tree listing) is deleted.
 
 The worktree had no `.env.local` or `node_modules`: I copied the main checkout's `.env.local` and symlinked its `node_modules` (both
 gitignored). No gate was running (no `$RUST_TS_DATA/tmp/GATE_RUNNING`); host on AC power.
