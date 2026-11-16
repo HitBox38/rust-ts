@@ -8,9 +8,10 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
-import { RG_BUILD, RG_BUILD_SOURCES, hostToolsId } from "../scripts/rg-build.ts";
-import { noResultReason } from "../scripts/lib/rg-build.ts";
-import { RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
+import { CARGO_PROJECT_BUILD, PROJECTS, PROJECT_BUILD_SOURCES, projectOracleKey } from "../scripts/cargo-project-build.ts";
+import { cargoNoResultReason, noResultReason } from "../scripts/lib/cargo-project-build.ts";
+import { CARGO_SMOKE, SMOKE_STEPS, smokeDir } from "../scripts/cargo-smoke.ts";
+import { RG_BEHAVIOUR, RG_BEHAVIOUR_LIB, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
 import { AUX_PLACEHOLDER } from "../scripts/pm-self-run.ts";
 import type { IrTier } from "../scripts/lib/ir-normal.ts";
 import type { HeadroomClass } from "../scripts/lib/headroom.ts";
@@ -137,8 +138,8 @@ export interface Suite {
   /**
    * The suite's own mark of an oracle output that is no result (lane harness-m7d, review harness-m7d F2): the reason, if the oracle's stderr
    * has it. difftest treats it as `UNSTABLE_ORACLE_PATTERNS`: the output is never cached, the case is UNSTABLE (scripts/difftest.ts
-   * `oracleUnstableReason`). The ripgrep suites set it to lib/rg-build.ts `noResultReason`, so an interrupted or failed oracle build of rg
-   * is never kept as the oracle's answer. Unset: as before.
+   * `oracleUnstableReason`). The ripgrep suites set it to lib/cargo-project-build.ts `noResultReason` (the cargo suites to its
+   * `cargoNoResultReason`), so an interrupted, refused or failed oracle build is never kept as the oracle's answer. Unset: as before.
    */
   uncachedOracle?(stderr: string): string | undefined;
   /**
@@ -181,6 +182,12 @@ export interface Suite {
    * stops the gate (scripts/gate.ts `gateRun`). Unset: no check, as before.
    */
   headroom?: HeadroomClass;
+  /**
+   * The gate runs this suite before every other (plan-m8 D20: `cargo-build` first among the gate's suites, when swap is lowest; lane
+   * harness-m8a-build), heavy or not, in registration order among such suites. `--skip-heavy` still leaves a heavy one out. Unset: the
+   * gate's order as before (the others, then the heavy ones).
+   */
+  runFirst?: boolean;
   /**
    * Why the oracle side does not pass for host reasons (plan-m8 D9, D19: a test the oracle fails, or skips because the host lacks a
    * tool), read from the oracle's own run only, or undefined. difftest runs the oracle a second time on a case this flags: flagged
@@ -2837,27 +2844,67 @@ SUITES.push(
   }),
 );
 
-// M7d's suites (plan-m7 §6, D9, D11, D19; lane harness-m7d). All report only: no baseline, so none is in the gate's defaults. Each names its
-// side's compiler after the wrapper's `--` (or in `--compiler`): the oracle's rustc (`<sysroot>/bin/rustc`, or `rustc +<pin>`), or the port
-// (`bunCmd`), with the oracle's sysroot as `--sysroot` where cargo drives it, as check-rg does.
-// - `rg-build`: scripts/rg-build.ts. A real `cargo build --release` of ripgrep 15.2.0 (pinned `Cargo.lock`) with every compiler call, build
-//   scripts and the link included, on the side's compiler; the stock release profile (`debug = 1`), `CARGO_INCREMENTAL=0`, `-j1`. One case:
-//   cargo's exit, its stderr normalised, `rg --version`, the compiler calls and the artifacts. Heavy: one side at a time, at one target path.
+// M7d's suites (plan-m7 §6, D9, D11, D19; lane harness-m7d). gate-20261115-141315-root-qswd's accept protected `rg-build`, `rg-behaviour`,
+// `rg-behaviour-rgtest` and `pm-self`, so each has a baseline and runs in every gate (the gate's default suites are the baseline files);
+// `std-self` has none (w40t-audit N5). Each names its side's compiler after the wrapper's `--` (or in `--compiler`): the oracle's rustc
+// (`<sysroot>/bin/rustc`, or `rustc +<pin>`), or the port (`bunCmd`), with the oracle's sysroot as `--sysroot` where cargo drives it, as
+// check-rg does.
+// - `rg-build`: scripts/cargo-project-build.ts, project `ripgrep` (plan-m8 D8 generalised lane harness-m7d's scripts/rg-build.ts; the
+//   report is the same). A real `cargo build --release` of ripgrep 15.2.0 (pinned `Cargo.lock`) with every compiler call, build scripts and
+//   the link included, on the side's compiler; the stock release profile (`debug = 1`), `CARGO_INCREMENTAL=0`, `-j1`. One case: cargo's
+//   exit, its stderr normalised, `rg --version`, the compiler calls and the artifacts. Heavy: one side at a time, at one target path.
 // - `rg-behaviour`: scripts/rg-behaviour.ts `query`, one case per scripted query (harness/corpus/rg-behaviour/queries.json) on the fixed corpus
 //   beside it, run by the `rg` each side's rg-build made (built first if no build of the current key is kept): rg's stdout, stderr and exit.
 // - `rg-behaviour-rgtest`: ripgrep's own integration tests (333 `rgtest!` and the rest), an oracle-built test binary running each side's `rg`,
 //   one section per test. A suite of its own rather than part of `rg-behaviour`, so the M7d criterion "rg-behaviour's scripted set MATCH"
-//   is a whole suite's figure: scripts/criteria.ts sums suites, not subsets.
+//   is a whole suite's figure: scripts/criteria.ts sums suites, not subsets. Protected, with no criterion.
 // - `pm-self`: pm-ui's cases with every aux crate, proc macros included, built by the side's compiler (scripts/pm-self-run.ts), so the port's
-//   side loads proc macros the port built; the oracle's side builds everything with the oracle. M7d needs one MATCH.
+//   side loads proc macros the port built; the oracle's side builds everything with the oracle. M7d needed one MATCH; protected.
 // - `std-self`: port-built core, alloc and std, hello linked against them and run. Defined, with no case yet: see `STD_SELF_SKIP`.
 const M7D = (what: string) => `plan-m7 gate M7d: ${what}; report until accepted`;
 /** The compiler of an rg suite's side: the oracle toolchain's rustc by path (cargo runs it), or the port with that sysroot. */
 const rgCompiler = (side: "oracle" | "subject"): string[] => (side === "oracle" ? [join(oracleSysroot(), "bin", "rustc")] : [...bunCmd(RUSTC_DRIVER_ENTRY), "--sysroot", oracleSysroot()]);
-let rgBuildKeyMemo: string | undefined;
-/** `Suite.oracleKey` of the rg-build suites: rg-build's sources, the oracle rustc build and the host tools that link `rg`; rg-behaviour adds its own. */
-const rgBuildOracleKey = (): string => (rgBuildKeyMemo ??= hash([...RG_BUILD_SOURCES.map((f) => hash(readFileSync(f))), rustcDriverHash(), hostToolsId()].join("\0")));
-const rgBehaviourOracleKey = (): string => hash([rgBuildOracleKey(), ...[RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES].map((f) => hash(readFileSync(f)))].join("\0"));
+/**
+ * The files each project-build suite's oracle key hashes, beyond what `projectOracleKey` adds that is not a file (the oracle rustc build,
+ * the host tools, the project's own parts). Every module the suite's command loads that shapes its output must be here, as on main before
+ * lane harness-m8a-build split scripts/lib/rg-build.ts (review harness-m8a-build N1); harness/m8a-suites.test.ts checks it against the
+ * commands' imports. **All five keys are computed from this table** (`tableKey`; review harness-m8a-build-recheck R2), so a file added here
+ * is keyed, whichever entry it is added to. Each entry starts with `PROJECT_BUILD_SOURCES`, which `projectOracleKey` hashes.
+ */
+export const ORACLE_KEY_FILES: Readonly<Record<string, () => string[]>> = {
+  "rg-build": () => [...PROJECT_BUILD_SOURCES],
+  "rg-behaviour": () => [...PROJECT_BUILD_SOURCES, RG_BEHAVIOUR, RG_BEHAVIOUR_LIB, RG_CORPUS, RG_QUERIES],
+  "rg-behaviour-rgtest": () => [...PROJECT_BUILD_SOURCES, RG_BEHAVIOUR, RG_BEHAVIOUR_LIB],
+  "cargo-build": () => [...PROJECT_BUILD_SOURCES],
+  "cargo-smoke": () => [...PROJECT_BUILD_SOURCES, CARGO_SMOKE, join(REPO, "scripts", "lib", "cargo-smoke.ts"), join(REPO, "scripts", "lib", "unstable.ts"), join(RG_ROOT, RG_SRC, "Cargo.lock")],
+};
+/** The files of a suite's key beyond `PROJECT_BUILD_SOURCES` (which `projectOracleKey` hashes), each hashed. */
+const extraKeyFiles = (name: string): string[] =>
+  ORACLE_KEY_FILES[name]!()
+    .filter((f) => !PROJECT_BUILD_SOURCES.includes(f))
+    .map((f) => hash(readFileSync(f)));
+const projectKeyMemo = new Map<string, string>();
+/** `projectOracleKey` of a project, once per process (it runs the host tools). */
+const projectKey = (p: (typeof PROJECTS)[keyof typeof PROJECTS]): string => {
+  let k = projectKeyMemo.get(p.name);
+  if (k === undefined) projectKeyMemo.set(p.name, (k = projectOracleKey(p)));
+  return k;
+};
+/**
+ * A project-build suite's oracle key from `ORACLE_KEY_FILES`: `base`, then the hashes of its entry's files beyond `PROJECT_BUILD_SOURCES`
+ * and `tail`, all hashed together; just `base` when there are neither. That is how each of the five keys was built before the table fed
+ * them (rg-build and cargo-build were `projectOracleKey` alone, with nothing beyond it), so no key's value changes.
+ */
+const tableKey = (name: string, base: string, tail: readonly string[] = []): string => {
+  const more = [...extraKeyFiles(name), ...tail];
+  return more.length === 0 ? base : hash([base, ...more].join("\0"));
+};
+/**
+ * `Suite.oracleKey` of the rg-build suites: the project-build harness's sources, the oracle rustc build and the host tools that link `rg`
+ * (scripts/cargo-project-build.ts `projectOracleKey`) and anything else rg-build's entry lists; rg-behaviour adds its own.
+ */
+const rgBuildOracleKey = (): string => tableKey("rg-build", projectKey(PROJECTS.ripgrep));
+const rgBehaviourOracleKey = (): string => tableKey("rg-behaviour", rgBuildOracleKey());
 const requireRg = () => {
   if (!rgIsSetUp()) die(`ripgrep is not set up in ${RG_ROOT}; run: bun scripts/rg-check.ts setup`);
 };
@@ -2908,7 +2955,7 @@ SUITES.push(
     milestone: "M7",
     uncachedOracle: noResultReason,
     description:
-      "ripgrep 15.2.0 under a real `cargo build --release` (pinned Cargo.lock, D19) with every compiler call on the side's compiler: build scripts (which cargo runs), every crate and the link of rg. Stock release profile (debug = 1), CARGO_INCREMENTAL=0, -j1, one target path for both sides: cargo's exit, its stderr (paths and time normalised, Compiling lines sorted), rg --version, each call's exit and stderr, the artifacts' names and the dep-info and build-script outputs' bytes (scripts/rg-build.ts)",
+      "ripgrep 15.2.0 under a real `cargo build --release` (pinned Cargo.lock, D19) with every compiler call on the side's compiler: build scripts (which cargo runs), every crate and the link of rg. Stock release profile (debug = 1), CARGO_INCREMENTAL=0, -j1, one target path for both sides: cargo's exit, its stderr (paths and time normalised, Compiling lines sorted), rg --version, each call's exit and stderr, the artifacts' names and the dep-info and build-script outputs' bytes (scripts/cargo-project-build.ts, project ripgrep)",
     mode: "single",
     // A port build is ~50 compiles with codegen, one at a time; the oracle's took 71 s with 1-minute load around 30.
     timeoutMs: 6 * 3_600_000,
@@ -2921,8 +2968,8 @@ SUITES.push(
       return [{ id: RG_SRC, file: join(RG_SRC, "Cargo.lock"), args: ["release", "-j1"] }];
     },
     oracleKey: rgBuildOracleKey,
-    oracle: () => [process.execPath, RG_BUILD, "run", "--side", "oracle", "--", ...rgCompiler("oracle")],
-    subject: () => [process.execPath, RG_BUILD, "run", "--side", "subject", "--", ...rgCompiler("subject")],
+    oracle: () => [process.execPath, CARGO_PROJECT_BUILD, "run", "--project", "ripgrep", "--side", "oracle", "--", ...rgCompiler("oracle")],
+    subject: () => [process.execPath, CARGO_PROJECT_BUILD, "run", "--project", "ripgrep", "--side", "subject", "--", ...rgCompiler("subject")],
     criterion: { percent: 100, what: M7D("rg-build passes with the stock release profile") },
   },
   {
@@ -2953,7 +3000,7 @@ SUITES.push(
     milestone: "M7",
     uncachedOracle: noResultReason,
     description:
-      "ripgrep 15.2.0's own integration tests (tests/tests.rs: 333 rgtest! and the rest), one oracle-built test binary running each side's rg from rg-build: each test's ok/FAILED/ignored, and the test binary's exit (scripts/rg-behaviour.ts rgtest); report only",
+      "ripgrep 15.2.0's own integration tests (tests/tests.rs: 333 rgtest! and the rest), one oracle-built test binary running each side's rg from rg-build: each test's ok/FAILED/ignored, and the test binary's exit (scripts/rg-behaviour.ts rgtest); protected, no criterion",
     mode: "split",
     split: "rmetadump",
     timeoutMs: 6 * 3_600_000,
@@ -2965,7 +3012,7 @@ SUITES.push(
       requireRg();
       return [{ id: "integration", file: "", args: [] }];
     },
-    oracleKey: () => hash([rgBuildOracleKey(), hash(readFileSync(RG_BEHAVIOUR)), "rgtest"].join("\0")),
+    oracleKey: () => tableKey("rg-behaviour-rgtest", rgBuildOracleKey(), ["rgtest"]),
     oracle: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "oracle", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("oracle")],
     subject: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "subject", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("subject")],
   },
@@ -2973,7 +3020,7 @@ SUITES.push(
     name: "pm-self",
     milestone: "M7",
     description:
-      "pm-ui's cases with every auxiliary crate, proc macros included, built by the side's own compiler before its main compile (scripts/pm-self-run.ts), so the port loads proc macros the port built; the oracle builds everything on its side: each aux build's exit and stderr, then the main compile's stdout, stderr and exit; report only, M7d needs 1 MATCH",
+      "pm-ui's cases with every auxiliary crate, proc macros included, built by the side's own compiler before its main compile (scripts/pm-self-run.ts), so the port loads proc macros the port built; the oracle builds everything on its side: each aux build's exit and stderr, then the main compile's stdout, stderr and exit; protected (M7d needed 1 MATCH)",
     mode: "single",
     // A port build of a proc-macro crate is a codegen compile and a link, per aux crate.
     timeoutMs: 900_000,
@@ -2998,6 +3045,87 @@ SUITES.push(
     skipped: () => [{ id: "hello", reason: STD_SELF_SKIP }],
     oracle: () => oracleRustcCmd([]),
     subject: () => [...bunCmd(RUSTC_DRIVER_ENTRY)],
+  },
+);
+
+// M8a's suites (plan-m8 §4, §6, D8, D15, D17, D19, D20, D23; lane harness-m8a-build). **Both are reports, never protected** (`neverProtect`):
+// `cargo-build` until the host passes D20's headroom check in steady state with M8's kept caches counted (D23, root's decision "M8 kept
+// caches vs headroom"), and `cargo-smoke` with it, since it runs the port-built cargo that `cargo-build` keeps. Neither has a baseline, so a
+// gate runs them only when `--suites` names them. Their compilers are the rg suites': the oracle's rustc by path, or the port with the
+// oracle's sysroot.
+// - `cargo-build`: scripts/cargo-project-build.ts, project `cargo`. The oracle's `cargo build --features all-static` (dev profile) of cargo at
+//   UPSTREAM.json `cargo.commit` (`bun scripts/tools-src.ts setup cargo`), `-j1`, `CARGO_INCREMENTAL=0`, a built environment and `PATH`
+//   (no `pkg-config`, no Homebrew `curl-config`: D15), every compiler call on the side's compiler. One case, rg-build's report plus each
+//   `-sys` crate's build-script output and `otool -L` of the built cargo. Heavy, `runFirst` (D20: first among the gate's suites, when swap
+//   is lowest), D20's `heavy-build` headroom before it and the watchdog during it.
+// - `cargo-smoke`: scripts/cargo-smoke.ts, one case per step of §4b's smoke test (`SMOKE_STEPS`), run by the cargo each side's compiler
+//   built from that source (the subject side never builds the port's: it runs cargo-build's kept binary), on the oracle's rustc.
+/** The port-built cargo's largest compile, the `cargo` crate, took 12,450 MiB (plan-m8 §4b); a subject over this is reported. */
+const CARGO_HEAVY = { rssBudgetMb: 14 * 1024 };
+const M8A = (what: string) => `plan-m8 gate M8a: ${what}; a report (neverProtect) until D23 holds`;
+const CARGO_NEVER_PROTECT =
+  "plan-m8 D19, D23 (root's decision 2026-11-15 \"M8 kept caches vs headroom\"): a report until the host passes D20's headroom check in steady state with M8's kept caches counted; root clears it in a reviewed harness batch";
+const cargoSmokeOracleKey = (): string => tableKey("cargo-smoke", projectKey(PROJECTS.cargo));
+/** Where the cargo project's crates are unpacked (review harness-m8a-build N6: keyed, as rg-build keys ripgrep's). */
+const CARGO_REGISTRY_SRC = join("cargo-home", "registry", "src");
+const requireCargo = () => {
+  if (!PROJECTS.cargo.isSetUp()) die(`cargo is not set up in ${PROJECTS.cargo.root}; run: ${PROJECTS.cargo.setupHint}`);
+  // The first build unpacks the crates here; keyed from the start, an empty directory until then.
+  mkdirSync(join(PROJECTS.cargo.root, CARGO_REGISTRY_SRC), { recursive: true });
+};
+const cargoSmokeCmd = (side: "oracle" | "subject", c: Case): string[] => [process.execPath, CARGO_SMOKE, "--step", c.id, "--side", side, "--dir", smokeDir(c.id), "--", ...rgCompiler(side)];
+
+SUITES.push(
+  {
+    name: "cargo-build",
+    milestone: "M8",
+    neverProtect: CARGO_NEVER_PROTECT,
+    headroom: "heavy-build",
+    runFirst: true,
+    uncachedOracle: cargoNoResultReason,
+    description:
+      "cargo (UPSTREAM.json cargo.commit) under a real `cargo build --features all-static` (dev profile, pinned Cargo.lock, offline) with every compiler call on the side's compiler: build scripts (which cargo runs), every crate and the link of cargo. CARGO_INCREMENTAL=0, -j1, a built environment and PATH (D15), one target path for both sides: rg-build's report (cargo's exit and stderr, cargo --version, each call, the artifacts) plus each -sys crate's build-script output and otool -L of the built cargo (scripts/cargo-project-build.ts, project cargo); a report, never protected (D19, D23)",
+    mode: "single",
+    // The port's build is 40-50 min at -j1 (plan-m8 §4b, the calls alone 35.6 min); the oracle's took 54 s at -j4 without all-static, whose
+    // OpenSSL build is unmeasured.
+    timeoutMs: 4 * 3_600_000,
+    oracleTimeoutMs: 3_600_000,
+    heavy: CARGO_HEAVY,
+    cwd: PROJECTS.cargo.root,
+    // The source tree and the unpacked crates (review harness-m8a-build N6): cargo checks a crate against Cargo.lock's checksum when it
+    // unpacks it, not again, so a change there would otherwise be unkeyed. About 560 MiB to hash once per difftest process; the first
+    // oracle build unpacks them, so the key changes once after it, as rg-build's did.
+    inputDirs: [PROJECTS.cargo.src(), CARGO_REGISTRY_SRC],
+    cases: () => {
+      requireCargo();
+      return [{ id: PROJECTS.cargo.src(), file: join(PROJECTS.cargo.src(), "Cargo.lock"), args: ["dev", "all-static", "-j1"] }];
+    },
+    oracleKey: () => tableKey("cargo-build", projectKey(PROJECTS.cargo)),
+    oracle: () => [process.execPath, CARGO_PROJECT_BUILD, "run", "--project", "cargo", "--side", "oracle", "--", ...rgCompiler("oracle")],
+    subject: () => [process.execPath, CARGO_PROJECT_BUILD, "run", "--project", "cargo", "--side", "subject", "--", ...rgCompiler("subject")],
+    criterion: { percent: 100, what: M8A("cargo-build MATCH") },
+  },
+  {
+    name: "cargo-smoke",
+    milestone: "M8",
+    neverProtect: CARGO_NEVER_PROTECT,
+    uncachedOracle: cargoNoResultReason,
+    description:
+      "plan-m8 §4b's smoke test, one case per step (cargo --version and -vV; new; build, run, test with one failing test, build --release, metadata, tree, clean on that project; ripgrep 15.2.0's check -j4 and tree), run by the cargo the side's compiler built from cargo's pinned source (cargo-build's), on the oracle's rustc: cargo's exit, stdout and stderr (paths named, Finished time, thread id and libtest time masked, Compiling/Checking sorted) and the files a step lists (scripts/cargo-smoke.ts); a report, never protected (D19, D23)",
+    mode: "single",
+    // A step is seconds; the oracle side's first case builds the oracle's cargo if no build of the current key is kept (cargo-build's limits).
+    timeoutMs: 1_800_000,
+    oracleTimeoutMs: 3_600_000,
+    cases: () => {
+      requireCargo();
+      requireRg();
+      return SMOKE_STEPS.map((st): Case => ({ id: st.id, file: "", args: st.cargo }));
+    },
+    caseLock: (c) => `${smokeDir(c.id)}.case.lock`,
+    oracleKey: cargoSmokeOracleKey,
+    oracle: ([c]) => cargoSmokeCmd("oracle", c!),
+    subject: ([c]) => cargoSmokeCmd("subject", c!),
+    criterion: { percent: 100, what: M8A("cargo-smoke all MATCH") },
   },
 );
 

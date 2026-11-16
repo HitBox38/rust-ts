@@ -8,7 +8,8 @@
 //       Heavy suites (`Suite.heavy`, plan-m5 §4.2: core-scale runs, one process at a time) run after all the
 //       others, one after another, and print each run's wall/user time and max RSS (an RSS over the suite's budget
 //       is a `note:`, not a failure: D11). `--skip-heavy` leaves them out: they are listed as not run (`notRun` in
-//       gate.json), none of their cases counts as lost, and the run cannot be accepted if one of them is protected.
+//       gate.json), none of their cases counts as lost, and the run cannot be accepted if one of them is protected. A suite with
+//       `Suite.runFirst` (plan-m8 D20: `cargo-build`, when swap is lowest) runs before all the others, heavy or not (`gateSuiteOrder`).
 //       It refuses to start on battery (one `ERROR:` line), unless `--allow-battery`: a gate on battery ran up to 3.5x slower, so a
 //       timeout can become a false protected loss (docs/reviews/perf-near-limit.md, question c). Power lost during a run is a `note:`, never
 //       a failure. gate.json records power, load, swap and times (`host`, `SuiteGate.startedAt`...), which no status or verdict reads
@@ -67,7 +68,8 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { HOST_RLIB_RUN, IR_RUN, MIR_DUMP_RUN, MIRI_SYSROOT_RUN, NATIVE_RUN, PM_SELF_RUN, RG_CHECK, RLIB_NATIVE_RUN, RMETA_RUN, SUITES, suite as getSuite, type Suite } from "../harness/suites.ts";
-import { RG_BUILD } from "./rg-build.ts";
+import { CARGO_PROJECT_BUILD } from "./cargo-project-build.ts";
+import { CARGO_SMOKE } from "./cargo-smoke.ts";
 import { RG_BEHAVIOUR } from "./rg-behaviour.ts";
 import { parsePmSelfArgs } from "./pm-self-run.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
@@ -251,16 +253,17 @@ export function checkProbes(suites: string[], unitTests: boolean): boolean {
  * where it is the wrapper's compiler (the first word after its `--`) and, with `--dump`, its probe, for scripts/ir-run.ts
  * (the IR suites), its compiler, for scripts/rg-check.ts (the check-rg suites), the oracle rustc through its cargo, and for
  * scripts/native-run.ts (the native suites), its compiler: the program it builds and runs is that compiler's output, linked by `cc`
- * as rustc links, and run under `sandbox-exec` through `perl`, which are the host's, not oracles (lane harness-m7b). For scripts/rg-build.ts
- * and scripts/rg-behaviour.ts (rg-build, rg-behaviour, rg-behaviour-rgtest), the oracle rustc through its cargo, as for check-rg; what they
- * run besides is that rustc's output (`rg`, ripgrep's build scripts and its test binary). For scripts/pm-self-run.ts (pm-self), its
- * `--compiler` (lane harness-m7d).
+ * as rustc links, and run under `sandbox-exec` through `perl`, which are the host's, not oracles (lane harness-m7b). For
+ * scripts/cargo-project-build.ts and scripts/rg-behaviour.ts (rg-build, rg-behaviour, rg-behaviour-rgtest, cargo-build), the oracle rustc
+ * through its cargo, as for check-rg; what they run besides is that rustc's output (`rg`, `cargo`, the projects' build scripts and ripgrep's
+ * test binary). For scripts/cargo-smoke.ts (cargo-smoke), the same: the cargo the oracle rustc built, running that rustc (lane
+ * harness-m8a-build). For scripts/pm-self-run.ts (pm-self), its `--compiler` (lane harness-m7d).
  * Throws on a malformed wrapper command line (`parseRmetaRunArgs`, `parseIrRunArgs`, `parseNativeRunArgs`).
  */
 export function oracleRuns(cmd: string[]): string[] {
   if (cmd[0] === process.execPath && cmd[1] === IR_RUN) return [parseIrRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === RG_CHECK) return ["rustc"];
-  if (cmd[0] === process.execPath && (cmd[1] === RG_BUILD || cmd[1] === RG_BEHAVIOUR)) return ["rustc"];
+  if (cmd[0] === process.execPath && (cmd[1] === CARGO_PROJECT_BUILD || cmd[1] === RG_BEHAVIOUR || cmd[1] === CARGO_SMOKE)) return ["rustc"];
   if (cmd[0] === process.execPath && cmd[1] === PM_SELF_RUN) return [parsePmSelfArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === MIRI_SYSROOT_RUN) return [parseMiriSysrootRunArgs(cmd.slice(2)).compiler[0]!];
   if (cmd[0] === process.execPath && cmd[1] === HOST_RLIB_RUN) return [parseHostRlibRunArgs(cmd.slice(2)).compiler[0]!];
@@ -656,6 +659,17 @@ function protectedSuites(): string[] {
     .map((f) => f.slice(0, -4));
 }
 
+/**
+ * The order the gate runs `requested` in (plan-m5 §4.2, plan-m8 D20): the `runFirst` suites, then the others, then the heavy ones, each
+ * part in the order given; `skipHeavy` leaves out every heavy suite, `runFirst` or not.
+ */
+export function gateSuiteOrder(requested: readonly string[], skipHeavy: boolean, get: (name: string) => Pick<Suite, "heavy" | "runFirst"> = getSuite): string[] {
+  const keep = requested.filter((n) => !(skipHeavy && get(n).heavy !== undefined));
+  const first = keep.filter((n) => get(n).runFirst === true);
+  const rest = keep.filter((n) => get(n).runFirst !== true);
+  return [...first, ...rest.filter((n) => get(n).heavy === undefined), ...rest.filter((n) => get(n).heavy !== undefined)];
+}
+
 export async function gateRun(requested: string[], skipStatic: boolean, skipHeavy: boolean, allowBattery = false, gateHost: GateHost = REAL_GATE_HOST): Promise<void> {
   // First of all: the gate's Bun (scripts/lib/bun-pin.ts). gate.json `bun` records it.
   const bun = gateHost.bun ?? runningBun();
@@ -701,10 +715,11 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   const host = new HostLog(gateHost.readers, { pollMs: gateHost.pollMs, keepEveryMs: gateHost.keepEveryMs, note, allowBattery, firstOnBattery: first.power?.onBattery, stuck, readLimitMs: gateHost.readLimitMs });
   await host.mark();
   host.start();
-  // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run.
+  // Heavy suites last, in their given order (plan-m5 §4.2); `--skip-heavy` leaves them out, as not run. A `runFirst` suite before all
+  // (plan-m8 D20: `cargo-build`, when swap is lowest), heavy or not; `--skip-heavy` still leaves a heavy one out.
   const isHeavy = (name: string) => getSuite(name).heavy !== undefined;
   const notRun = skipHeavy ? requested.filter(isHeavy).map((suite) => ({ suite, reason: "--skip-heavy" })) : [];
-  const suites = [...requested.filter((n) => !isHeavy(n)), ...(skipHeavy ? [] : requested.filter(isHeavy))];
+  const suites = gateSuiteOrder(requested, skipHeavy);
   for (const { suite } of notRun) console.log(`note: heavy suite ${suite} not run (--skip-heavy): none of its cases counts as lost, and a run that skips a protected suite cannot be accepted`);
   const runId = `gate-${nowId()}`;
   const prov = await provenance();
@@ -761,6 +776,9 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     console.log(`ERROR: ${st.suite}: ${st.reason}; the gate stops here: ${left.length} suite(s) not run, none of their cases counts as lost, and this run cannot be accepted (re-run it once the host meets plan-m8 D20)`);
     for (const l of left) notRun.push({ suite: l, reason: l === st.suite ? `${st.kind === "headroom" ? "headroom check failed" : "watchdog stop"}: ${st.reason}` : `the gate stopped at ${st.suite}` });
   };
+  // The suites' processes know they run under this gate: a heavy project build checks for `$RUST_TS_DATA/tmp/GATE_RUNNING` only outside it
+  // (scripts/cargo-project-build.ts `preconditionRefusal`, plan-m8 D20). Set after the static steps, so no unit test inherits it.
+  process.env.RUST_TS_GATE_RUN = runId;
   for (const [i, suite] of suites.entries()) {
     // A changed Bun file stops the run here: the suites left would run on a build the run did not start on.
     if (!bunUnchanged(i === 0 ? `before suite ${suite} (since the start)` : `before suite ${suite} (during ${suites[i - 1]})`)) {

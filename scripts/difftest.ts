@@ -80,6 +80,7 @@ import { ORACLE_CACHE, PIN, REPO, RUNS, UPSTREAM, die, ensureDir, hash, nowId, p
 import { withCaseLock } from "./lib/case-lock.ts";
 import { caseDeps, type Dep } from "./lib/deps.ts";
 import { caseEnv } from "./lib/env.ts";
+import { inputDirsText } from "./lib/input-dirs.ts";
 import { EXIT_MARK, STDERR_MARK, UNSTABLE_ORACLE_PATTERNS, maskProgramOutput, maskedTexts, stderrMask, unstableOracleReason } from "./lib/unstable.ts";
 import { upstreamChanges, upstreamError, upstreamStatus } from "./lib/upstream.ts";
 import { verifyMiriOracle } from "./lib/miri.ts";
@@ -324,24 +325,15 @@ export const depsOf = (s: Suite, c: Case): Dep[] => (c.file === "" || s.readsOnl
 const inputDirsMemo = new Map<string, string>();
 /**
  * `Suite.inputDirs`' part of the oracle cache key: a hash of every file under them (relative path and content hash,
- * sorted), so any file changing, appearing or disappearing there changes the key. Memoized per process (the upstream
+ * sorted; a symbolic link to a directory by its link text, lib/input-dirs.ts), so any file changing, appearing or disappearing there changes the key. Memoized per process (the upstream
  * checkout must not change during a run: difftest checks it).
  */
 function inputDirsHash(s: Suite): string {
   const key = `${cwdOf(s)}\0${s.inputDirs!.join("\0")}`;
   let h = inputDirsMemo.get(key);
   if (h) return h;
-  const files: string[] = [];
-  const walk = (d: string) => {
-    for (const e of readdirSync(join(cwdOf(s), d), { withFileTypes: true })) {
-      const rel = `${d}/${e.name}`;
-      if (e.isDirectory()) walk(rel);
-      else files.push(rel);
-    }
-  };
-  for (const d of s.inputDirs!) walk(d);
-  files.sort();
-  h = hash(files.map((f) => `${f}\0${hash(readFileSync(join(cwdOf(s), f)))}`).join("\n"));
+  // A symbolic link to a directory, or to nothing, is hashed by its link text (lib/input-dirs.ts; review harness-m8a-build-recheck R1).
+  h = hash(inputDirsText(cwdOf(s), s.inputDirs!, (b) => hash(b)));
   inputDirsMemo.set(key, h);
   return h;
 }
