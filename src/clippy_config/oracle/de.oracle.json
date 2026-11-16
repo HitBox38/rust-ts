@@ -1,0 +1,501 @@
+{
+ "commit": "6f5da406b56c2db6607202b63daee73aa8c61297",
+ "value_lists": [
+  {
+   "list": "conf_fields",
+   "width": 10,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 30,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 45,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 60,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 80,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 100,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 120,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates                   enum-variant-name-threshold\nabsolute-paths-max-segments                     enum-variant-size-threshold\naccept-comment-above-attributes                 excessive-nesting-threshold\naccept-comment-above-statement                  future-size-threshold\nallow-comparison-to-zero                        ignore-interior-mutability\nallow-dbg-in-tests                              inherent-impl-lint-scope\nallow-exact-repetitions                         large-error-ignored\nallow-expect-in-consts                          large-error-threshold\nallow-expect-in-tests                           lint-commented-code\nallow-indexing-slicing-in-tests                 literal-representation-threshold\nallow-large-stack-frames-in-tests               matches-for-let-else\nallow-mixed-uninlined-format-args               max-fn-params-bools\nallow-one-hash-in-raw-strings                   max-include-file-size\nallow-panic-in-tests                            max-struct-bools\nallow-print-in-tests                            max-suggested-slice-pattern-length\nallow-private-module-inception                  max-trait-bounds\nallow-renamed-params-for                        min-ident-chars-lint-trait-impl\nallow-unwrap-in-consts                          min-ident-chars-threshold\nallow-unwrap-in-tests                           missing-docs-allow-unused\nallow-unwrap-types                              missing-docs-in-crate-items\nallow-useless-vec-in-tests                      module-item-order-groupings\nallowed-dotfiles                                module-items-ordered-within-groupings\nallowed-duplicate-crates                        msrv\nallowed-idents-below-min-chars                  pass-by-value-size-limit\nallowed-prefixes                                pub-underscore-fields-behavior\nallowed-scripts                                 recursive-self-in-type-definitions\nallowed-wildcard-imports                        semicolon-inside-block-ignore-singleline\narithmetic-side-effects-allowed                 semicolon-outside-block-ignore-multiline\narithmetic-side-effects-allowed-binary          single-char-binding-names-threshold\narithmetic-side-effects-allowed-unary           source-item-ordering\narray-size-threshold                            stack-size-threshold\navoid-breaking-exported-api                     standard-macro-braces\nawait-holding-invalid-types                     struct-field-name-threshold\ncargo-ignore-publish                            suppress-restriction-lint-in-const\ncheck-grouped-late-init                         too-large-for-stack\ncheck-incompatible-msrv-in-tests                too-many-arguments-threshold\ncheck-inconsistent-struct-field-initializers    too-many-lines-threshold\ncheck-private-items                             trait-assoc-item-kinds-order\ncognitive-complexity-threshold                  trait-impl-item-order\nconst-literal-digits-threshold                  trivial-copy-size-limit\ndisallowed-fields                               type-complexity-threshold\ndisallowed-macros                               unnecessary-box-size\ndisallowed-methods                              unreadable-literal-lint-fractions\ndisallowed-names                                upper-case-acronyms-aggressive\ndisallowed-types                                vec-box-size-threshold\ndoc-valid-idents                                verbose-bit-mask-threshold\nenable-raw-pointer-heuristic-for-send           warn-on-all-wildcard-imports\nenforce-iter-loop-reborrow                      warn-unsafe-macro-metavars-in-private-macros\nenforced-import-renames                         third-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 140,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates                   enum-variant-name-threshold\nabsolute-paths-max-segments                     enum-variant-size-threshold\naccept-comment-above-attributes                 excessive-nesting-threshold\naccept-comment-above-statement                  future-size-threshold\nallow-comparison-to-zero                        ignore-interior-mutability\nallow-dbg-in-tests                              inherent-impl-lint-scope\nallow-exact-repetitions                         large-error-ignored\nallow-expect-in-consts                          large-error-threshold\nallow-expect-in-tests                           lint-commented-code\nallow-indexing-slicing-in-tests                 literal-representation-threshold\nallow-large-stack-frames-in-tests               matches-for-let-else\nallow-mixed-uninlined-format-args               max-fn-params-bools\nallow-one-hash-in-raw-strings                   max-include-file-size\nallow-panic-in-tests                            max-struct-bools\nallow-print-in-tests                            max-suggested-slice-pattern-length\nallow-private-module-inception                  max-trait-bounds\nallow-renamed-params-for                        min-ident-chars-lint-trait-impl\nallow-unwrap-in-consts                          min-ident-chars-threshold\nallow-unwrap-in-tests                           missing-docs-allow-unused\nallow-unwrap-types                              missing-docs-in-crate-items\nallow-useless-vec-in-tests                      module-item-order-groupings\nallowed-dotfiles                                module-items-ordered-within-groupings\nallowed-duplicate-crates                        msrv\nallowed-idents-below-min-chars                  pass-by-value-size-limit\nallowed-prefixes                                pub-underscore-fields-behavior\nallowed-scripts                                 recursive-self-in-type-definitions\nallowed-wildcard-imports                        semicolon-inside-block-ignore-singleline\narithmetic-side-effects-allowed                 semicolon-outside-block-ignore-multiline\narithmetic-side-effects-allowed-binary          single-char-binding-names-threshold\narithmetic-side-effects-allowed-unary           source-item-ordering\narray-size-threshold                            stack-size-threshold\navoid-breaking-exported-api                     standard-macro-braces\nawait-holding-invalid-types                     struct-field-name-threshold\ncargo-ignore-publish                            suppress-restriction-lint-in-const\ncheck-grouped-late-init                         too-large-for-stack\ncheck-incompatible-msrv-in-tests                too-many-arguments-threshold\ncheck-inconsistent-struct-field-initializers    too-many-lines-threshold\ncheck-private-items                             trait-assoc-item-kinds-order\ncognitive-complexity-threshold                  trait-impl-item-order\nconst-literal-digits-threshold                  trivial-copy-size-limit\ndisallowed-fields                               type-complexity-threshold\ndisallowed-macros                               unnecessary-box-size\ndisallowed-methods                              unreadable-literal-lint-fractions\ndisallowed-names                                upper-case-acronyms-aggressive\ndisallowed-types                                vec-box-size-threshold\ndoc-valid-idents                                verbose-bit-mask-threshold\nenable-raw-pointer-heuristic-for-send           warn-on-all-wildcard-imports\nenforce-iter-loop-reborrow                      warn-unsafe-macro-metavars-in-private-macros\nenforced-import-renames                         third-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 160,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates             cargo-ignore-publish                            min-ident-chars-threshold\nabsolute-paths-max-segments               check-grouped-late-init                         missing-docs-allow-unused\naccept-comment-above-attributes           check-incompatible-msrv-in-tests                missing-docs-in-crate-items\naccept-comment-above-statement            check-inconsistent-struct-field-initializers    module-item-order-groupings\nallow-comparison-to-zero                  check-private-items                             module-items-ordered-within-groupings\nallow-dbg-in-tests                        cognitive-complexity-threshold                  msrv\nallow-exact-repetitions                   const-literal-digits-threshold                  pass-by-value-size-limit\nallow-expect-in-consts                    disallowed-fields                               pub-underscore-fields-behavior\nallow-expect-in-tests                     disallowed-macros                               recursive-self-in-type-definitions\nallow-indexing-slicing-in-tests           disallowed-methods                              semicolon-inside-block-ignore-singleline\nallow-large-stack-frames-in-tests         disallowed-names                                semicolon-outside-block-ignore-multiline\nallow-mixed-uninlined-format-args         disallowed-types                                single-char-binding-names-threshold\nallow-one-hash-in-raw-strings             doc-valid-idents                                source-item-ordering\nallow-panic-in-tests                      enable-raw-pointer-heuristic-for-send           stack-size-threshold\nallow-print-in-tests                      enforce-iter-loop-reborrow                      standard-macro-braces\nallow-private-module-inception            enforced-import-renames                         struct-field-name-threshold\nallow-renamed-params-for                  enum-variant-name-threshold                     suppress-restriction-lint-in-const\nallow-unwrap-in-consts                    enum-variant-size-threshold                     too-large-for-stack\nallow-unwrap-in-tests                     excessive-nesting-threshold                     too-many-arguments-threshold\nallow-unwrap-types                        future-size-threshold                           too-many-lines-threshold\nallow-useless-vec-in-tests                ignore-interior-mutability                      trait-assoc-item-kinds-order\nallowed-dotfiles                          inherent-impl-lint-scope                        trait-impl-item-order\nallowed-duplicate-crates                  large-error-ignored                             trivial-copy-size-limit\nallowed-idents-below-min-chars            large-error-threshold                           type-complexity-threshold\nallowed-prefixes                          lint-commented-code                             unnecessary-box-size\nallowed-scripts                           literal-representation-threshold                unreadable-literal-lint-fractions\nallowed-wildcard-imports                  matches-for-let-else                            upper-case-acronyms-aggressive\narithmetic-side-effects-allowed           max-fn-params-bools                             vec-box-size-threshold\narithmetic-side-effects-allowed-binary    max-include-file-size                           verbose-bit-mask-threshold\narithmetic-side-effects-allowed-unary     max-struct-bools                                warn-on-all-wildcard-imports\narray-size-threshold                      max-suggested-slice-pattern-length              warn-unsafe-macro-metavars-in-private-macros\navoid-breaking-exported-api               max-trait-bounds                                third-party\nawait-holding-invalid-types               min-ident-chars-lint-trait-impl"
+  },
+  {
+   "list": "conf_fields",
+   "width": 200,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates        allowed-scripts                                 enum-variant-size-threshold              semicolon-inside-block-ignore-singleline\nabsolute-paths-max-segments          allowed-wildcard-imports                        excessive-nesting-threshold              semicolon-outside-block-ignore-multiline\naccept-comment-above-attributes      arithmetic-side-effects-allowed                 future-size-threshold                    single-char-binding-names-threshold\naccept-comment-above-statement       arithmetic-side-effects-allowed-binary          ignore-interior-mutability               source-item-ordering\nallow-comparison-to-zero             arithmetic-side-effects-allowed-unary           inherent-impl-lint-scope                 stack-size-threshold\nallow-dbg-in-tests                   array-size-threshold                            large-error-ignored                      standard-macro-braces\nallow-exact-repetitions              avoid-breaking-exported-api                     large-error-threshold                    struct-field-name-threshold\nallow-expect-in-consts               await-holding-invalid-types                     lint-commented-code                      suppress-restriction-lint-in-const\nallow-expect-in-tests                cargo-ignore-publish                            literal-representation-threshold         too-large-for-stack\nallow-indexing-slicing-in-tests      check-grouped-late-init                         matches-for-let-else                     too-many-arguments-threshold\nallow-large-stack-frames-in-tests    check-incompatible-msrv-in-tests                max-fn-params-bools                      too-many-lines-threshold\nallow-mixed-uninlined-format-args    check-inconsistent-struct-field-initializers    max-include-file-size                    trait-assoc-item-kinds-order\nallow-one-hash-in-raw-strings        check-private-items                             max-struct-bools                         trait-impl-item-order\nallow-panic-in-tests                 cognitive-complexity-threshold                  max-suggested-slice-pattern-length       trivial-copy-size-limit\nallow-print-in-tests                 const-literal-digits-threshold                  max-trait-bounds                         type-complexity-threshold\nallow-private-module-inception       disallowed-fields                               min-ident-chars-lint-trait-impl          unnecessary-box-size\nallow-renamed-params-for             disallowed-macros                               min-ident-chars-threshold                unreadable-literal-lint-fractions\nallow-unwrap-in-consts               disallowed-methods                              missing-docs-allow-unused                upper-case-acronyms-aggressive\nallow-unwrap-in-tests                disallowed-names                                missing-docs-in-crate-items              vec-box-size-threshold\nallow-unwrap-types                   disallowed-types                                module-item-order-groupings              verbose-bit-mask-threshold\nallow-useless-vec-in-tests           doc-valid-idents                                module-items-ordered-within-groupings    warn-on-all-wildcard-imports\nallowed-dotfiles                     enable-raw-pointer-heuristic-for-send           msrv                                     warn-unsafe-macro-metavars-in-private-macros\nallowed-duplicate-crates             enforce-iter-loop-reborrow                      pass-by-value-size-limit                 third-party\nallowed-idents-below-min-chars       enforced-import-renames                         pub-underscore-fields-behavior\nallowed-prefixes                     enum-variant-name-threshold                     recursive-self-in-type-definitions"
+  },
+  {
+   "list": "conf_fields",
+   "width": 300,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates        allow-unwrap-in-consts                    check-grouped-late-init                         excessive-nesting-threshold           missing-docs-in-crate-items                 too-many-lines-threshold\nabsolute-paths-max-segments          allow-unwrap-in-tests                     check-incompatible-msrv-in-tests                future-size-threshold                 module-item-order-groupings                 trait-assoc-item-kinds-order\naccept-comment-above-attributes      allow-unwrap-types                        check-inconsistent-struct-field-initializers    ignore-interior-mutability            module-items-ordered-within-groupings       trait-impl-item-order\naccept-comment-above-statement       allow-useless-vec-in-tests                check-private-items                             inherent-impl-lint-scope              msrv                                        trivial-copy-size-limit\nallow-comparison-to-zero             allowed-dotfiles                          cognitive-complexity-threshold                  large-error-ignored                   pass-by-value-size-limit                    type-complexity-threshold\nallow-dbg-in-tests                   allowed-duplicate-crates                  const-literal-digits-threshold                  large-error-threshold                 pub-underscore-fields-behavior              unnecessary-box-size\nallow-exact-repetitions              allowed-idents-below-min-chars            disallowed-fields                               lint-commented-code                   recursive-self-in-type-definitions          unreadable-literal-lint-fractions\nallow-expect-in-consts               allowed-prefixes                          disallowed-macros                               literal-representation-threshold      semicolon-inside-block-ignore-singleline    upper-case-acronyms-aggressive\nallow-expect-in-tests                allowed-scripts                           disallowed-methods                              matches-for-let-else                  semicolon-outside-block-ignore-multiline    vec-box-size-threshold\nallow-indexing-slicing-in-tests      allowed-wildcard-imports                  disallowed-names                                max-fn-params-bools                   single-char-binding-names-threshold         verbose-bit-mask-threshold\nallow-large-stack-frames-in-tests    arithmetic-side-effects-allowed           disallowed-types                                max-include-file-size                 source-item-ordering                        warn-on-all-wildcard-imports\nallow-mixed-uninlined-format-args    arithmetic-side-effects-allowed-binary    doc-valid-idents                                max-struct-bools                      stack-size-threshold                        warn-unsafe-macro-metavars-in-private-macros\nallow-one-hash-in-raw-strings        arithmetic-side-effects-allowed-unary     enable-raw-pointer-heuristic-for-send           max-suggested-slice-pattern-length    standard-macro-braces                       third-party\nallow-panic-in-tests                 array-size-threshold                      enforce-iter-loop-reborrow                      max-trait-bounds                      struct-field-name-threshold\nallow-print-in-tests                 avoid-breaking-exported-api               enforced-import-renames                         min-ident-chars-lint-trait-impl       suppress-restriction-lint-in-const\nallow-private-module-inception       await-holding-invalid-types               enum-variant-name-threshold                     min-ident-chars-threshold             too-large-for-stack\nallow-renamed-params-for             cargo-ignore-publish                      enum-variant-size-threshold                     missing-docs-allow-unused             too-many-arguments-threshold"
+  },
+  {
+   "list": "conf_fields",
+   "width": 500,
+   "render_pretty": true,
+   "message": "possible values:\nabsolute-paths-allowed-crates        allow-print-in-tests               arithmetic-side-effects-allowed-binary          disallowed-methods                       large-error-threshold                 module-items-ordered-within-groupings       too-many-arguments-threshold\nabsolute-paths-max-segments          allow-private-module-inception     arithmetic-side-effects-allowed-unary           disallowed-names                         lint-commented-code                   msrv                                        too-many-lines-threshold\naccept-comment-above-attributes      allow-renamed-params-for           array-size-threshold                            disallowed-types                         literal-representation-threshold      pass-by-value-size-limit                    trait-assoc-item-kinds-order\naccept-comment-above-statement       allow-unwrap-in-consts             avoid-breaking-exported-api                     doc-valid-idents                         matches-for-let-else                  pub-underscore-fields-behavior              trait-impl-item-order\nallow-comparison-to-zero             allow-unwrap-in-tests              await-holding-invalid-types                     enable-raw-pointer-heuristic-for-send    max-fn-params-bools                   recursive-self-in-type-definitions          trivial-copy-size-limit\nallow-dbg-in-tests                   allow-unwrap-types                 cargo-ignore-publish                            enforce-iter-loop-reborrow               max-include-file-size                 semicolon-inside-block-ignore-singleline    type-complexity-threshold\nallow-exact-repetitions              allow-useless-vec-in-tests         check-grouped-late-init                         enforced-import-renames                  max-struct-bools                      semicolon-outside-block-ignore-multiline    unnecessary-box-size\nallow-expect-in-consts               allowed-dotfiles                   check-incompatible-msrv-in-tests                enum-variant-name-threshold              max-suggested-slice-pattern-length    single-char-binding-names-threshold         unreadable-literal-lint-fractions\nallow-expect-in-tests                allowed-duplicate-crates           check-inconsistent-struct-field-initializers    enum-variant-size-threshold              max-trait-bounds                      source-item-ordering                        upper-case-acronyms-aggressive\nallow-indexing-slicing-in-tests      allowed-idents-below-min-chars     check-private-items                             excessive-nesting-threshold              min-ident-chars-lint-trait-impl       stack-size-threshold                        vec-box-size-threshold\nallow-large-stack-frames-in-tests    allowed-prefixes                   cognitive-complexity-threshold                  future-size-threshold                    min-ident-chars-threshold             standard-macro-braces                       verbose-bit-mask-threshold\nallow-mixed-uninlined-format-args    allowed-scripts                    const-literal-digits-threshold                  ignore-interior-mutability               missing-docs-allow-unused             struct-field-name-threshold                 warn-on-all-wildcard-imports\nallow-one-hash-in-raw-strings        allowed-wildcard-imports           disallowed-fields                               inherent-impl-lint-scope                 missing-docs-in-crate-items           suppress-restriction-lint-in-const          warn-unsafe-macro-metavars-in-private-macros\nallow-panic-in-tests                 arithmetic-side-effects-allowed    disallowed-macros                               large-error-ignored                      module-item-order-groupings           too-large-for-stack                         third-party"
+  },
+  {
+   "list": "conf_fields",
+   "width": 140,
+   "render_pretty": false,
+   "message": "possible values:\nabsolute-paths-allowed-crates\nabsolute-paths-max-segments\naccept-comment-above-attributes\naccept-comment-above-statement\nallow-comparison-to-zero\nallow-dbg-in-tests\nallow-exact-repetitions\nallow-expect-in-consts\nallow-expect-in-tests\nallow-indexing-slicing-in-tests\nallow-large-stack-frames-in-tests\nallow-mixed-uninlined-format-args\nallow-one-hash-in-raw-strings\nallow-panic-in-tests\nallow-print-in-tests\nallow-private-module-inception\nallow-renamed-params-for\nallow-unwrap-in-consts\nallow-unwrap-in-tests\nallow-unwrap-types\nallow-useless-vec-in-tests\nallowed-dotfiles\nallowed-duplicate-crates\nallowed-idents-below-min-chars\nallowed-prefixes\nallowed-scripts\nallowed-wildcard-imports\narithmetic-side-effects-allowed\narithmetic-side-effects-allowed-binary\narithmetic-side-effects-allowed-unary\narray-size-threshold\navoid-breaking-exported-api\nawait-holding-invalid-types\ncargo-ignore-publish\ncheck-grouped-late-init\ncheck-incompatible-msrv-in-tests\ncheck-inconsistent-struct-field-initializers\ncheck-private-items\ncognitive-complexity-threshold\nconst-literal-digits-threshold\ndisallowed-fields\ndisallowed-macros\ndisallowed-methods\ndisallowed-names\ndisallowed-types\ndoc-valid-idents\nenable-raw-pointer-heuristic-for-send\nenforce-iter-loop-reborrow\nenforced-import-renames\nenum-variant-name-threshold\nenum-variant-size-threshold\nexcessive-nesting-threshold\nfuture-size-threshold\nignore-interior-mutability\ninherent-impl-lint-scope\nlarge-error-ignored\nlarge-error-threshold\nlint-commented-code\nliteral-representation-threshold\nmatches-for-let-else\nmax-fn-params-bools\nmax-include-file-size\nmax-struct-bools\nmax-suggested-slice-pattern-length\nmax-trait-bounds\nmin-ident-chars-lint-trait-impl\nmin-ident-chars-threshold\nmissing-docs-allow-unused\nmissing-docs-in-crate-items\nmodule-item-order-groupings\nmodule-items-ordered-within-groupings\nmsrv\npass-by-value-size-limit\npub-underscore-fields-behavior\nrecursive-self-in-type-definitions\nsemicolon-inside-block-ignore-singleline\nsemicolon-outside-block-ignore-multiline\nsingle-char-binding-names-threshold\nsource-item-ordering\nstack-size-threshold\nstandard-macro-braces\nstruct-field-name-threshold\nsuppress-restriction-lint-in-const\ntoo-large-for-stack\ntoo-many-arguments-threshold\ntoo-many-lines-threshold\ntrait-assoc-item-kinds-order\ntrait-impl-item-order\ntrivial-copy-size-limit\ntype-complexity-threshold\nunnecessary-box-size\nunreadable-literal-lint-fractions\nupper-case-acronyms-aggressive\nvec-box-size-threshold\nverbose-bit-mask-threshold\nwarn-on-all-wildcard-imports\nwarn-unsafe-macro-metavars-in-private-macros\nthird-party"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 10,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate\nmod\nforeign_mod\nuse\nmacro\nglobal_asm\nstatic\nconst\nty_alias\nenum\nstruct\nunion\ntrait\ntrait_alias\nimpl\nfn\ntest_binder_constraints"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 30,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate\nmod\nforeign_mod\nuse\nmacro\nglobal_asm\nstatic\nconst\nty_alias\nenum\nstruct\nunion\ntrait\ntrait_alias\nimpl\nfn\ntest_binder_constraints"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 45,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate\nmod\nforeign_mod\nuse\nmacro\nglobal_asm\nstatic\nconst\nty_alias\nenum\nstruct\nunion\ntrait\ntrait_alias\nimpl\nfn\ntest_binder_constraints"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 60,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    enum\nmod             struct\nforeign_mod     union\nuse             trait\nmacro           trait_alias\nglobal_asm      impl\nstatic          fn\nconst           test_binder_constraints\nty_alias"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 80,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 100,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 120,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 140,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 160,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 200,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 300,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 500,
+   "render_pretty": true,
+   "message": "possible values:\nextern_crate    static      trait\nmod             const       trait_alias\nforeign_mod     ty_alias    impl\nuse             enum        fn\nmacro           struct      test_binder_constraints\nglobal_asm      union"
+  },
+  {
+   "list": "module_item_kinds",
+   "width": 140,
+   "render_pretty": false,
+   "message": "possible values:\nextern_crate\nmod\nforeign_mod\nuse\nmacro\nglobal_asm\nstatic\nconst\nty_alias\nenum\nstruct\nunion\ntrait\ntrait_alias\nimpl\nfn\ntest_binder_constraints"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 10,
+   "render_pretty": true,
+   "message": "possible values:\ncrate\nfile\nmodule"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 30,
+   "render_pretty": true,
+   "message": "possible values:\ncrate\nfile\nmodule"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 45,
+   "render_pretty": true,
+   "message": "possible values:\ncrate\nfile\nmodule"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 60,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 80,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 100,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 120,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 140,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 160,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 200,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 300,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 500,
+   "render_pretty": true,
+   "message": "possible values: `crate`, `file`, `module`"
+  },
+  {
+   "list": "inherent_impl_lint_scope",
+   "width": 140,
+   "render_pretty": false,
+   "message": "possible values: `crate`, `file`, `module`"
+  }
+ ],
+ "suggestions": [
+  {
+   "kind": "field",
+   "field": "foobar",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": null
+  },
+  {
+   "kind": "field",
+   "field": "allow-dbg-in-test",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "allow-dbg-in-tests"
+  },
+  {
+   "kind": "field",
+   "field": "allow_dbg_in_tests",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "allow-dbg-in-tests"
+  },
+  {
+   "kind": "field",
+   "field": "ALLOW-DBG-IN-TESTS",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "allow-dbg-in-tests"
+  },
+  {
+   "kind": "field",
+   "field": "msrvv",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "msrv"
+  },
+  {
+   "kind": "field",
+   "field": "msr",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "msrv"
+  },
+  {
+   "kind": "field",
+   "field": "too-many-line-threshold",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "too-many-lines-threshold"
+  },
+  {
+   "kind": "field",
+   "field": "disallowed-method",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "disallowed-methods"
+  },
+  {
+   "kind": "field",
+   "field": "blacklisted-name",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": null
+  },
+  {
+   "kind": "field",
+   "field": "third-partyy",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "third-party"
+  },
+  {
+   "kind": "field",
+   "field": "x",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "msrv"
+  },
+  {
+   "kind": "field",
+   "field": "avoid-breaking-exported",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": "avoid-breaking-exported-api"
+  },
+  {
+   "kind": "field",
+   "field": "cognitive-complexity",
+   "value": "",
+   "names": "conf_fields",
+   "suggestion": null
+  },
+  {
+   "kind": "enum",
+   "field": "inherent-impl-lint-scope",
+   "value": "crat",
+   "names": "inherent-impl-lint-scope",
+   "suggestion": "crate"
+  },
+  {
+   "kind": "enum",
+   "field": "inherent-impl-lint-scope",
+   "value": "Crate",
+   "names": "inherent-impl-lint-scope",
+   "suggestion": "crate"
+  },
+  {
+   "kind": "enum",
+   "field": "inherent-impl-lint-scope",
+   "value": "modul",
+   "names": "inherent-impl-lint-scope",
+   "suggestion": "module"
+  },
+  {
+   "kind": "enum",
+   "field": "inherent-impl-lint-scope",
+   "value": "zzzzzzzz",
+   "names": "inherent-impl-lint-scope",
+   "suggestion": null
+  },
+  {
+   "kind": "enum",
+   "field": "matches-for-let-else",
+   "value": "nver",
+   "names": "matches-for-let-else",
+   "suggestion": "Never"
+  },
+  {
+   "kind": "enum",
+   "field": "matches-for-let-else",
+   "value": "all_types",
+   "names": "matches-for-let-else",
+   "suggestion": "AllTypes"
+  },
+  {
+   "kind": "enum",
+   "field": "matches-for-let-else",
+   "value": "welknowntypes",
+   "names": "matches-for-let-else",
+   "suggestion": "WellKnownTypes"
+  },
+  {
+   "kind": "enum",
+   "field": "trait-impl-item-order",
+   "value": "alphabetic",
+   "names": "trait-impl-item-order",
+   "suggestion": "alphabetical"
+  },
+  {
+   "kind": "enum",
+   "field": "trait-impl-item-order",
+   "value": "trait-item-ordering",
+   "names": "trait-impl-item-order",
+   "suggestion": "trait_item_ordering"
+  }
+ ],
+ "explain": [
+  {
+   "lint": "absolute_paths",
+   "stdout": "### What it does\nChecks for usage of items through absolute paths, like `std::f64::consts::PI`.\n\n### Why restrict this?\nMany codebases have their own style when it comes to importing, but one that is seldom used\nis using absolute paths *everywhere*. This is generally considered unidiomatic, and you\nshould add a `use` statement.\n\nThe default maximum segments (2) is pretty strict, you may want to increase this in\n`clippy.toml`.\n\nNote: One exception to this is code from macro expansion - this does not lint such cases, as\nusing absolute paths is the proper way of referencing items in one.\n\n### Known issues\n\nThere are currently a few cases which are not caught by this lint:\n* Macro calls. e.g. `path::to::macro!()`\n* Derive macros. e.g. `#[derive(path::to::macro)]`\n* Attribute macros. e.g. `#[path::to::macro]`\n\n### Example\n```rust\nlet x = std::f64::consts::PI;\n```\nUse any of the below instead, or anything else:\n```rust\nuse std::f64;\nuse std::f64::consts;\nuse std::f64::consts::PI;\nlet x = f64::consts::PI;\nlet x = consts::PI;\nlet x = PI;\nuse std::f64::consts as f64_consts;\nlet x = f64_consts::PI;\n```\n\n### Configuration for clippy::absolute_paths:\n\n- `absolute-paths-allowed-crates`:  Which crates to allow absolute paths from\n\n\n   (default: `[]`)\n- `absolute-paths-max-segments`:  The maximum number of segments a path can have before being linted, anything above this will\n be linted.\n\n\n   (default: `2`)\n"
+  },
+  {
+   "lint": "approx_constant",
+   "stdout": "### What it does\nChecks for floating point literals that approximate\nconstants which are defined in\n[`std::f32::consts`](https://doc.rust-lang.org/stable/std/f32/consts/#constants)\nor\n[`std::f64::consts`](https://doc.rust-lang.org/stable/std/f64/consts/#constants),\nrespectively, suggesting to use the predefined constant.\n\n### Why is this bad?\nUsually, the definition in the standard library is more\nprecise than what people come up with. If you find that your definition is\nactually more precise, please [file a Rust\nissue](https://github.com/rust-lang/rust/issues).\n\n### Example\n```rust\nlet x = 3.14;\nlet y = 1_f64 / x;\n```\nUse instead:\n```rust\nlet x = std::f32::consts::PI;\nlet y = std::f64::consts::FRAC_1_PI;\n```\n\n### Configuration for clippy::approx_constant:\n\n- `msrv`:  The minimum rust version that the project supports. Defaults to the `rust-version` field in `Cargo.toml`\n\n\n   (default: `current version`)\n"
+  },
+  {
+   "lint": "arbitrary_source_item_ordering",
+   "stdout": "### What it does\n\nConfirms that items are sorted in source files as per configuration.\n\n### Why restrict this?\n\nKeeping a consistent ordering throughout the codebase helps with working\nas a team, and possibly improves maintainability of the codebase. The\nidea is that by defining a consistent and enforceable rule for how\nsource files are structured, less time will be wasted during reviews on\na topic that is (under most circumstances) not relevant to the logic\nimplemented in the code. Sometimes this will be referred to as\n\"bikeshedding\".\n\nThe content of items with a representation clause attribute, such as\n`#[repr(C)]` will not be checked, as the order of their fields or\nvariants might be dictated by an external API (application binary\ninterface).\n\n### Default Ordering and Configuration\n\nAs there is no generally applicable rule, and each project may have\ndifferent requirements, the lint can be configured with high\ngranularity. The configuration is split into two stages:\n\n1. Which item kinds that should have an internal order enforced.\n2. Individual ordering rules per item kind.\n\nThe item kinds that can be linted are:\n- Module (with customized groupings, alphabetical within - configurable)\n- Trait (with customized order of associated items, alphabetical within)\n- Enum, Impl, Struct (purely alphabetical)\n\n#### Module Item Order\n\nDue to the large variation of items within modules, the ordering can be\nconfigured on a very granular level. Item kinds can be grouped together\narbitrarily, items within groups will be ordered alphabetically. The\nfollowing table shows the default groupings:\n\n| Group              | Item Kinds           |\n|--------------------|----------------------|\n| `modules`          | `mod`, `foreign_mod` |\n| `use`              | `use`                |\n| `macros`           | `macro`              |\n| `global_asm`       | `global_asm`         |\n| `UPPER_SNAKE_CASE` | `static`, `const`    |\n| `PascalCase`       | `ty_alias`, `opaque_ty`, `enum`, `struct`, `union`, `trait`, `trait_alias`, `impl` |\n| `lower_snake_case` | `fn`                 |\n\nThe groups' names are arbitrary and can be changed to suit the\nconventions that should be enforced for a specific project.\n\nAll item kinds must be accounted for to create an enforceable linting\nrule set. Following are some example configurations that may be useful.\n\nExample: *module inclusions and use statements to be at the top*\n\n```toml\nmodule-item-order-groupings = [\n    [ \"modules\", [ \"extern_crate\", \"mod\", \"foreign_mod\" ], ],\n    [ \"use\", [ \"use\", ], ],\n    [ \"everything_else\", [ \"macro\", \"global_asm\", \"static\", \"const\", \"ty_alias\", \"enum\", \"struct\", \"union\", \"trait\", \"trait_alias\", \"impl\", \"fn\", ], ],\n]\n```\n\nExample: *only consts and statics should be alphabetically ordered*\n\nIt is also possible to configure a selection of module item groups that\nshould be ordered alphabetically. This may be useful if for example\nstatics and consts should be ordered, but the rest should be left open.\n\n```toml\nmodule-items-ordered-within-groupings = [\"UPPER_SNAKE_CASE\"]\n```\n\n### Known Problems\n\n#### Performance Impact\n\nKeep in mind, that ordering source code alphabetically can lead to\nreduced performance in cases where the most commonly used enum variant\nisn't the first entry anymore, and similar optimizations that can reduce\nbranch misses, cache locality and such. Either don't use this lint if\nthat's relevant, or disable the lint in modules or items specifically\nwhere it matters. Other solutions can be to use profile guided\noptimization (PGO), post-link optimization (e.g. using BOLT for LLVM),\nor other advanced optimization methods. A good starting point to dig\ninto optimization is [cargo-pgo][cargo-pgo].\n\n#### Lints on a Contains basis\n\nThe lint can be disabled only on a \"contains\" basis, but not per element\nwithin a \"container\", e.g. the lint works per-module, per-struct,\nper-enum, etc. but not for \"don't order this particular enum variant\".\n\n#### Module documentation\n\nModule level rustdoc comments are not part of the resulting syntax tree\nand as such cannot be linted from within `check_mod`. Instead, the\n`rustdoc::missing_documentation` lint may be used.\n\n#### Module Tests\n\nThis lint does not implement detection of module tests (or other feature\ndependent elements for that matter). To lint the location of mod tests,\nthe lint `items_after_test_module` can be used instead.\n\n### Example\n\n```rust\ntrait TraitUnordered {\n    const A: bool;\n    const C: bool;\n    const B: bool;\n\n    type SomeType;\n\n    fn a();\n    fn c();\n    fn b();\n}\n```\n\nUse instead:\n```rust\ntrait TraitOrdered {\n    const A: bool;\n    const B: bool;\n    const C: bool;\n\n    type SomeType;\n\n    fn a();\n    fn b();\n    fn c();\n}\n```\n\n[cargo-pgo]: https://github.com/Kobzol/cargo-pgo/blob/main/README.md\n\n\n### Configuration for clippy::arbitrary_source_item_ordering:\n\n- `module-item-order-groupings`:  The named groupings of different source item kinds within modules.\n\n\n   (default: `[[\"modules\", [\"extern_crate\", \"mod\", \"foreign_mod\"]], [\"use\", [\"use\"]], [\"macros\", [\"macro\"]], [\"global_asm\", [\"global_asm\"]], [\"UPPER_SNAKE_CASE\", [\"static\", \"const\"]], [\"PascalCase\", [\"ty_alias\", \"enum\", \"struct\", \"union\", \"trait\", \"trait_alias\", \"impl\", \"test_binder_constraints\"]], [\"lower_snake_case\", [\"fn\"]]]`)\n- `module-items-ordered-within-groupings`:  Whether the items within module groups should be ordered alphabetically or not.\n\n This option can be configured to \"all\", \"none\", or a list of specific grouping names that should be checked\n (e.g. only \"enums\").\n\n\n   (default: `\"none\"`)\n- `source-item-ordering`:  Which kind of elements should be ordered internally, possible values being `enum`, `impl`, `module`, `struct`, `trait`.\n\n\n   (default: `[\"enum\", \"impl\", \"module\", \"struct\", \"trait\"]`)\n- `trait-assoc-item-kinds-order`:  The order of associated items in traits.\n\n\n   (default: `[\"const\", \"type\", \"fn\"]`)\n- `trait-impl-item-order`:  The required ordering of associated items in trait impls: purely alphabetical,\n following the trait definition order, or accepting either.\n\n Note that the trait definition order may change between versions of the\n crate defining the trait without being considered a breaking change.\n\n Examples:\n When using trait definition item ordering:\n ```toml\n trait-impl-item-order = \"trait_item_ordering\"\n ```\n When using trait definition item ordering and alphabetical for fallbacks:\n ```toml\n trait-impl-item-order = \"alphabetical_or_trait_item_ordering\"\n ```\n\n\n   (default: `\"alphabetical\"`)\n"
+  },
+  {
+   "lint": "disallowed_methods",
+   "stdout": "### What it does\nDenies the configured methods and functions in clippy.toml\n\nNote: Even though this lint is warn-by-default, it will only trigger if\nmethods are defined in the clippy.toml file.\n\n### Why is this bad?\nSome methods are undesirable in certain contexts, and it's beneficial to\nlint for them as needed.\n\n### Example\nAn example clippy.toml configuration:\n```toml\ndisallowed-methods = [\n    # Can use a string as the path of the disallowed method.\n    \"std::boxed::Box::new\",\n    # Can also use an inline table with a `path` key.\n    { path = \"std::time::Instant::now\" },\n    # When using an inline table, can add a `reason` for why the method\n    # is disallowed.\n    { path = \"std::vec::Vec::leak\", reason = \"no leaking memory\" },\n    # Can also add a `replacement` that will be offered as a suggestion.\n    { path = \"std::sync::Mutex::new\", reason = \"prefer faster & simpler non-poisonable mutex\", replacement = \"parking_lot::Mutex::new\" },\n    # This would normally error if the path is incorrect, but with `allow-invalid` = `true`,\n    # it will be silently ignored\n    { path = \"std::fs::InvalidPath\", reason = \"use alternative instead\", allow-invalid = true },\n]\n```\n\n```rust\nlet xs = vec![1, 2, 3, 4];\nxs.leak(); // Vec::leak is disallowed in the config.\n// The diagnostic contains the message \"no leaking memory\".\n\nlet _now = Instant::now(); // Instant::now is disallowed in the config.\n\nlet _box = Box::new(3); // Box::new is disallowed in the config.\n```\n\nUse instead:\n```rust\nlet mut xs = Vec::new(); // Vec::new is _not_ disallowed in the config.\nxs.push(123); // Vec::push is _not_ disallowed in the config.\n```\n\n### Configuration for clippy::disallowed_methods:\n\n- `disallowed-methods`:  The list of disallowed methods, written as fully qualified paths.\n\n **Fields:**\n - `path` (required): the fully qualified path to the method that should be disallowed\n - `reason` (optional): explanation why this method is disallowed\n - `replacement` (optional): suggested alternative method\n - `allow-invalid` (optional, `false` by default): when set to `true`, it will ignore this entry\n   if the path doesn't exist, instead of emitting an error\n\n\n   (default: `[]`)\n"
+  },
+  {
+   "lint": "doc_markdown",
+   "stdout": "### What it does\nChecks for the presence of `_`, `::` or camel-case words\noutside ticks in documentation.\n\n### Why is this bad?\n*Rustdoc* supports markdown formatting, `_`, `::` and\ncamel-case probably indicates some code which should be included between\nticks. `_` can also be used for emphasis in markdown, this lint tries to\nconsider that.\n\n### Known problems\nLots of bad docs won’t be fixed, what the lint checks\nfor is limited, and there are still false positives. HTML elements and their\ncontent are not linted.\n\nIn addition, when writing documentation comments, including `[]` brackets\ninside a link text would trip the parser. Therefore, documenting link with\n`[`SmallVec<[T; INLINE_CAPACITY]>`]` and then [`SmallVec<[T; INLINE_CAPACITY]>`]: SmallVec\nwould fail.\n\n### Examples\n```rust\n/// Do something with the foo_bar parameter. See also\n/// that::other::module::foo.\n// ^ `foo_bar` and `that::other::module::foo` should be ticked.\nfn doit(foo_bar: usize) {}\n```\n\n```rust\n// Link text with `[]` brackets should be written as following:\n/// Consume the array and return the inner\n/// [`SmallVec<[T; INLINE_CAPACITY]>`][SmallVec].\n/// [SmallVec]: SmallVec\nfn foo() {}\n```\n\n### Configuration for clippy::doc_markdown:\n\n- `doc-valid-idents`:  The list of words this lint should not consider as identifiers needing ticks. The value\n `\"..\"` can be used as part of the list to indicate that the configured values should be appended to the\n default configuration of Clippy. By default, any configuration will replace the default value. For example:\n * `doc-valid-idents = [\"ClipPy\"]` would replace the default list with `[\"ClipPy\"]`.\n * `doc-valid-idents = [\"ClipPy\", \"..\"]` would append `ClipPy` to the default list.\n\n\n   (default: `[\"KiB\", \"MiB\", \"GiB\", \"TiB\", \"PiB\", \"EiB\", \"MHz\", \"GHz\", \"THz\", \"AccessKit\", \"CoAP\", \"CoreFoundation\", \"CoreGraphics\", \"CoreText\", \"DevOps\", \"Direct2D\", \"Direct3D\", \"DirectWrite\", \"DirectX\", \"ECMAScript\", \"GPLv2\", \"GPLv3\", \"GitHub\", \"GitLab\", \"IPv4\", \"IPv6\", \"InfiniBand\", \"RoCE\", \"ClojureScript\", \"CoffeeScript\", \"JavaScript\", \"PostScript\", \"PureScript\", \"TypeScript\", \"PowerPC\", \"PowerShell\", \"WebAssembly\", \"NaN\", \"NaNs\", \"OAuth\", \"GraphQL\", \"SQLite\", \"MySQL\", \"PostgreSQL\", \"MariaDB\", \"MongoDB\", \"OCaml\", \"OpenAL\", \"OpenDNS\", \"OpenGL\", \"OpenMP\", \"OpenSSH\", \"OpenSSL\", \"OpenStreetMap\", \"OpenTelemetry\", \"OpenType\", \"WebAuthn\", \"WebGL\", \"WebGL2\", \"WebGPU\", \"WebRTC\", \"WebSocket\", \"WebTransport\", \"WebP\", \"OpenExr\", \"YCbCr\", \"sRGB\", \"TensorFlow\", \"TrueType\", \"iOS\", \"macOS\", \"FreeBSD\", \"NetBSD\", \"OpenBSD\", \"NixOS\", \"TeX\", \"LaTeX\", \"BibTeX\", \"BibLaTeX\", \"MinGW\", \"CamelCase\", \"x86_64\", \"CommonMark\", \"IntelliJ\"]`)\n"
+  },
+  {
+   "lint": "excessive_nesting",
+   "stdout": "### What it does\nChecks for blocks which are nested beyond a certain threshold.\n\nNote: Even though this lint is warn-by-default, it will only trigger if a maximum nesting level is defined in the clippy.toml file.\n\n### Why is this bad?\nIt can severely hinder readability.\n\n### Example\nAn example clippy.toml configuration:\n```toml\nexcessive-nesting-threshold = 3\n```\n```rust\n// lib.rs\npub mod a {\n    pub struct X;\n    impl X {\n        pub fn run(&self) {\n            if true {\n                // etc...\n            }\n        }\n    }\n}\n```\nUse instead:\n```rust\n// a.rs\nfn private_run(x: &X) {\n    if true {\n        // etc...\n    }\n}\n\npub struct X;\nimpl X {\n    pub fn run(&self) {\n        private_run(self);\n    }\n}\n```\n```rust\n// lib.rs\npub mod a;\n```\n\n### Configuration for clippy::excessive_nesting:\n\n- `excessive-nesting-threshold`:  The maximum amount of nesting a block can reside in\n\n\n   (default: `0`)\n"
+  },
+  {
+   "lint": "explicit_auto_deref",
+   "stdout": "### What it does\nChecks for dereferencing expressions which would be covered by auto-deref.\n\n### Why is this bad?\nThis unnecessarily complicates the code.\n\n### Example\n```rust\nlet x = String::new();\nlet y: &str = &*x;\n```\nUse instead:\n```rust\nlet x = String::new();\nlet y: &str = &x;\n```\n\n"
+  },
+  {
+   "lint": "inline_asm_x86_intel_syntax",
+   "stdout": "### What it does\nChecks for usage of Intel x86 assembly syntax.\n\n### Why restrict this?\nTo enforce consistent use of AT&T x86 assembly syntax.\n\n### Example\n\n```rust\nasm!(\"lea {}, [{}]\", lateout(reg) _, in(reg) ptr);\n```\nUse instead:\n```rust\nasm!(\"lea ({}), {}\", in(reg) ptr, lateout(reg) _, options(att_syntax));\n```\n\n"
+  },
+  {
+   "lint": "items_after_statements",
+   "stdout": "### What it does\nChecks for items declared after some statement in a block.\n\n### Why is this bad?\nItems live for the entire scope they are declared\nin. But statements are processed in order. This might cause confusion as\nit's hard to figure out which item is meant in a statement.\n\n### Example\n```rust\nfn foo() {\n    println!(\"cake\");\n}\n\nfn main() {\n    foo(); // prints \"foo\"\n    fn foo() {\n        println!(\"foo\");\n    }\n    foo(); // prints \"foo\"\n}\n```\n\nUse instead:\n```rust\nfn foo() {\n    println!(\"cake\");\n}\n\nfn main() {\n    fn foo() {\n        println!(\"foo\");\n    }\n    foo(); // prints \"foo\"\n    foo(); // prints \"foo\"\n}\n```\n\n"
+  },
+  {
+   "lint": "large_stack_frames",
+   "stdout": "### What it does\nChecks for functions that use a lot of stack space.\n\nThis often happens when constructing a large type, such as an array with a lot of elements,\nor constructing *many* smaller-but-still-large structs, or copying around a lot of large types.\n\nThis lint is a more general version of [`large_stack_arrays`](https://rust-lang.github.io/rust-clippy/master/#large_stack_arrays)\nthat is intended to look at functions as a whole instead of only individual array expressions inside of a function.\n\n### Why is this bad?\nThe stack region of memory is very limited in size (usually *much* smaller than the heap) and attempting to\nuse too much will result in a stack overflow and crash the program.\nTo avoid this, you should consider allocating large types on the heap instead (e.g. by boxing them).\n\nKeep in mind that the code path to construction of large types does not even need to be reachable;\nit purely needs to *exist* inside of the function to contribute to the stack size.\nFor example, this causes a stack overflow even though the branch is unreachable:\n```rust\nfn main() {\n    if false {\n        let x = [0u8; 10000000]; // 10 MB stack array\n        black_box(&x);\n    }\n}\n```\n\n### Known issues\nFalse positives. The stack size that clippy sees is an estimated value and can be vastly different\nfrom the actual stack usage after optimizations passes have run (especially true in release mode).\nModern compilers are very smart and are able to optimize away a lot of unnecessary stack allocations.\nIn debug mode however, it is usually more accurate.\n\nThis lint works by summing up the size of all variables that the user typed, variables that were\nimplicitly introduced by the compiler for temporaries, function arguments and the return value,\nand comparing them against a (configurable, but high-by-default).\n\n### Example\nThis function creates four 500 KB arrays on the stack. Quite big but just small enough to not trigger `large_stack_arrays`.\nHowever, looking at the function as a whole, it's clear that this uses a lot of stack space.\n```rust\nstruct QuiteLargeType([u8; 500_000]);\nfn foo() {\n    // ... some function that uses a lot of stack space ...\n    let _x1 = QuiteLargeType([0; 500_000]);\n    let _x2 = QuiteLargeType([0; 500_000]);\n    let _x3 = QuiteLargeType([0; 500_000]);\n    let _x4 = QuiteLargeType([0; 500_000]);\n}\n```\n\nInstead of doing this, allocate the arrays on the heap.\nThis currently requires going through a `Vec` first and then converting it to a `Box`:\n```rust\nstruct NotSoLargeType(Box<[u8]>);\n\nfn foo() {\n    let _x1 = NotSoLargeType(vec![0; 500_000].into_boxed_slice());\n//                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  Now heap allocated.\n//                                                                The size of `NotSoLargeType` is 16 bytes.\n//  ...\n}\n```\n\n### Configuration for clippy::large_stack_frames:\n\n- `allow-large-stack-frames-in-tests`:  Whether functions inside `#[cfg(test)]` modules or test functions should be checked.\n\n\n   (default: `true`)\n- `stack-size-threshold`:  The maximum allowed stack size for functions in bytes\n\n\n   (default: `512000`)\n"
+  },
+  {
+   "lint": "macro_metavars_in_unsafe",
+   "stdout": "### What it does\nLooks for macros that expand metavariables in an unsafe block.\n\n### Why is this bad?\nThis hides an unsafe block and allows the user of the macro to write unsafe code without an explicit\nunsafe block at callsite, making it possible to perform unsafe operations in seemingly safe code.\n\nThe macro should be restructured so that these metavariables are referenced outside of unsafe blocks\nand that the usual unsafety checks apply to the macro argument.\n\nThis is usually done by binding it to a variable outside of the unsafe block\nand then using that variable inside of the block as shown in the example, or by referencing it a second time\nin a safe context, e.g. `if false { $expr }`.\n\n### Known limitations\nDue to how macros are represented in the compiler at the time Clippy runs its lints,\nit's not possible to look for metavariables in macro definitions directly.\n\nInstead, this lint looks at expansions of macros.\nThis leads to false negatives for macros that are never actually invoked.\n\nBy default, this lint is rather conservative and will only emit warnings on publicly-exported\nmacros from the same crate, because oftentimes private internal macros are one-off macros where\nthis lint would just be noise (e.g. macros that generate `impl` blocks).\nThe default behavior should help with preventing a high number of such false positives,\nhowever it can be configured to also emit warnings in private macros if desired.\n\n### Example\n```rust\n/// Gets the first element of a slice\nmacro_rules! first {\n    ($slice:expr) => {\n        unsafe {\n            let slice = $slice; // ⚠️ expansion inside of `unsafe {}`\n\n            assert!(!slice.is_empty());\n            // SAFETY: slice is checked to have at least one element\n            slice.first().unwrap_unchecked()\n        }\n    }\n}\n\nassert_eq!(*first!(&[1i32]), 1);\n\n// This will compile as a consequence (note the lack of `unsafe {}`)\nassert_eq!(*first!(std::hint::unreachable_unchecked() as &[i32]), 1);\n```\nUse instead:\n```rust\nmacro_rules! first {\n    ($slice:expr) => {{\n        let slice = $slice; // ✅ outside of `unsafe {}`\n        unsafe {\n            assert!(!slice.is_empty());\n            // SAFETY: slice is checked to have at least one element\n            slice.first().unwrap_unchecked()\n        }\n    }}\n}\n\nassert_eq!(*first!(&[1]), 1);\n\n// This won't compile:\nassert_eq!(*first!(std::hint::unreachable_unchecked() as &[i32]), 1);\n```\n\n### Configuration for clippy::macro_metavars_in_unsafe:\n\n- `warn-unsafe-macro-metavars-in-private-macros`:  Whether to also emit warnings for unsafe blocks with metavariable expansions in **private** macros.\n\n\n   (default: `false`)\n"
+  },
+  {
+   "lint": "min_ident_chars",
+   "stdout": "### What it does\nChecks for identifiers which consist of a single character (or fewer than the configured threshold).\n\nNote: This lint can be very noisy when enabled; it may be desirable to only enable it\ntemporarily.\n\n### Why restrict this?\nTo improve readability by requiring that every variable has a name more specific than a single letter can be.\n\n### Example\n```rust\nfor m in movies {\n    let title = m.t;\n}\n```\nUse instead:\n```rust\nfor movie in movies {\n    let title = movie.title;\n}\n```\n\n### Limitations\nTrait implementations which use the same function or parameter name as the trait declaration will\nnot be warned about, even if the name is below the configured limit.\n\n### Configuration for clippy::min_ident_chars:\n\n- `allowed-idents-below-min-chars`:  Allowed names below the minimum allowed characters. The value `\"..\"` can be used as part of\n the list to indicate that the configured values should be appended to the default\n configuration of Clippy. By default, any configuration will replace the default value.\n\n\n   (default: `[\"i\", \"j\", \"x\", \"y\", \"z\", \"w\", \"n\"]`)\n- `min-ident-chars-lint-trait-impl`:  Whether to lint idents that have too few chars even when following trait declaration.\n\n\n   (default: `false`)\n- `min-ident-chars-threshold`:  Minimum chars an ident can have, anything below or equal to this will be linted.\n\n\n   (default: `1`)\n"
+  },
+  {
+   "lint": "missing_enforced_import_renames",
+   "stdout": "### What it does\nChecks for imports that do not rename the item as specified\nin the `enforced-import-renames` config option.\n\nNote: Even though this lint is warn-by-default, it will only trigger if\nimport renames are defined in the `clippy.toml` file.\n\n### Why is this bad?\nConsistency is important; if a project has defined import renames, then they should be\nfollowed. More practically, some item names are too vague outside of their defining scope,\nin which case this can enforce a more meaningful naming.\n\n### Example\nAn example clippy.toml configuration:\n```toml\nenforced-import-renames = [\n    { path = \"serde_json::Value\", rename = \"JsonValue\" },\n]\n```\n\n```rust\nuse serde_json::Value;\n```\nUse instead:\n```rust\nuse serde_json::Value as JsonValue;\n```\n\n### Configuration for clippy::missing_enforced_import_renames:\n\n- `enforced-import-renames`:  The list of imports to always rename, a fully qualified path followed by the rename.\n\n\n   (default: `[]`)\n"
+  },
+  {
+   "lint": "module_name_repetitions",
+   "stdout": "### What it does\nDetects public item names that are prefixed or suffixed by the\ncontaining public module's name.\n\n### Why is this bad?\nIt requires the user to type the module name twice in each usage,\nespecially if they choose to import the module rather than its contents.\n\nLack of such repetition is also the style used in the Rust standard library;\ne.g. `io::Error` and `fmt::Error` rather than `io::IoError` and `fmt::FmtError`;\nand `array::from_ref` rather than `array::array_from_ref`.\n\n### Known issues\nGlob re-exports are ignored; e.g. this will not warn even though it should:\n\n```rust\npub mod foo {\n    mod iteration {\n        pub struct FooIter {}\n    }\n    pub use iteration::*; // creates the path `foo::FooIter`\n}\n```\n\n### Example\n```rust\nmod cake {\n    struct BlackForestCake;\n}\n```\n\nUse instead:\n```rust\nmod cake {\n    struct BlackForest;\n}\n```\n\n### Configuration for clippy::module_name_repetitions:\n\n- `allow-exact-repetitions`:  Whether an item should be allowed to have the same name as its containing module\n\n\n   (default: `true`)\n- `allowed-prefixes`:  List of prefixes to allow when determining whether an item's name ends with the module's name.\n If the rest of an item's name is an allowed prefix (e.g. item `ToFoo` or `to_foo` in module `foo`),\n then don't emit a warning.\n\n #### Example\n\n ```toml\n allowed-prefixes = [ \"to\", \"from\" ]\n ```\n\n #### Noteworthy\n\n - By default, the following prefixes are allowed: `to`, `as`, `into`, `from`, `try_into` and `try_from`\n - PascalCase variant is included automatically for each snake_case variant (e.g. if `try_into` is included,\n   `TryInto` will also be included)\n - Use `\"..\"` as part of the list to indicate that the configured values should be appended to the\n default configuration of Clippy. By default, any configuration will replace the default value\n\n\n   (default: `[\"to\", \"as\", \"into\", \"from\", \"try_into\", \"try_from\"]`)\n"
+  },
+  {
+   "lint": "non_canonical_partial_ord_impl",
+   "stdout": "### What it does\nChecks for non-canonical implementations of `PartialOrd` when `Ord` is already implemented.\n\n### Why is this bad?\nIf both `PartialOrd` and `Ord` are implemented, they must agree. This is commonly done by\nwrapping the result of `cmp` in `Some` for `partial_cmp`. Not doing this may silently\nintroduce an error upon refactoring.\n\n### Known issues\nCode that calls the `.into()` method instead will be flagged, despite `.into()` wrapping it\nin `Some`.\n\n### Example\n```rust\n#[derive(Eq, PartialEq)]\nstruct A(u32);\n\nimpl Ord for A {\n    fn cmp(&self, other: &Self) -> Ordering {\n        // ...\n    }\n}\n\nimpl PartialOrd for A {\n    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {\n        // ...\n    }\n}\n```\nUse instead:\n```rust\n#[derive(Eq, PartialEq)]\nstruct A(u32);\n\nimpl Ord for A {\n    fn cmp(&self, other: &Self) -> Ordering {\n        // ...\n    }\n}\n\nimpl PartialOrd for A {\n    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {\n        Some(self.cmp(other))   // or self.cmp(other).into()\n    }\n}\n```\n\n"
+  },
+  {
+   "lint": "nonstandard_macro_braces",
+   "stdout": "### What it does\nChecks that common macros are used with consistent bracing.\n\n### Why is this bad?\nHaving non-conventional braces on well-stablished macros can be confusing\nwhen debugging, and they bring incosistencies with the rest of the ecosystem.\n\n### Example\n```rust\nvec!{1, 2, 3};\n```\nUse instead:\n```rust\nvec![1, 2, 3];\n```\n\n### Configuration for clippy::nonstandard_macro_braces:\n\n- `standard-macro-braces`:  Enforce the named macros always use the braces specified.\n\n A `MacroMatcher` can be added like so `{ name = \"macro_name\", brace = \"(\" }`. If the macro\n could be used with a full path two `MacroMatcher`s have to be added one with the full path\n `crate_name::macro_name` and one with just the macro name.\n\n\n   (default: `[]`)\n"
+  },
+  {
+   "lint": "option_env_unwrap",
+   "stdout": "### What it does\nChecks for usage of `option_env!(...).unwrap()` and\nsuggests usage of the `env!` macro.\n\n### Why is this bad?\nUnwrapping the result of `option_env!` will panic\nat run-time if the environment variable doesn't exist, whereas `env!`\ncatches it at compile-time.\n\n### Example\n```rust\nlet _ = option_env!(\"HOME\").unwrap();\n```\n\nIs better expressed as:\n\n```rust\nlet _ = env!(\"HOME\");\n```\n\n"
+  },
+  {
+   "lint": "renamed_function_params",
+   "stdout": "### What it does\nLints when the name of function parameters from trait impl is\ndifferent than its default implementation.\n\n### Why restrict this?\nUsing the default name for parameters of a trait method is more consistent.\n\n### Example\n```rust\nstruct A(u32);\n\nimpl PartialEq for A {\n    fn eq(&self, b: &Self) -> bool {\n        self.0 == b.0\n    }\n}\n```\nUse instead:\n```rust\nstruct A(u32);\n\nimpl PartialEq for A {\n    fn eq(&self, other: &Self) -> bool {\n        self.0 == other.0\n    }\n}\n```\n\n### Configuration for clippy::renamed_function_params:\n\n- `allow-renamed-params-for`:  List of trait paths to ignore when checking renamed function parameters.\n\n #### Example\n\n ```toml\n allow-renamed-params-for = [ \"std::convert::From\" ]\n ```\n\n #### Noteworthy\n\n - By default, the following traits are ignored: `From`, `TryFrom`, `FromStr`\n - `\"..\"` can be used as part of the list to indicate that the configured values should be appended to the\n default configuration of Clippy. By default, any configuration will replace the default value.\n\n\n   (default: `[\"core::convert::From\", \"core::convert::TryFrom\", \"core::str::FromStr\"]`)\n"
+  },
+  {
+   "lint": "self_named_module_files",
+   "stdout": "### What it does\nChecks that module layout uses only `mod.rs` files.\n\n### Why restrict this?\nHaving multiple module layout styles in a project can be confusing.\n\n### Example\n```text\nsrc/\n  stuff/\n    stuff_files.rs\n  stuff.rs\n  lib.rs\n```\nUse instead:\n```text\nsrc/\n  stuff/\n    stuff_files.rs\n    mod.rs\n  lib.rs\n```\n\n"
+  },
+  {
+   "lint": "string_slice",
+   "stdout": "### What it does\nChecks for slice operations on strings\n\n### Why restrict this?\nUTF-8 characters span multiple bytes, and it is easy to inadvertently confuse character\ncounts and string indices. This may lead to panics, and should warrant some test cases\ncontaining wide UTF-8 characters. This lint is most useful in code that should avoid\npanics at all costs.\n\n### Known problems\nProbably lots of false positives. If an index comes from a known valid position (e.g.\nobtained via `char_indices` over the same string), it is totally OK.\n\n### Example\n```rust\n&\"Ölkanne\"[1..];\n```\n\n"
+  },
+  {
+   "lint": "too_many_lines",
+   "stdout": "### What it does\nChecks for functions with a large amount of lines.\n\n### Why is this bad?\nFunctions with a lot of lines are harder to understand\ndue to having to look at a larger amount of code to understand what the\nfunction is doing. Consider splitting the body of the function into\nmultiple functions.\n\n### Example\n```rust\nfn im_too_long() {\n    println!(\"\");\n    // ... 100 more LoC\n    println!(\"\");\n}\n```\n\n### Configuration for clippy::too_many_lines:\n\n- `too-many-lines-threshold`:  The maximum number of lines a function or method can have\n\n\n   (default: `100`)\n"
+  },
+  {
+   "lint": "trivially_copy_pass_by_ref",
+   "stdout": "### What it does\nChecks for functions taking arguments by reference, where\nthe argument type is `Copy` and small enough to be more efficient to always\npass by value.\n\n### Why is this bad?\nIn many calling conventions instances of structs will\nbe passed through registers if they fit into two or less general purpose\nregisters.\n\n### Known problems\nThis lint is target dependent, some cases will lint on 64-bit targets but\nnot 32-bit or lower targets.\n\nThe configuration option `trivial_copy_size_limit` can be set to override\nthis limit for a project.\n\nThis lint attempts to allow passing arguments by reference if a reference\nto that argument is returned. This is implemented by comparing the lifetime\nof the argument and return value for equality. However, this can cause\nfalse positives in cases involving multiple lifetimes that are bounded by\neach other.\n\nAlso, it does not take account of other similar cases where getting memory addresses\nmatters; namely, returning the pointer to the argument in question,\nand passing the argument, as both references and pointers,\nto a function that needs the memory address. For further details, refer to\n[this issue](https://github.com/rust-lang/rust-clippy/issues/5953)\nthat explains a real case in which this false positive\nled to an **undefined behavior** introduced with unsafe code.\n\n### Example\n\n```rust\nfn foo(v: &u32) {}\n```\n\nUse instead:\n```rust\nfn foo(v: u32) {}\n```\n\n### Configuration for clippy::trivially_copy_pass_by_ref:\n\n- `avoid-breaking-exported-api`:  Suppress lints whenever the suggested change would cause breakage for other crates.\n\n\n   (default: `true`)\n- `trivial-copy-size-limit`:  The maximum size (in bytes) to consider a `Copy` type for passing by value instead of by\n reference.\n\n\n   (default: `target_pointer_width`)\n"
+  },
+  {
+   "lint": "uninhabited_references",
+   "stdout": "### What it does\nIt detects references to uninhabited types, such as `!` and\nwarns when those are either dereferenced or returned from a function.\n\n### Why is this bad?\nDereferencing a reference to an uninhabited type would create\nan instance of such a type, which cannot exist. This constitutes\nundefined behaviour. Such a reference could have been created\nby `unsafe` code.\n\n### Example\nThe following function can return a reference to an uninhabited type\n(`Infallible`) because it uses `unsafe` code to create it. However,\nthe user of such a function could dereference the return value and\ntrigger an undefined behavior from safe code.\n\n```rust\nfn create_ref() -> &'static std::convert::Infallible {\n    unsafe { std::mem::transmute(&()) }\n}\n```\n\n"
+  },
+  {
+   "lint": "unreadable_literal",
+   "stdout": "### What it does\nWarns if a long integral or floating-point constant does\nnot contain underscores.\n\n### Why is this bad?\nReading long numbers is difficult without separators.\n\n### Example\n```rust\n61864918973511\n```\n\nUse instead:\n```rust\n61_864_918_973_511\n```\n\n### Configuration for clippy::unreadable_literal:\n\n- `unreadable-literal-lint-fractions`:  Should the fraction of a decimal be linted to include separators.\n\n\n   (default: `true`)\n"
+  },
+  {
+   "lint": "upper_case_acronyms",
+   "stdout": "### What it does\nChecks for fully capitalized names and optionally names containing a capitalized acronym.\n\n### Why is this bad?\nIn CamelCase, acronyms count as one word.\nSee [naming conventions](https://rust-lang.github.io/api-guidelines/naming.html#casing-conforms-to-rfc-430-c-case)\nfor more.\n\nBy default, the lint only triggers on fully-capitalized names.\nYou can use the `upper-case-acronyms-aggressive: true` config option to enable linting\non all camel case names\n\n### Known problems\nWhen two acronyms are contiguous, the lint can't tell where\nthe first acronym ends and the second starts, so it suggests to lowercase all of\nthe letters in the second acronym.\n\n### Example\n```rust\nstruct HTTPResponse;\n```\nUse instead:\n```rust\nstruct HttpResponse;\n```\n\n### Configuration for clippy::upper_case_acronyms:\n\n- `avoid-breaking-exported-api`:  Suppress lints whenever the suggested change would cause breakage for other crates.\n\n\n   (default: `true`)\n- `upper-case-acronyms-aggressive`:  Enables verbose mode. Triggers if there is more than one uppercase char next to each other\n\n\n   (default: `false`)\n"
+  },
+  {
+   "lint": "wildcard_imports",
+   "stdout": "### What it does\nChecks for wildcard imports `use _::*`.\n\n### Why is this bad?\nwildcard imports can pollute the namespace. This is especially bad if\nyou try to import something through a wildcard, that already has been imported by name from\na different source:\n\n```rust\nuse crate1::foo; // Imports a function named foo\nuse crate2::*; // Has a function named foo\n\nfoo(); // Calls crate1::foo\n```\n\nThis can lead to confusing error messages at best and to unexpected behavior at worst.\n\n### Exceptions\nWildcard imports are allowed from modules that their name contains `prelude`. Many crates\n(including the standard library) provide modules named \"prelude\" specifically designed\nfor wildcard import.\n\nWildcard imports reexported through `pub use` are also allowed.\n\n`use super::*` is allowed in test modules. This is defined as any module with \"test\" in the name.\n\nThese exceptions can be disabled using the `warn-on-all-wildcard-imports` configuration flag.\n\n### Known problems\nIf macros are imported through the wildcard, this macro is not included\nby the suggestion and has to be added by hand.\n\nApplying the suggestion when explicit imports of the things imported with a glob import\nexist, may result in `unused_imports` warnings.\n\n### Example\n```rust\nuse crate1::*;\n\nfoo();\n```\n\nUse instead:\n```rust\nuse crate1::foo;\n\nfoo();\n```\n\n### Configuration for clippy::wildcard_imports:\n\n- `allowed-wildcard-imports`:  List of path segments allowed to have wildcard imports.\n\n #### Example\n\n ```toml\n allowed-wildcard-imports = [ \"utils\", \"common\" ]\n ```\n\n #### Noteworthy\n\n 1. This configuration has no effects if used with `warn_on_all_wildcard_imports = true`.\n 2. Paths with any segment that containing the word 'prelude'\n are already allowed by default.\n\n\n   (default: `[]`)\n- `warn-on-all-wildcard-imports`:  Whether to emit warnings on all wildcard imports, including those from `prelude`, from `super` in tests,\n or for `pub use` reexports.\n\n\n   (default: `false`)\n"
+  }
+ ]
+}
