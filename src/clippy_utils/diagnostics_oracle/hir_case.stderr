@@ -1,0 +1,24 @@
+error: re-implementing `PartialEq::ne` is unnecessary
+  --> hir_case.rs:22:5
+   |
+22 |     fn ne(&self, _: &Q) -> bool {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#partialeq_ne_impl
+note: the lint level is defined here
+  --> hir_case.rs:21:12
+   |
+21 |     #[deny(clippy::partialeq_ne_impl)]
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: re-implementing `PartialEq::ne` is unnecessary
+  --> hir_case.rs:32:5
+   |
+32 |     fn ne(&self, _: &R) -> bool {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#partialeq_ne_impl
+   = note: `#[warn(clippy::partialeq_ne_impl)]` on by default
+
+error: aborting due to 1 previous error; 1 warning emitted
+

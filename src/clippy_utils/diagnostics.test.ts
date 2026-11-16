@@ -15,7 +15,9 @@
 // must equal the oracle's byte for byte: the primary message and span, the help/note/suggestion children, the docs
 // link `docs_link` appends ("for further information visit https://rust-lang.github.io/rust-clippy/main/..."), the
 // "`#[warn(clippy::..)]` on by default" note, and the final error count. With CLIPPY_DISABLE_DOCS_LINKS set, the
-// docs link is gone (case.nodocs.stderr).
+// docs link is gone (case.nodocs.stderr). Review notes N1-N3 (docs/reviews/clippy-contract-b2.md) added: case.json (the
+// same replay through the JSON emitter, which shows applicability), hir_case.stderr (span_lint_hir's HirId sets the
+// level), and the save/restore of the caller's CLIPPY_DISABLE_DOCS_LINKS.
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
@@ -23,7 +25,10 @@ import { Applicability } from "../rustc_errors/lib.ts";
 import { CRATE_HIR_ID } from "../rustc_hir_id/lib.ts";
 import { LateContext } from "../rustc_lint/context.ts";
 import type { TyCtxt } from "../rustc_middle/ty/context.ts";
-import { remove_var, set_var } from "../std/env.ts";
+import { remove_var, set_var, var_os } from "../std/env.ts";
+import type { LintStore } from "../rustc_lint/context.ts";
+import type { ModuleItems } from "../rustc_middle/hir/mod.ts";
+import { Symbol } from "../rustc_span/symbol.ts";
 import { APPROX_CONSTANT } from "../clippy_lints/approx_const.lints.gen.ts";
 import { FIELD_REASSIGN_WITH_DEFAULT } from "../clippy_lints/default.lints.gen.ts";
 import { SUSPICIOUS_ASSIGNMENT_FORMATTING } from "../clippy_lints/formatting.lints.gen.ts";
@@ -74,16 +79,81 @@ function replay(tcx: TyCtxt, sp: SpanAt): void {
   span_lint(cx, TEMPORARY_ASSIGNMENT, sp(34, 5, 34, 17), "assignment to temporary");
 }
 
+// Review N3: each test forces the `CLIPPY_DISABLE_DOCS_LINKS` state it needs and puts back the caller's value (unset, or
+// its exact bytes) afterwards.
+const DOCS_VAR = "CLIPPY_DISABLE_DOCS_LINKS";
+function with_docs_var<T>(value: string | undefined, f: () => T): T {
+  const saved = var_os(DOCS_VAR);
+  if (value === undefined) remove_var(DOCS_VAR);
+  else set_var(DOCS_VAR, value);
+  try {
+    return f();
+  } finally {
+    if (saved === undefined) remove_var(DOCS_VAR);
+    else set_var(DOCS_VAR, saved);
+  }
+}
+
 test("the wrappers render as the oracle clippy-driver's diagnostics (docs links, on-by-default notes)", () => {
-  remove_var("CLIPPY_DISABLE_DOCS_LINKS");
-  expect(render_with("case.rs", { post: replay })).toBe(readFileSync(join(DIR, "case.stderr"), "utf8"));
+  with_docs_var(undefined, () => {
+    expect(render_with("case.rs", { post: replay })).toBe(readFileSync(join(DIR, "case.stderr"), "utf8"));
+  });
 });
 
 test("CLIPPY_DISABLE_DOCS_LINKS drops the docs link", () => {
-  set_var("CLIPPY_DISABLE_DOCS_LINKS", "1");
-  try {
+  with_docs_var("1", () => {
     expect(render_with("case.rs", { post: replay })).toBe(readFileSync(join(DIR, "case.nodocs.stderr"), "utf8"));
+  });
+});
+
+test("the caller's CLIPPY_DISABLE_DOCS_LINKS is restored (review N3)", () => {
+  const saved = var_os(DOCS_VAR);
+  try {
+    set_var(DOCS_VAR, "caller");
+    with_docs_var(undefined, () => expect(var_os(DOCS_VAR)).toBeUndefined());
+    expect(var_os(DOCS_VAR)).toEqual(new TextEncoder().encode("caller"));
+    remove_var(DOCS_VAR);
+    with_docs_var("1", () => expect(var_os(DOCS_VAR)).toEqual(new TextEncoder().encode("1")));
+    expect(var_os(DOCS_VAR)).toBeUndefined();
   } finally {
-    remove_var("CLIPPY_DISABLE_DOCS_LINKS");
+    if (saved === undefined) remove_var(DOCS_VAR);
+    else set_var(DOCS_VAR, saved);
   }
+});
+
+// Review N1: the human output does not show applicability; `--error-format=json` does (`suggestion_applicability`), so the
+// same replay through the ported JSON emitter must equal the oracle's JSON byte for byte.
+test("span_lint_and_sugg keeps the caller's applicability (oracle --error-format=json)", () => {
+  const want = readFileSync(join(DIR, "case.json"), "utf8");
+  expect(want).toContain('"suggestion_applicability":"MachineApplicable"');
+  with_docs_var(undefined, () => {
+    expect(render_with("case.rs", { post: replay }, ["--error-format=json"])).toBe(want);
+  });
+});
+
+// Review N2: hir_case.rs has three `impl PartialEq` whose `fn ne` carries `#[allow(clippy::partialeq_ne_impl)]`,
+// `#[deny(..)]`, or nothing. partialeq_ne_impl.rs runs in `check_item` on the `impl`, so its `cx` is at the impl (here the
+// crate root stands for it: neither carries an attribute), and it passes each impl item's own HirId to span_lint_hir. The
+// oracle prints nothing for P, an error with "the lint level is defined here" for Q, and the default warning for R; that
+// only holds if the level is taken at the given HirId.
+test("span_lint_hir takes the lint level at the given HirId (oracle hir_case.rs)", () => {
+  const out = with_docs_var(undefined, () =>
+    render_with("hir_case.rs", {
+      pre(sess) {
+        // clippy's `register_lints` (clippy_lints lib.rs) puts its lints in the store, so `#[allow(clippy::..)]` resolves
+        (sess.lint_store as LintStore).register_lints([PARTIALEQ_NE_IMPL]);
+      },
+      post(tcx) {
+        const cx = new LateContext(tcx, undefined, undefined, undefined as never, undefined as never, CRATE_HIR_ID, undefined, false);
+        for (const impl_item of (tcx.hir_crate_items(null) as ModuleItems).impl_items()) {
+          const def_id = impl_item.owner_id.def_id;
+          if (Symbol.as_str(tcx.item_name(def_id)) !== "ne") continue;
+          // partialeq_ne_impl.rs: span_lint_hir(cx, PARTIALEQ_NE_IMPL, impl_item.hir_id(), cx.tcx.def_span(impl_item.owner_id),
+          // "re-implementing `PartialEq::ne` is unnecessary")
+          span_lint_hir(cx, PARTIALEQ_NE_IMPL, impl_item.hir_id(), tcx.def_span(def_id), "re-implementing `PartialEq::ne` is unnecessary");
+        }
+      },
+    }),
+  );
+  expect(out).toBe(readFileSync(join(DIR, "hir_case.stderr"), "utf8"));
 });

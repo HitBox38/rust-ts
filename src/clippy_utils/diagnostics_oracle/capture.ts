@@ -6,7 +6,10 @@
 // and the `#[warn(..)]` / `#[deny(..)]` "on by default" notes appear. It records:
 // - case.stderr: the stderr on case.rs (one on-by-default lint per `diagnostics` wrapper);
 // - case.nodocs.stderr: the same with `CLIPPY_DISABLE_DOCS_LINKS=1` (`docs_link` adds nothing);
+// - case.json: the same with `--error-format=json`, which shows each suggestion's applicability (review N1);
+// - hir_case.stderr: the stderr on hir_case.rs (`span_lint_hir`'s level comes from the given HirId; review N2);
 // - msrv_attrs.stderr: the stderr on msrv_attrs.rs (`msrvs::check_attrs`'s errors);
+// - msrv_stability.stderr: the stderr on msrv_stability.rs (`incompatible_msrv`'s stability versions; review N4);
 // - msrv.json: whether `redundant_field_names` (an early lint gated on `msrvs::FIELD_INIT_SHORTHAND`, 1.17.0, through
 //   `MsrvStack`) fires on `S { x: x }` with `#![clippy::msrv = "<v>"]`, or with no attribute and
 //   `CARGO_PKG_RUST_VERSION=<v>` (Cargo.toml's `rust-version`, which clippy_config's `Conf::read` parses with
@@ -36,8 +39,8 @@ const work = mkdtempSync(join(DATA, "tmp", "clippy-utils-oracle-"));
 const confDir = join(work, "conf");
 Bun.spawnSync(["mkdir", confDir]);
 
-function run(file: string, cwd: string, extraEnv: Record<string, string> = {}): string {
-  const p = Bun.spawnSync([clippyBin("clippy-driver"), "--sysroot", sysroot, file, "--edition=2024", "--emit=metadata", "--out-dir", work], {
+function run(file: string, cwd: string, extraEnv: Record<string, string> = {}, args: string[] = []): string {
+  const p = Bun.spawnSync([clippyBin("clippy-driver"), "--sysroot", sysroot, file, "--edition=2024", "--emit=metadata", "--out-dir", work, ...args], {
     env: { ...env0, DYLD_LIBRARY_PATH: join(sysroot, "lib"), CLIPPY_CONF_DIR: confDir, RUSTC_ICE: "0", RUST_BACKTRACE: "0", ...extraEnv },
     cwd,
     stdout: "pipe",
@@ -49,7 +52,10 @@ function run(file: string, cwd: string, extraEnv: Record<string, string> = {}): 
 
 writeFileSync(join(DIR, "case.stderr"), run("case.rs", DIR));
 writeFileSync(join(DIR, "case.nodocs.stderr"), run("case.rs", DIR, { CLIPPY_DISABLE_DOCS_LINKS: "1" }));
+writeFileSync(join(DIR, "case.json"), run("case.rs", DIR, {}, ["--error-format=json"]));
+writeFileSync(join(DIR, "hir_case.stderr"), run("hir_case.rs", DIR));
 writeFileSync(join(DIR, "msrv_attrs.stderr"), run("msrv_attrs.rs", DIR));
+writeFileSync(join(DIR, "msrv_stability.stderr"), run("msrv_stability.rs", DIR));
 
 const VERSIONS = [
   "1.16",
@@ -96,4 +102,4 @@ for (const v of VERSIONS) {
 }
 writeFileSync(join(DIR, "msrv.json"), JSON.stringify({ commit: PIN.commit, cases }, null, 1) + "\n");
 rmSync(work, { recursive: true });
-console.log(`wrote case.stderr, case.nodocs.stderr, msrv_attrs.stderr, msrv.json (${cases.length} versions)`);
+console.log(`wrote case.stderr, case.nodocs.stderr, case.json, hir_case.stderr, msrv_attrs.stderr, msrv_stability.stderr, msrv.json (${cases.length} versions)`);

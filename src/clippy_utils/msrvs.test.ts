@@ -9,15 +9,18 @@
 //   - `env_fires` with no attribute and `CARGO_PKG_RUST_VERSION=<v>` (Cargo.toml's `rust-version`), which
 //     clippy_config's `Conf::read` parses with `parse_version(Symbol::intern(&v))` into `conf.msrv`, and the lint's
 //     `MsrvStack::from(conf.msrv)`;
-// - msrv_attrs.stderr: the oracle's stderr on msrv_attrs.rs, check_attrs' three errors, rendered.
+// - msrv_attrs.stderr: the oracle's stderr on msrv_attrs.rs, check_attrs' three errors, rendered;
+// - msrv_stability.stderr (review N4): the oracle's `incompatible_msrv` warnings on msrv_stability.rs, which give the
+//   stability and const-stability versions `Msrv::is_stable` / `is_const_stable` compare with the MSRV.
 // Here the same inputs go through the ported `MsrvStack` / `parse_attrs` / `check_attrs` / `Msrv`.
 import { beforeEach, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AttributeExt as AstAttributeExt } from "../rustc_ast/attr/mod.ts";
-import { type RustcVersion, display_RustcVersion } from "../rustc_ast/attr/version.ts";
+import { RustcVersion, display_RustcVersion } from "../rustc_ast/attr/version.ts";
+import { CRATE_HIR_ID } from "../rustc_hir_id/lib.ts";
 import { parse_version } from "../rustc_attr_parsing/attributes/util.ts";
-import type { LateContext } from "../rustc_lint/context.ts";
+import { LateContext } from "../rustc_lint/context.ts";
 import { new_parser_from_source_str, unwrap_or_emit_fatal } from "../rustc_parse/lib.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
 import { PLAIN } from "../std/fmt.ts";
@@ -138,6 +141,10 @@ test("Msrv: from, Default, Debug, and the attribute walk up the HIR once an attr
         if (!["a", "b", "c", "d", "main"].includes(name)) continue; // `extern crate std`, the prelude import
         const msrv = Msrv.from(parse_version(Symbol.intern("1.10")));
         const at = msrv.at(tcx, id.hir_id());
+        // review N4: `current(cx)` walks from `cx.last_node_with_lint_attrs` the same way
+        const cx = new LateContext(tcx, undefined, undefined, undefined as never, undefined as never, id.hir_id(), undefined, false);
+        expect(msrv.current(cx)).toEqual(at);
+        expect(msrv.meets(cx, msrvs.FIELD_INIT_SHORTHAND)).toBe(msrv.meets_at(tcx, id.hir_id(), msrvs.FIELD_INIT_SHORTHAND));
         got.push(`${name} ${at === undefined ? "None" : display_RustcVersion(at)} ${msrv.meets_at(tcx, id.hir_id(), msrvs.FIELD_INIT_SHORTHAND)}`);
       }
     },
@@ -145,4 +152,69 @@ test("Msrv: from, Default, Debug, and the attribute walk up the HIR once an attr
   // fn a: "abc" is not a version and fn b's attribute has no value, so the crate's 1.40 applies; fn c: the first of
   // three; fn d: "1.0-nightly" is not a version (parse_version takes no suffix); main: the crate's.
   expect(got).toEqual(["a 1.40.0 true", "b 1.40.0 true", "c 1.2.3 false", "d 1.40.0 true", "main 1.40.0 true"]);
+});
+
+// Review N4: `is_stable`, `is_const_stable` and `stability_met`, and `current` once an attribute was seen, against the
+// oracle. msrv_stability.rs sets `#![clippy::msrv = "1.20.0"]` and uses eight items; the oracle's `incompatible_msrv`
+// reports the uses whose item is stable (in a `const` context: const-stable) only since a later version, and prints that
+// version, which is the `since` of `lookup_stability` / `lookup_const_stability`, what these fns read.
+test("Msrv::is_stable / is_const_stable agree with the oracle's stability versions (msrv_stability.rs)", () => {
+  // the item each line of msrv_stability.rs uses (its diagnostic item) and whether the use is in a `const` context
+  const USES: Record<number, [string, boolean]> = {
+    9: ["needs_drop", false],
+    10: ["needs_drop", true],
+    11: ["mem_swap", false],
+    12: ["mem_swap", true],
+    13: ["mem_replace", true],
+    14: ["mem_discriminant", false],
+    15: ["mem_size_of_val", true],
+    16: ["hashmap_insert", false],
+  };
+  const reported = new Map<number, string>();
+  const lines = readFileSync(join(DIR, "msrv_stability.stderr"), "utf8").split("\n");
+  lines.forEach((l, i) => {
+    const m = /stable (?:in a `const` context )?since `([0-9.]+)`$/.exec(l);
+    if (m === null) return;
+    const at = /--> msrv_stability\.rs:(\d+):/.exec(lines[i + 1]!)!;
+    reported.set(Number(at[1]), m[1]!);
+  });
+  expect([...reported.keys()]).toEqual([9, 10, 12, 13, 14, 15]);
+  const got: string[] = [];
+  const want: string[] = [];
+  render_with("msrv_stability.rs", {
+    pre(_sess, krate) {
+      MsrvStack.from(undefined).check_attributes(krate.attrs); // the early pass sees `#![clippy::msrv = "1.20.0"]`
+    },
+    post(tcx) {
+      const cx = new LateContext(tcx, undefined, undefined, undefined as never, undefined as never, CRATE_HIR_ID, undefined, false);
+      const item = (name: string) => tcx.get_diagnostic_item(Symbol.intern(name))!;
+      const check = (msrv: Msrv, name: string, in_const: boolean): boolean => (in_const ? msrv.is_const_stable(cx, item(name)) : msrv.is_stable(cx, item(name)));
+      // with the attribute seen, `current` is the crate's 1.20.0 although `self.0` is None
+      const conf = Msrv.from(undefined);
+      expect(display_RustcVersion(conf.current(cx)!)).toBe("1.20.0");
+      for (const [line, [name, in_const]] of Object.entries(USES)) {
+        got.push(`${line} ${name} met=${check(conf, name, in_const)}`);
+        want.push(`${line} ${name} met=${!reported.has(Number(line))}`);
+      }
+      // no attribute seen: `current` is `self.0`; each reported version is met exactly from that version on
+      reset_seen_msrv_attr_for_tests();
+      expect(display_RustcVersion(Msrv.from(parse_version(Symbol.intern("1.30.0"))).current(cx)!)).toBe("1.30.0");
+      for (const [line, since] of reported) {
+        const [name, in_const] = USES[line]!;
+        const v = parse_version(Symbol.intern(since))!;
+        const before = new RustcVersion(v.major, v.minor - 1, 999);
+        got.push(`${line} ${name} at ${since}: ${check(Msrv.from(v), name, in_const)}, before: ${check(Msrv.from(before), name, in_const)}`);
+        want.push(`${line} ${name} at ${since}: true, before: false`);
+      }
+      // stability_met's other arms, with no MSRV at all (from the pinned library sources: `mem::drop` is
+      // `rustc_const_unstable`, `HashMap::insert` is not a `const fn`, `SyncUnsafeCell` is `#[unstable]`)
+      const none = Msrv.from(undefined);
+      got.push(
+        `none: swap const=${check(none, "mem_swap", true)} drop const=${check(none, "mem_drop", true)} insert const=${check(none, "hashmap_insert", true)} SyncUnsafeCell=${check(none, "SyncUnsafeCell", false)} drop=${check(none, "mem_drop", false)}`,
+      );
+      want.push("none: swap const=true drop const=false insert const=false SyncUnsafeCell=false drop=true");
+    },
+  });
+  expect(got.length).toBe(15);
+  expect(got).toEqual(want);
 });

@@ -7,6 +7,7 @@ import type { Crate } from "../../rustc_ast/lib.ts";
 import { compiler_entrypoint } from "../../rustc_driver_impl/lib.ts";
 import { AnnotateSnippetEmitter } from "../../rustc_errors/annotate_snippet_emitter_writer.ts";
 import { FatalErrorMarker } from "../../rustc_errors/lib.ts";
+import { JsonEmitter } from "../../rustc_errors/json.ts";
 import { type Config, run_compiler } from "../../rustc_interface/interface.ts";
 import { create_and_enter_global_ctxt, parse } from "../../rustc_interface/passes.ts";
 import type { TyCtxt } from "../../rustc_middle/ty/context.ts";
@@ -47,12 +48,12 @@ export interface Hooks {
 
 /** Compiles `file` (in DIR, named as the oracle was given it), runs the hooks, and returns the rendered stderr, including
  *  `finish_diagnostics`' error count. */
-export function render_with(file: string, hooks: Hooks): string {
+export function render_with(file: string, hooks: Hooks, args: readonly string[] = []): string {
   const buf = new VecU8();
   const cwd = process.cwd();
   process.chdir(DIR);
   try {
-    const config = config_from_args([file, "--edition=2024", "--emit=metadata"]);
+    const config = config_from_args([file, "--edition=2024", "--emit=metadata", ...args]);
     // as clippy's driver.rs `ClippyCallbacks::config` does: clippy's `sym` constants index these
     config.extra_symbols = [...EXTRA_SYMBOLS];
     const text = readFileSync(join(DIR, file), "utf8");
@@ -61,10 +62,16 @@ export function render_with(file: string, hooks: Hooks): string {
     try {
       run_compiler(config, (compiler) => {
         const sess = compiler.sess;
-        // the session's default human emitter (session.rs `default_emitter`), into a buffer
-        let em = AnnotateSnippetEmitter.new(AutoStream.new(dyn_write(buf), ColorChoice.Never));
-        em = AnnotateSnippetEmitter.sm(em, sess.psess.clone_source_map());
-        sess.dcx().set_emitter(em);
+        const fmt = sess.opts.error_format;
+        if (fmt.$ === "Json") {
+          // the session's JSON emitter (session.rs `default_emitter`), into a buffer
+          sess.dcx().set_emitter(JsonEmitter.new(buf, sess.psess.clone_source_map(), fmt.pretty, fmt.json_rendered, fmt.color_config));
+        } else {
+          // the session's default human emitter (session.rs `default_emitter`), into a buffer
+          let em = AnnotateSnippetEmitter.new(AutoStream.new(dyn_write(buf), ColorChoice.Never));
+          em = AnnotateSnippetEmitter.sm(em, sess.psess.clone_source_map());
+          sess.dcx().set_emitter(em);
+        }
         const krate = parse(sess);
         hooks.pre?.(sess, krate);
         create_and_enter_global_ctxt(compiler, krate, (tcx) => {
