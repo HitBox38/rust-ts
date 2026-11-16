@@ -11,6 +11,7 @@ import { expect, test } from "bun:test";
 import { LINTS } from "../clippy_lints/declared_lints.ts";
 import { new_lint_store } from "../rustc_lint/lib.ts";
 import { Level, Level_discriminant, type Lint, Lint as LintC, LintId as LintIdC } from "../rustc_lint_defs/lib.ts";
+import type { LintStore } from "../rustc_lint/context.ts";
 import { LintCategory, LintInfo, LintListBuilder } from "./lib.ts";
 
 test("LintCategory::name and LintInfo::name_lower", () => {
@@ -66,4 +67,33 @@ test("the registration listing equals the pinned clippy-driver -W help", async (
   const want_groups = section(text, "Lint groups loaded by this crate:");
   expect(want_groups.map((r) => r.split("  ")[0])).toEqual(["clippy::cargo", "clippy::complexity", "clippy::correctness", "clippy::default", "clippy::nursery", "clippy::pedantic", "clippy::perf", "clippy::restriction", "clippy::style", "clippy::suspicious"]);
   expect(groups).toEqual(want_groups);
+});
+
+test("LintListBuilder::register: the store calls in upstream order (review N4, M2: `-W help` sorts the groups)", () => {
+  const calls: unknown[][] = [];
+  const store = {
+    register_lints: (lints: readonly unknown[]) => calls.push(["register_lints", lints.length]),
+    register_group: (is_externally_loaded: boolean, name: string, deprecated_name: string | undefined, to: readonly unknown[]) =>
+      calls.push(["register_group", is_externally_loaded, name, deprecated_name, to.length]),
+    register_group_alias: (group_name: string, alias: string) => calls.push(["register_group_alias", group_name, alias]),
+  } as unknown as LintStore;
+  const list_builder = LintListBuilder.default();
+  list_builder.insert(LINTS);
+  list_builder.register(store);
+  const n = (c: LintCategory): number => LINTS.filter((l) => l.category === c).length;
+  const all = n("Complexity") + n("Correctness") + n("Perf") + n("Style") + n("Suspicious");
+  expect(calls).toEqual([
+    ["register_lints", 835],
+    ["register_group", true, "clippy::default", "clippy_all", all],
+    ["register_group_alias", "clippy::default", "clippy::all"],
+    ["register_group", true, "clippy::cargo", "clippy_cargo", n("Cargo")],
+    ["register_group", true, "clippy::complexity", "clippy_complexity", n("Complexity")],
+    ["register_group", true, "clippy::correctness", "clippy_correctness", n("Correctness")],
+    ["register_group", true, "clippy::nursery", "clippy_nursery", n("Nursery")],
+    ["register_group", true, "clippy::pedantic", "clippy_pedantic", n("Pedantic")],
+    ["register_group", true, "clippy::perf", "clippy_perf", n("Perf")],
+    ["register_group", true, "clippy::restriction", "clippy_restriction", n("Restriction")],
+    ["register_group", true, "clippy::style", "clippy_style", n("Style")],
+    ["register_group", true, "clippy::suspicious", "clippy_suspicious", n("Suspicious")],
+  ]);
 });

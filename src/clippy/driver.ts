@@ -31,6 +31,7 @@ import { Unported, unported } from "../std/panic.ts";
 import { report_uncaught } from "../std/panicking.ts";
 import { var_ } from "../std/env.ts";
 import { ok } from "../std/result.ts";
+import { str_lines } from "../std/str.ts";
 import { write_stderr } from "../std/io.ts";
 import { ensure_stack, selected_impl } from "../rust_ts/stack.ts";
 import { stdout } from "../vendor/anstream/lib.ts";
@@ -226,7 +227,7 @@ export function main(): ExitCode {
         const arg_file_path = strip_prefix(arg, "@");
         const arg_file = arg_file_path === undefined ? undefined : read_to_string(arg_file_path);
         if (arg_file !== undefined) {
-          return lines(arg_file).some((arg) => is_arg(arg, "--sysroot"));
+          return str_lines(arg_file).some((arg) => is_arg(arg, "--sysroot"));
         } else {
           return is_arg(arg, "--sysroot");
         }
@@ -387,14 +388,6 @@ function read_to_string(path: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/** `str::lines`: split at `\n`, a final empty line dropped, one trailing `\r` stripped from each line. */
-export function lines(s: string): string[] {
-  if (s.length === 0) return [];
-  const out = s.split("\n");
-  if (s.endsWith("\n")) out.pop();
-  return out.map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
 }
 
 /** `Path::new(p).file_stem()` on a Unix host (PORT: `/` separators only; the root host is macOS, AGENTS.md §5). */

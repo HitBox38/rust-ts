@@ -3,6 +3,44 @@
 Plan: `docs/plan-m8.md` §2 (§2b–§2d), D4, D12, D13, D14, §8 wave 41; root decisions "codegen-clippy-macros N4", "N5" and
 "codegen-clippy-macros (D5)". Base: `6dad6108` (checked with `git merge-base --is-ancestor`).
 
+## Review fixes (`docs/reviews/clippy-contract-a.md`, FAIL: F1, F2; notes N1–N7)
+
+- **F1** (`display_ConfMetadata` not exported by b1's `clippy_config/lib.ts`): fixed on clippy-contract-b1's side (it re-exports
+  it beside `ConfMetadata`); `contract.d.ts`'s comment says so. Nothing else changed here.
+- **F2** (`driver.test.ts` read `CLIPPY_CONF_DIR` by name, refused by `scripts/lib/unit-steps.test.ts`): the test now sets and
+  restores variables only through a `with_env(env, f)` helper whose names come from its parameter; `run()` and the `track_state`
+  check both use it. `bun test scripts/lib/unit-steps.test.ts`: 10 pass.
+- **N1** (contract test pinned 747 markers / 603 methods and called every prototype method): `contract.test.ts` is now
+  marker-driven. It scans the pinned sources for the contract's upstream fns (every fn of the sub-pass types' `EarlyLintPass` /
+  `LateLintPass` impls, and each `new` lib.rs calls: 747 at the pin) and requires each to carry a `// stub:` **or** a `// rustc:`
+  marker, never both; only a method or constructor under a `// stub:` marker (and a `#[derive(Default)]` stub, whose body is the
+  `unported` call) must stop `Unported`. Checked by simulating a fill (one stub turned into a `// rustc:`-marked body: passes;
+  the marker dropped: fails, naming the fn).
+- **N5** (`lines` stripped a final bare `\r`): `driver.ts` uses `str_lines` (src/std/str.ts), as `str::lines`; the local helper is
+  gone, and `driver.test.ts` has the `@argfile` case whose last line is `--sysroot\r` (SYSROOT's `--sysroot` is then appended).
+- **`extra_symbols`** (clippy-contract-b2's report): already ported. `RustcCallbacks::config` (driver.rs:130) and
+  `ClippyCallbacks::config` (:171) both set `config.extra_symbols = [...sym.EXTRA_SYMBOLS]`, imported from the generated
+  `src/clippy_utils/sym.gen.ts` on main; `driver.test.ts` checks both.
+- **N4** (no test ran `register_lint_passes` / `explain`; M2, M3, M4, M9 uncaught):
+  - M2 (group order): `src/declare_clippy_lint/lib.test.ts` checks `LintListBuilder::register`'s store calls in order, now.
+  - M3, M4, M9: `src/clippy_lints/lib.test.ts` (new). **Its tests SKIP while `src/clippy_lints/lib.gen.ts` or
+    `src/clippy_config/lib.ts` is absent** (the test names say so); root checks at integration that they run. They cover:
+    `register_lint_passes` into a capturing store (the renamed then removed calls against `deprecated_lints`, in order; the two
+    pre-expansion factories in order, each given `conf`; the early factory's storages; the late factory's
+    `skippable_lints(null)`, the same storages, and `is_active` per late sub-pass for a chosen skippable set; and the generated
+    selection: with every clippy lint skippable only `DumpHir` and `Author` are built); `explain` against the pinned
+    `cargo-clippy clippy --explain` for `double_parens`, `needless_return`, `NEEDLESS_RETURN` and an unknown name (with
+    `Conf::get_metadata` replaced by `[]`; those lints have no configuration); and the `### Configuration` section's filter.
+    A fourth test, `explain` of configured lints against the oracle, skips until `Conf::get_metadata` is ported
+    (codegen-clippy-conf).
+  - Simulated integration, then removed: b1's `src/clippy_config/` from `4ea919ec` with the F1 export added, and
+    `bun tools/codegen/clippy.ts` writing `lib.gen.ts`. lib.test.ts: 3 pass, 1 skip (the `get_metadata` one); mutations M3
+    (renamed → removed), M4 (pre-expansion passes swapped) and M9 (lowercase lookup) each fail it, and M2 fails the
+    declare_clippy_lint test.
+- N2, N3 (interface.ts `Some` arms; `describe_lints` padding): outside this lane, unchanged in "Changes needed outside this lane".
+  N3's caveat stands: `clippy-driver -W help` end to end also waits on `Conf.load` → `Conf::default` (codegen-clippy-conf).
+- N6, N7: no change needed.
+
 ## What is ported
 
 | Upstream (`src/tools/clippy/…`) | TS | Coverage |
@@ -101,27 +139,24 @@ paths only; `contract.test.ts` checks every import of a declared specifier resol
    (PORT in the file; the test checks every entry against the pinned source). If root prefers PORTING §5's letter (macros via
    `tools/codegen`), move it into `tools/codegen/clippy.ts`.
 
-## Unit tests (D13: about 1.1 s for the lane's 14 tests, 0.4 s of it the one oracle run)
+## Unit tests (D13: about 2 s for the lane's 24 running tests; 4 skip until integration / codegen-clippy-conf, above)
 
-- `src/clippy/driver.test.ts` (8): upstream `test_arg_value`, `test_has_arg` (`// rustc:` markers); `file_stem`/`lines`; `help_message`
+- `src/clippy/driver.test.ts` (8): upstream `test_arg_value`, `test_has_arg` (`// rustc:` markers); `file_stem`/`str_lines`; `help_message`
   equals the `color_print::cstr!` literal inside the pinned clippy-driver binary; **argument handling** in-process with
   `compiler_entrypoint` spied (restored after each case): `--rustc`, `SYSROOT` with/without `--sysroot` and `@file`, wrapper mode,
   `CLIPPY_ARGS` (`__CLIPPY_HACKERY__`, `--no-deps` with/without `CARGO_PRIMARY_PACKAGE`), `--cap-lints allow` with/without
   `--force-warn clippy::…`, info queries (`-vV`, `--print`, `--print=crate-root-lint-levels`), `--version` → unported; and both
   callbacks' `config` (mir options, `extra_symbols`, `track_state`'s env/file depinfo, `register_lints` set only by clippy's).
-- `src/declare_clippy_lint/lib.test.ts` (2): `LintCategory::name`, `LintInfo::name_lower` over all 835; **the registration
+- `src/declare_clippy_lint/lib.test.ts` (3): `register`'s store calls in order (N4 M2); `LintCategory::name`, `LintInfo::name_lower` over all 835; **the registration
   listing against the pinned `clippy-driver -W help`**: `insert(LINTS)` + `register` on `new_lint_store(false)`, every loaded lint
   (name, default level, description) in `-W help`'s order and every clippy group with its members in order, equal.
 - `src/clippy_lints/deprecated_lints.test.ts` (1): every entry/version/order against the pinned source.
-- `src/clippy_lints/contract.test.ts` (3): the 747 `// stub:` markers name upstream fns; all 369 `SUB_PASSES` rows' types are
-  exported with the generated `lint_vec` (365 types); every stub throws `Unported` (the dual ones only on their implemented side);
-  the contract blocks.
+- `src/clippy_lints/contract.test.ts` (4, marker-driven, N1): the contract's 747 upstream fns each carry a `// stub:` or a
+  `// rustc:` marker; every stub marker names an upstream fn; all 369 `SUB_PASSES` rows' types are exported with the generated
+  `lint_vec`; every stub-marked method or constructor throws `Unported` (a dual pass's on the marker's side); the contract blocks.
+- `src/clippy_lints/lib.test.ts` (4, skipping until integration; N4 above).
 
-**Not testable on this branch: the combined passes' per-sub-pass selection** (`is_active(<T>.lint_vec())`), which lives in
-`lib.gen.ts`. After integration, with item 1 above, `clippy-driver -W help` end to end is the natural check (it builds no pass).
-For the selection, a test that registers through `register_lint_passes` into a capturing store, calls the late factory with a
-`tcx` whose `skippable_lints(null)` is a chosen set, and checks which fields are `undefined` (e.g. every clippy lint skippable:
-only `DumpHir`, `Author` and `CognitiveComplexity` built) would go in at integration.
+The combined passes' per-sub-pass selection is covered by `src/clippy_lints/lib.test.ts` once `lib.gen.ts` exists (N4 above).
 
 No difftest was run (no clippy suite exists; harness-m8d adds them). Manual check: `bun src/clippy/driver.ts --help` prints the
 oracle's text (exit 0); `--rustc --version` prints the rustc version; `--version` exits 70 (unported); a lib crate compiles
@@ -147,7 +182,7 @@ oracle's text (exit 0); `--rustc --version` prints the rustc version; `--version
 
 ## Files touched
 
-`src/clippy/{driver,driver.test}.ts`; `src/declare_clippy_lint/{lib,lib.test}.ts`; `src/clippy_lints/{lib,declared_lints,
+`src/clippy/{driver,driver.test}.ts`; `src/declare_clippy_lint/{lib,lib.test}.ts`; `src/clippy_lints/{lib,lib.test,declared_lints,
 deprecated_lints,deprecated_lints.test,combined_early_pass,combined_late_pass,contract.test}.ts`, `src/clippy_lints/contract.d.ts`,
 `src/clippy_lints/utils/mod.ts`, the 359 skeleton modules (`src/clippy_lints/**/*.ts` beside each `.lints.gen.ts`, and
 `src/clippy_utils/macros.ts`); this file. Nothing under `tools/`, `harness/`, `scripts/` or `scope.json`; no generated file edited.

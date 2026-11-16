@@ -14,7 +14,8 @@ import { args_os, remove_var, set_args_os, set_var, var_os } from "../std/env.ts
 import { take_hook } from "../std/panicking.ts";
 import { Unported } from "../std/panic.ts";
 import * as sym from "../clippy_utils/sym.gen.ts";
-import { arg_value, file_stem, help_message, is_arg, lines, main } from "./driver.ts";
+import { str_lines } from "../std/str.ts";
+import { arg_value, file_stem, help_message, is_arg, main } from "./driver.ts";
 
 // `main` installs the ICE hook, and `bun test` runs every file in this process.
 afterAll(take_hook);
@@ -61,10 +62,8 @@ test("Path::file_stem and str::lines (std semantics)", () => {
     [".", undefined],
   ];
   for (const [p, s] of stems) expect([p, file_stem(p)]).toEqual([p, s]);
-  expect(lines("")).toEqual([]);
-  expect(lines("a\n")).toEqual(["a"]);
-  expect(lines("a\r\nb")).toEqual(["a", "b"]);
-  expect(lines("a\n\nb\n\n")).toEqual(["a", "", "b", ""]);
+  // `str::lines` (std's `str_lines`): `\r` is stripped only before a `\n`, so a final bare `\r` stays
+  expect(str_lines("a\n--sysroot\r")).toEqual(["a", "--sysroot\r"]);
 });
 
 test("help_message is color_print::cstr!'s expansion in the pinned clippy-driver", async () => {
@@ -86,7 +85,25 @@ interface Call {
 
 const enc = new TextEncoder();
 
-/** Runs `clippy-driver <args>` in-process with `env` set (`undefined` = unset): [exit code, compiler_entrypoint calls]. */
+/** Runs `f` with each variable of `env` set (`undefined` = unset), restoring them afterwards. The names come only through `env`. */
+function with_env<R>(env: Record<string, string | undefined>, f: () => R): R {
+  const saved = new Map(Object.keys(env).map((k) => [k, var_os(k)]));
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) remove_var(k);
+    else set_var(k, v);
+  }
+  try {
+    return f();
+  } finally {
+    for (const [k, v] of saved) {
+      if (v === undefined) remove_var(k);
+      else set_var(k, v);
+    }
+  }
+}
+
+/** Runs `clippy-driver <args>` in-process with `env` set (`undefined` = unset; the driver's own variables unset unless given):
+ * [exit code, compiler_entrypoint calls]. */
 function run(args: string[], env: Record<string, string | undefined> = {}): [number, Call[]] {
   const calls: Call[] = [];
   const spy = spyOn(rustc_driver_impl, "compiler_entrypoint").mockImplementation((a, callbacks) => {
@@ -94,23 +111,12 @@ function run(args: string[], env: Record<string, string | undefined> = {}): [num
   });
   // The env logger can be set once per process (a second `init` is a fatal error); RUSTC_LOG is unset here, so it is a no-op.
   const logger = spyOn(rustc_driver_impl, "init_rustc_env_logger").mockImplementation(() => {});
-  const keys = ["SYSROOT", "CLIPPY_ARGS", "CARGO_PRIMARY_PACKAGE", ...Object.keys(env)];
-  const saved = new Map(keys.map((k) => [k, var_os(k)]));
-  for (const k of keys) {
-    const v = env[k];
-    if (v === undefined) remove_var(k);
-    else set_var(k, v);
-  }
   const previous_args = args_os();
   set_args_os(["clippy-driver", ...args].map((a) => enc.encode(a)));
   try {
-    return [main(), calls];
+    return with_env({ SYSROOT: undefined, CLIPPY_ARGS: undefined, CARGO_PRIMARY_PACKAGE: undefined, ...env }, () => [main(), calls]);
   } finally {
     set_args_os(previous_args);
-    for (const [k, v] of saved) {
-      if (v === undefined) remove_var(k);
-      else set_var(k, v);
-    }
     spy.mockRestore();
     logger.mockRestore();
   }
@@ -138,6 +144,10 @@ test("main: --rustc, wrapper mode and --sysroot from SYSROOT", () => {
     const f = join(dir, "args");
     writeFileSync(f, "a.rs\r\n--sysroot\n/u\n");
     expect(one([`@${f}`], { SYSROOT: "/s" })).toEqual([["clippy-driver", `@${f}`, ...CFG], "ClippyCallbacks"]);
+    // a last line `--sysroot\r` with no `\n` is not `--sysroot` (str::lines keeps the `\r`), so SYSROOT's is added
+    const g = join(dir, "args2");
+    writeFileSync(g, "a.rs\n--sysroot\r");
+    expect(one([`@${g}`], { SYSROOT: "/s" })).toEqual([["clippy-driver", `@${g}`, "--sysroot", "/s", ...CFG], "ClippyCallbacks"]);
     expect(one([`@${join(dir, "missing")}`], { SYSROOT: "/s" })).toEqual([["clippy-driver", `@${join(dir, "missing")}`, "--sysroot", "/s", ...CFG], "ClippyCallbacks"]);
   } finally {
     rmSync(dir, { recursive: true });
@@ -198,21 +208,12 @@ test("ClippyCallbacks::config and RustcCallbacks::config", () => {
   const depinfo = (f: (sess: Session) => void, env: Record<string, string | undefined>): [string[], string[]] =>
     create_session_globals_then("Edition2015", sym.EXTRA_SYMBOLS, undefined, () => {
       const sess = { env_depinfo: new Set<string>(), file_depinfo: new Set<Symbol>() } as unknown as Session;
-      const saved = var_os("CLIPPY_CONF_DIR");
-      const v = env.CLIPPY_CONF_DIR;
-      if (v === undefined) remove_var("CLIPPY_CONF_DIR");
-      else set_var("CLIPPY_CONF_DIR", v);
-      try {
-        f(sess);
-      } finally {
-        if (saved === undefined) remove_var("CLIPPY_CONF_DIR");
-        else set_var("CLIPPY_CONF_DIR", saved);
-      }
+      with_env(env, () => f(sess));
       return [[...sess.env_depinfo], [...sess.file_depinfo].map((s) => Symbol.as_str(s))];
     });
   const cargo_toml = existsSync("Cargo.toml") ? ["Cargo.toml"] : [];
   expect(depinfo(cb.track_state!, { CLIPPY_CONF_DIR: "conf" })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR","conf"]'], cargo_toml]);
-  expect(depinfo(cb.track_state!, {})).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR",null]'], cargo_toml]);
+  expect(depinfo(cb.track_state!, { CLIPPY_CONF_DIR: undefined })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR",null]'], cargo_toml]);
   const rcb = r as unknown as { track_state: (sess: Session) => void };
-  expect(depinfo(rcb.track_state, {})).toEqual([['["CLIPPY_ARGS","-Dwarnings"]'], []]);
+  expect(depinfo(rcb.track_state, { CLIPPY_CONF_DIR: undefined })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]'], []]);
 });
