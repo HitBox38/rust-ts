@@ -757,8 +757,8 @@ M7 is done (gate-20261115-141315-root-qswd; milestone recorded; PLAN.md updated)
 | tools-prep-m8 | D3 sources (sparse clippy/rustfmt, cargo tarball, `CARGO_HOME`, root-lock `tools-deps`), D4 coverage crates, `scope.json` | **merged** (b75df78c; review PASS WITH NOTES; root fixed N1 header, N3 timeout) |
 | harness-m8a-gate | D2 tool oracles and guard, D19 `neverProtect`/ENV + accept checks, D20 gate headroom logic (fake host readers) | **merged** (integ-w62; review PASS WITH NOTES, N1 N4-N6 fixed in 275e065d) |
 | cargo-fix-a | aarch64 intrinsic signatures `crc32b`, `crypto.sha1h`, `crypto.sha256h`; proved on `crc32fast`, `sha1`, `sha2` alone (D22) | **merged** (b75df78c; 22 signatures; review PASS WITH NOTES); crc32fast byte-identical, sha1/sha2 differ only by pm-self F1 |
-| codegen-clippy-macros, codegen-fmt-serde | D5, D6 (after tools-prep-m8) | clippy-macros **merged** (integ-w63; review PASS WITH NOTES, N1-N3 N7 fixed); fmt-serde in integ-w64 (review PASS WITH NOTES, N1 N2 N7 fixed) |
-| clippy-contract-a, clippy-contract-b1/-b2, rustfmt-contract | contracts (after steps 1-2) | a and b1 started; b2 after b1; rustfmt-contract after integ-w64 |
+| codegen-clippy-macros, codegen-fmt-serde | D5, D6 (after tools-prep-m8) | clippy-macros **merged** (integ-w63; review PASS WITH NOTES, N1-N3 N7 fixed); fmt-serde **merged** (integ-w64; review PASS WITH NOTES, N1 N2 N7 fixed; one-argument unwrap_result fixed at integration) |
+| clippy-contract-a, clippy-contract-b1/-b2, rustfmt-contract | contracts (after steps 1-2) | a running; b1 done (4ea919ec, in review); b2 running; rustfmt-contract-1 running |
 | harness-m8a-build | D8 project-build harness, D15, watchdog, `cargo-build`/`cargo-smoke` (`neverProtect`); rg-build proof (after harness-m8a-gate) | review PASS WITH NOTES (2b21b205); lane fixing N1 (rg-behaviour key), N2, N5, N6; cargo-build proof run waits on host |
 | m8-measure | root, alone | **waits on host** (D20) |
 
