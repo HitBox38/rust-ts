@@ -53,12 +53,13 @@ console.log(JSON.stringify({
   // gate-20261115-141315-root-qswd's accept protected rg-build, rg-behaviour(-rgtest) and pm-self (M7d); std-self stays report
   // only, with no baseline, so it is not in the gate's defaults (w40t-audit N5).
   for (const n of j.names) expect(existsSync(join(REPO, "harness/baseline", `${n}.txt`))).toBe(n !== "std-self");
-  // rg-build: one case, the wrapper's two sides differing only in --side and the compiler after `--`.
+  // rg-build: one case, the wrapper's two sides differing only in --side and the compiler after `--`. The wrapper is the project-build
+  // harness (plan-m8 D8, lane harness-m8a-build), project ripgrep.
   expect(j.build.cases).toEqual([{ id: "ripgrep-15.2.0", file: "ripgrep-15.2.0/Cargo.lock", args: ["release", "-j1"] }]);
-  expect(j.build.oracle[0]).toEndWith("scripts/rg-build.ts");
-  expect(j.build.oracle.slice(1, 5)).toEqual(["run", "--side", "oracle", "--"]);
-  expect(j.build.oracle[5]).toMatch(/\/bin\/rustc$/);
-  expect(j.build.subject.slice(1, 5)).toEqual(["run", "--side", "subject", "--"]);
+  expect(j.build.oracle[0]).toEndWith("scripts/cargo-project-build.ts");
+  expect(j.build.oracle.slice(1, 7)).toEqual(["run", "--project", "ripgrep", "--side", "oracle", "--"]);
+  expect(j.build.oracle[7]).toMatch(/\/bin\/rustc$/);
+  expect(j.build.subject.slice(1, 7)).toEqual(["run", "--project", "ripgrep", "--side", "subject", "--"]);
   expect(j.build.subject.join(" ")).toMatch(/src\/rust_ts\/main\.ts --sysroot \/\S+$/);
   // rg-behaviour: one case per scripted query, in the file's order; both sides in one directory under one lock.
   expect(j.cases).toEqual(j.queryIds);
@@ -95,7 +96,8 @@ console.log(JSON.stringify({
   const why = "detected: the ripgrep harness had no result: the build was interrupted (SIGTERM)";
   expect(j.noResult).toEqual([why, why, why, null, null, null]);
   expect(j.plain).toBeNull();
-  expect(j.hooked).toEqual(["rg-build", "rg-behaviour", "rg-behaviour-rgtest"]);
+  // M8a's cargo suites have their own mark (harness/m8a-suites.test.ts).
+  expect(j.hooked).toEqual(["rg-build", "rg-behaviour", "rg-behaviour-rgtest", "cargo-build", "cargo-smoke"]);
 }, 60_000);
 
 const pmCaseArgs = () => ["--aux-key", "0123456789abcdef", "--step", JSON.stringify({ file: "tests/ui/auxiliary/b.rs", args: ["--crate-type", "proc-macro"], env: { PATH: "/usr/bin" } }), "--", "tests/ui/a.rs"];
