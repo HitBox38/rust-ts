@@ -1,19 +1,49 @@
-// Hand-written contract of lane rustfmt-contract-1 (not generated): what src/rustfmt/lib.ts uses from rustfmt modules that
-// later lanes port (rustfmt-contract-2/-3 and the fill lanes of plan-m8 §3c), as ambient `declare module` blocks. TypeScript
-// consults a block only while no file resolves the import, so lib.ts type-checks now and is checked against the real module
-// once it lands. lib.ts imports these modules by the specifiers below (`../rustfmt/<path>`, which from src/rustfmt/ name the
+// Hand-written contract of lanes rustfmt-contract-1/-2 (not generated): what src/rustfmt/lib.ts, rewrite.ts, utils.ts,
+// spanned.ts and source_map.ts use from rustfmt modules that later lanes port (rustfmt-contract-3 and the fill lanes of
+// plan-m8 §3c) and from the vendor crates of vendor-fmt-small (plan-m8 D7), as ambient `declare module` blocks. TypeScript
+// consults a block only while no file resolves the import, so the importers type-check now and are checked against the real module
+// once it lands. They import these modules by the specifiers below (`../rustfmt/<path>`, which from src/rustfmt/ name the
 // same files as `./<path>`); a block's name is that specifier plus `*` (as contract.gen.d.ts: TypeScript matches no ambient
 // name that looks relative without it). The lane that creates a module deletes its block here, and may rewrite lib.ts's
 // specifier to `./<path>`. Signatures follow upstream at the pin; the porting lane owns the final shape.
 
 declare module "../rustfmt/comment.ts*" {
-  // comment.rs: `pub(crate) enum FullCodeCharKind`
-  export type FullCodeCharKind = string;
+  // comment.rs:1275 `pub(crate) enum FullCodeCharKind` (fieldless: a string union and its companion, PORTING §5)
+  export type FullCodeCharKind =
+    | "Normal"
+    | "StartComment"
+    | "InComment"
+    | "EndComment"
+    | "StartStringCommented"
+    | "EndStringCommented"
+    | "InStringCommented"
+    | "StartString"
+    | "EndString"
+    | "InString";
+  export const FullCodeCharKind: {
+    // comment.rs `impl FullCodeCharKind` (the methods utils.rs calls)
+    is_string(self: FullCodeCharKind): boolean;
+    is_commented_string(self: FullCodeCharKind): boolean;
+  };
   // comment.rs:1556 `pub(crate) struct LineClasses<'a>`: `Iterator<Item = (FullCodeCharKind, String)>`
   export class LineClasses implements Iterable<[FullCodeCharKind, string]> {
     static new(s: string): LineClasses;
     [Symbol.iterator](): Iterator<[FullCodeCharKind, string]>;
   }
+  // comment.rs:1211 `pub(crate) struct CharClasses<T>` over `s.chars()` (utils.rs:606): `Iterator<Item = (FullCodeCharKind,
+  // char)>`, chars as Unicode scalar values (PORTING §5). Upstream is generic over `T: Iterator, T::Item: RichChar`; the
+  // comment lane picks the final shape and adjusts utils.ts's call.
+  export class CharClasses implements Iterable<[FullCodeCharKind, number]> {
+    static new(base: Iterator<number>): CharClasses;
+    [Symbol.iterator](): Iterator<[FullCodeCharKind, number]>;
+  }
+  // comment.rs:1779
+  export function filter_normal_code(code: string): string;
+  // comment.rs:1143 `pub(crate) trait FindUncommented` and its `impl FindUncommented for str` (:1148): returns a UTF-8
+  // byte offset, as upstream (source_map.ts slices and adds it to a `BytePos`).
+  export const FindUncommented_str: {
+    find_uncommented(self: string, pat: string): number | undefined;
+  };
 }
 
 declare module "../rustfmt/emitter.ts*" {
@@ -71,10 +101,6 @@ declare module "../rustfmt/parse/parser.ts*" {
   export type DirectoryOwnership = import("../rustc_expand/module.ts").DirOwnership;
 }
 
-declare module "../rustfmt/utils.ts*" {
-  // utils.rs:732
-  export function indent_next_line(kind: import("../rustfmt/comment.ts").FullCodeCharKind, line: string, config: import("./config/mod.ts").Config): boolean;
-}
 
 declare module "../rustfmt/format_report_formatter.ts*" {
   // format_report_formatter.rs: `FormatReportFormatterBuilder::new(&report).enable_colors(b).build()` and its `Display`
@@ -93,10 +119,62 @@ declare module "../rustfmt/rustfmt_diff.ts*" {
   export interface ModifiedLines {}
 }
 
-declare module "../rustfmt/rewrite.ts*" {
-  // rewrite.rs:65 `pub(crate) struct ExceedsMaxWidthError` (used by shape.ts)
-  export interface ExceedsMaxWidthError {
-    configured_width: number;
-    span: import("../rustc_span/lib.ts").Span;
+declare module "../rustfmt/parse/session.ts*" {
+  type Span = import("../rustc_span/lib.ts").Span;
+  // parse/session.rs `pub(crate) struct ParseSess`: what rewrite.rs and utils.rs's `out_of_file_lines_range!` use.
+  export class ParseSess {
+    // parse/session.rs:284 `impl LineRangeUtils for ParseSess` (the trait is source_map.rs's)
+    lookup_line_range(span: Span): import("./config/file_lines.ts").LineRange;
   }
+}
+
+declare module "../rustfmt/skip.ts*" {
+  // skip.rs `pub(crate) struct SkipContext` (rustfmt-contract-3): a field of `RewriteContext`
+  export class SkipContext {}
+}
+
+declare module "../rustfmt/visitor.ts*" {
+  type Span = import("../rustc_span/lib.ts").Span;
+  type BytePos = import("../rustc_span/lib.ts").BytePos;
+  // visitor.rs:35 `pub(crate) struct SnippetProvider`
+  export class SnippetProvider {
+    // visitor.rs:45; text is a JS `string` (utils.ts)
+    span_to_snippet(span: Span): string | undefined;
+    // source_map.rs:28 `impl SpanUtils for SnippetProvider` (source_map.ts also augments the real module with these)
+    span_after(original: Span, needle: string): BytePos;
+    span_after_last(original: Span, needle: string): BytePos;
+    span_before(original: Span, needle: string): BytePos;
+    span_before_last(original: Span, needle: string): BytePos;
+    opt_span_after(original: Span, needle: string): BytePos | undefined;
+    opt_span_before(original: Span, needle: string): BytePos | undefined;
+  }
+}
+
+declare module "../rustfmt/macros.ts*" {
+  // macros.rs:59 `pub(crate) enum MacroArg` (`Box<T>` is `T`)
+  export type MacroArg =
+    | { readonly $: "Expr"; _0: import("../rustc_ast/lib.ts").ast.Expr }
+    | { readonly $: "Ty"; _0: import("../rustc_ast/lib.ts").ast.Ty }
+    | { readonly $: "Pat"; _0: import("../rustc_ast/lib.ts").ast.Pat }
+    | { readonly $: "Item"; _0: import("../rustc_ast/lib.ts").ast.Item }
+    | { readonly $: "Keyword"; _0: import("../rustc_span/symbol.ts").Ident; _1: import("../rustc_span/lib.ts").Span };
+}
+
+declare module "../rustfmt/items.ts*" {
+  type Param = import("../rustc_ast/lib.ts").ast.Param;
+  // items.rs:2451, :2471 (spanned.rs's `impl Spanned for ast::Param`)
+  export function span_lo_for_param(param: Param): import("../rustc_span/lib.ts").BytePos;
+  export function is_named_param(param: Param): boolean;
+}
+
+declare module "../vendor/unicode_width_0_1/lib.ts*" {
+  // unicode-width 0.1.14 (vendor-fmt-small, plan-m8 D7), `impl UnicodeWidthStr for str`, as src/vendor/unicode_width (0.2.2)
+  export const UnicodeWidthStr: {
+    width(self: string): number;
+  };
+}
+
+declare module "../vendor/bytecount/lib.ts*" {
+  // bytecount 0.6.9 (vendor-fmt-small, plan-m8 D7): `pub fn count(haystack: &[u8], needle: u8) -> usize`
+  export function count(haystack: Uint8Array, needle: number): number;
 }
