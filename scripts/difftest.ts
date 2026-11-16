@@ -20,7 +20,10 @@
 // TIMEOUT (the subject timed out, in the parallel pool and again in its serial re-run) | ORACLE_TIMEOUT (the oracle timed out twice, the second time with
 // ORACLE_RETRY_FACTOR x its timeout; never cached, never compared, never MATCH) | UNSTABLE (the oracle's output
 // is not reproducible: the case is listed in `Suite.unstable`, or its oracle stderr matches one of
-// `UNSTABLE_ORACLE_PATTERNS`; never cached, never compared, never MATCH, and the gate never protects it)
+// `UNSTABLE_ORACLE_PATTERNS`; never cached, never compared, never MATCH, and the gate never protects it) | ENV (plan-m8 D9, D19:
+// a single-mode suite's `Suite.envOracle` says the oracle does not pass the case for host reasons, on two oracle runs, from the
+// oracle's output alone (flagged on one run of two: UNSTABLE); never cached, never compared, never MATCH, out of every denominator,
+// and so never protected)
 //
 // Comparison: exact, except that a panic message's OS thread id and a long-type note's hash are masked on both sides, in
 // stderr only, never in stdout and never in what is cached (`maskThreadId`, `maskLongTypeHash`, `stderrMask`, `maskedTexts`,
@@ -86,8 +89,13 @@ import { isRustcDevProbe } from "./probes.ts";
 import { GROUPS } from "./criteria.ts";
 import { prepareSubject, subjectBinPaths, type SubjectRecord } from "./lib/subject-bin.ts";
 
-export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT" | "UNSTABLE";
-export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT", "UNSTABLE"];
+/**
+ * ENV (plan-m8 D9, D19; lane harness-m8a-gate): the oracle side does not pass for host reasons (`Suite.envOracle`), on two oracle
+ * runs. Decided from the oracle's runs only (`classify` reads no subject output for it), out of every denominator, and never MATCH,
+ * so never protected (scripts/gate.ts `matchesOfRun` reads MATCH only).
+ */
+export type Status = "MATCH" | "DIFF" | "UNPORTED" | "CRASH" | "TIMEOUT" | "ORACLE_TIMEOUT" | "UNSTABLE" | "ENV";
+export const STATUSES: Status[] = ["MATCH", "DIFF", "UNPORTED", "CRASH", "TIMEOUT", "ORACLE_TIMEOUT", "UNSTABLE", "ENV"];
 
 /** Oracle stderr patterns that are not reproducible (scripts/lib/unstable.ts). */
 export { UNSTABLE_ORACLE_PATTERNS, unstableOracleReason };
@@ -120,6 +128,8 @@ export interface CaseResult {
   subject?: string;
   /** UNSTABLE: why (the `Suite.unstable` reason, or `detected: <pattern reason>`). */
   unstable?: string;
+  /** ENV: why, as `Suite.envOracle` read the oracle's first run. */
+  env?: string;
   /**
    * The subject timed out in the parallel pool and this status is from its one serial re-run, alone,
    * with the same timeout, after the pool (see `difftest`).
@@ -178,6 +188,8 @@ interface Output {
   timedOut: boolean;
   /** Not reproducible, with why (see `Suite.unstable`, `UNSTABLE_ORACLE_PATTERNS`); never cached. */
   unstable?: string;
+  /** The oracle side does not pass for host reasons, on two runs, with why (`Suite.envOracle`, `oracleEnv`); never cached. */
+  env?: string;
 }
 
 const EXIT_UNPORTED = 70;
@@ -456,8 +468,9 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
     // A listed unstable case's oracle output is never read from (or written to) the cache.
     let cached = !listed.has(c.id) && existsSync(p) ? readCached(p) : undefined;
     if (cached && s.mode === "single") {
-      // An entry written before its pattern was known: never reused, removed.
-      const why = oracleUnstableReason(s, stderrOf(cached));
+      // An entry written before its pattern was known: never reused, removed. So is one `Suite.envOracle` flags: ENV is decided
+      // from two fresh oracle runs (`oracleEnv`), never from the cache.
+      const why = oracleUnstableReason(s, stderrOf(cached)) ?? s.envOracle?.({ stdout: stdoutOf(cached), stderr: stderrOf(cached), code: cached.code });
       if (why) {
         rmSync(p, { force: true });
         cached = undefined;
@@ -513,8 +526,13 @@ async function runOracle(s: Suite, cases: Case[], usage?: Map<string, Usage>): P
       const o: Output = { text: render(r), code: r.code, timedOut: false };
       const why = listed.get(c.id) ?? oracleUnstableReason(s, r.stderr);
       if (why) o.unstable = why;
+      else if (s.envOracle) {
+        const env = await oracleEnv(s.envOracle, r, () => runOnce(s.oracle([c]), c.env));
+        if ("env" in env) o.env = env.env;
+        else if ("unstable" in env) o.unstable = env.unstable;
+      }
       out.set(c.id, o);
-      if (!why) writeCached(paths.get(c.id)!, o);
+      if (!o.unstable && o.env === undefined) writeCached(paths.get(c.id)!, o);
     }
   }
   return out;
@@ -708,9 +726,28 @@ export function compared(s: Suite, o: Output, sub: Output): [Output, Output] {
   return [{ ...o, text: ot }, { ...sub, text: st }];
 }
 
+/**
+ * ENV is decided from the oracle's runs only (plan-m8 D9, D19): `first`, a finished oracle run that `envOracle` flags, is run once
+ * more (`again`): flagged both times, ENV with the first run's reason; flagged once, or the second run timed out, UNSTABLE (the
+ * outcome is not reproducible). `{}`: `first` is not flagged, and nothing is run.
+ */
+export async function oracleEnv(
+  envOracle: NonNullable<Suite["envOracle"]>,
+  first: { stdout: string; stderr: string; code: number },
+  again: () => Promise<{ stdout: string; stderr: string; code: number; timedOut: boolean }>,
+): Promise<{ env: string } | { unstable: string } | Record<string, never>> {
+  const why = envOracle(first);
+  if (why === undefined) return {};
+  const r2 = await again();
+  if (r2.timedOut) return { unstable: `detected: ENV on the oracle's first run (${why}), and its second run timed out` };
+  return envOracle(r2) === undefined ? { unstable: `detected: ENV on one oracle run of two (${why})` } : { env: why };
+}
+
 export function classify(o: Output, sub: Output): Status {
   if (o.timedOut) return "ORACLE_TIMEOUT";
   if (o.unstable !== undefined) return "UNSTABLE";
+  // From the oracle side only (plan-m8 D19): no subject output can make a case ENV, nor keep one from being ENV.
+  if (o.env !== undefined) return "ENV";
   if (sub.timedOut) return "TIMEOUT";
   if (sub.text === o.text && sub.code === o.code) return "MATCH";
   if (sub.code === EXIT_UNPORTED) return "UNPORTED";
@@ -755,6 +792,12 @@ export interface BlessedResult {
 export const BLESSED_STATUSES: BlessedResult["blessed"][] = ["PASS", "FAIL", "NOT_COVERED", "N/A", "ORACLE_TIMEOUT"];
 
 /** The stderr part of a single-mode output (`render`). */
+/** A single-mode output's stdout (`render`'s text before its stderr mark). */
+function stdoutOf(o: Output): string {
+  const start = o.text.indexOf(STDERR_MARK);
+  return start < 0 ? o.text : o.text.slice(0, start);
+}
+
 function stderrOf(o: Output): string {
   const start = o.text.indexOf(STDERR_MARK);
   const end = o.text.lastIndexOf(EXIT_MARK);
@@ -989,6 +1032,8 @@ export interface CriterionResult {
   oracleTimeouts: number;
   /** UNSTABLE cases left out of `of`; only on a suite whose criterion excludes them (absent otherwise, so M6's summaries are as before). */
   unstable?: number;
+  /** ENV cases left out of `of` (plan-m8 §6); absent when there are none. */
+  env?: number;
   /** MATCH / `of`, in percent (0 when `of` is 0). */
   percent: number;
   /** The criterion's percent. */
@@ -1007,13 +1052,15 @@ export function criterionExcludesUnstable(suite: string): boolean {
 }
 
 export function criterionOf(c: NonNullable<Suite["criterion"]>, counts: Record<Status, number>, total: number, excludeUnstable = false): CriterionResult {
-  const of = total - counts.ORACLE_TIMEOUT - (excludeUnstable ? counts.UNSTABLE : 0);
+  // ENV is out of every denominator (plan-m8 §6); a suite without `envOracle` has none, so its figure is as before.
+  const of = total - counts.ORACLE_TIMEOUT - (excludeUnstable ? counts.UNSTABLE : 0) - (counts.ENV ?? 0);
   const percent = of ? (100 * counts.MATCH) / of : 0;
   return {
     match: counts.MATCH,
     of,
     oracleTimeouts: counts.ORACLE_TIMEOUT,
     ...(excludeUnstable ? { unstable: counts.UNSTABLE } : {}),
+    ...(counts.ENV ? { env: counts.ENV } : {}),
     percent: Math.round(percent * 100) / 100,
     target: c.percent,
     met: of > 0 && percent >= c.percent,
@@ -1080,6 +1127,7 @@ export async function difftest(
   if (split && !(s.split && Object.hasOwn(SPLITTERS, s.split))) die(`suite ${s.name}: unknown splitter '${s.split}' (have: ${Object.keys(SPLITTERS).join(", ")})`);
   if (split && (s.subsets || s.blessed)) die(`suite ${s.name}: a split suite has no subsets or blessed report`);
   if (s.heavy && s.mode === "batch") die(`suite ${s.name}: a batch suite cannot be heavy`);
+  if (s.envOracle && s.mode !== "single") die(`suite ${s.name}: only a single-mode suite can have envOracle (plan-m8 D19), not a ${s.mode} one`);
   // A split suite's runs all run; `--filter`/`--sample` select among the cases they report (see the header).
   if (opts.filter && !split) cases = cases.filter((c) => c.id.includes(opts.filter!));
   if (opts.ids) {
@@ -1120,6 +1168,7 @@ export async function difftest(
       const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
       if (m) r.unported = m[1]!.slice(0, 300);
     } else if (status === "DIFF" || status === "CRASH") r.first = firstDiffLine(om.text, sm.text);
+    else if (status === "ENV") r.env = oc.env!;
     else if (status === "UNSTABLE") {
       const m = /^rust-ts: unported: (.*)$/m.exec(sc.text);
       r.unstable = oc.unstable!;
@@ -1365,6 +1414,7 @@ if (import.meta.main) {
   if (counts.UNSTABLE) {
     console.log(`note: ${counts.UNSTABLE} UNSTABLE case(s): the oracle's output is not reproducible (listed in the suite or detected); never cached, never MATCH (per case: \`unstable\`, \`subject\` in ${a.suite}.jsonl)`);
   }
+  if (counts.ENV) console.log(`note: ${counts.ENV} ENV case(s): the oracle does not pass them on this host, on two runs; out of the denominator, never MATCH, never protected (per case: \`env\` in ${a.suite}.jsonl)`);
   if (counts.ORACLE_TIMEOUT) {
     console.log(`note: ${counts.ORACLE_TIMEOUT} ORACLE_TIMEOUT case(s); the subject on them: ok=${ots.ok} TIMEOUT=${ots.TIMEOUT} ICE=${ots.ICE} UNPORTED=${ots.UNPORTED} (per case: \`subject\` in ${a.suite}.jsonl)`);
   }

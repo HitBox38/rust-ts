@@ -13,6 +13,7 @@ import { noResultReason } from "../scripts/lib/rg-build.ts";
 import { RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
 import { AUX_PLACEHOLDER } from "../scripts/pm-self-run.ts";
 import type { IrTier } from "../scripts/lib/ir-normal.ts";
+import type { HeadroomClass } from "../scripts/lib/headroom.ts";
 import { llvmBinDir, llvmToolHashes, llvmToolsError, llvmToolsPinError } from "../scripts/lib/llvm-tools.ts";
 import { MIRI_CASE_ENV, MIRI_DEFAULT_ARGS, MIRI_SYSROOT, miriBinary, miriOracleKey, miriPin } from "../scripts/lib/miri.ts";
 import { AUX_DIR, COMPILETEST_TARGET, auxEnv, collectUiTests, mirOptCases, uiBlessed, uiCases, uiFileCases, uiOutputBaseDir, uiTestCases, withCompiletestTarget, type AuxStep, type Blessed, type ErrorFormat, type RunProps, type UiCase } from "./compiletest.ts";
@@ -166,6 +167,27 @@ export interface Suite {
    * `<suite>.summary.json`): never a status, never a gate failure; the protected set still only grows.
    */
   criterion?: { percent: number; what: string };
+  /**
+   * A report suite that is never protected (plan-m8 D19, lane harness-m8a-gate), with why: the recorded decision that set it.
+   * `gate accept` skips its matches with a note, whatever the run's suites were, and `gate run` and `accept` both refuse while any
+   * such suite has a baseline file, so skipping one can never also skip a loss check against an existing baseline. Clearing it is
+   * how root promotes a suite, in a reviewed harness batch. A failed headroom check before it (`headroom`) leaves it not run without
+   * failing the gate. Unset: as before.
+   */
+  neverProtect?: string;
+  /**
+   * The suite's row of plan-m8 D20's table (scripts/lib/headroom.ts `HEADROOM_MINIMUMS`): `gate run` checks free disk, swap and memory
+   * pressure against it immediately before the suite starts, and a failed check, or a watchdog stop recorded while the suite runs,
+   * stops the gate (scripts/gate.ts `gateRun`). Unset: no check, as before.
+   */
+  headroom?: HeadroomClass;
+  /**
+   * Why the oracle side does not pass for host reasons (plan-m8 D9, D19: a test the oracle fails, or skips because the host lacks a
+   * tool), read from the oracle's own run only, or undefined. difftest runs the oracle a second time on a case this flags: flagged
+   * both times, the case is ENV (out of every denominator, never MATCH, so never protected: gate.ts `matchesOfRun` reads MATCH only);
+   * flagged once, UNSTABLE. Such an output is never cached. Single mode only (difftest refuses it on another mode). Unset: as before.
+   */
+  envOracle?(r: { stdout: string; stderr: string; code: number }): string | undefined;
 }
 
 function walk(dir: string, out: string[] = []): string[] {
