@@ -11,7 +11,8 @@ cases are unchanged; no `upstream.ts fetch`, no change to the oracle toolchain.
 |---|---|
 | `scripts/cargo-project-build.ts` (was `scripts/rg-build.ts`) | the project-build harness (D8): `PROJECTS` (`ripgrep`, `cargo`), `run`/`check`, keys, lock, sweep, kept binaries, preconditions, watchdog wiring, `runInGroup` |
 | `scripts/cargo-project-build-rustc.ts` (was `scripts/rg-build-rustc.ts`) | the `RUSTC` wrapper; records a compiler's signal (note 4) |
-| `scripts/lib/cargo-project-build.ts` (new; the build half of `scripts/lib/rg-build.ts`) | pure parts: report lines, `-sys` and `otool` sections, `builtPathRefusal`, `markedPids`, `signalNumber`, `normaliseSmokeStream`, both no-result marks |
+| `scripts/lib/cargo-project-build.ts` (new; the build half of `scripts/lib/rg-build.ts`) | pure parts: report lines, `-sys` and `otool` sections, `builtPathRefusal`, `cargoConfigsAbove`, `markedPids`, `signalNumber`, both no-result marks |
+| `scripts/lib/cargo-smoke.ts` (new, review fix N1) | `normaliseSmokeStream`, keyed by `cargo-smoke` only |
 | `scripts/lib/rg-behaviour.ts` (the behaviour half of `scripts/lib/rg-build.ts`) | unchanged functions, moved |
 | `scripts/lib/watchdog.ts` (new) | D20's watchdog |
 | `scripts/cargo-smoke.ts` (new) | `cargo-smoke`'s two sides |
@@ -70,8 +71,8 @@ change, since the harness's files changed: see §6.
 - **Command:** `cargo build --locked --offline -j1 --features all-static --target-dir $RUST_TS_DATA/cargo-src/target/cargo-build`. It runs
   in `cargo-src/cargo-<commit>` with `CARGO_HOME=cargo-src/cargo-home` (tools-prep-m8's setup), dev profile, binary `debug/cargo`.
 - **Built environment:**
-  - Only these pass from the caller: `HOME`, `TMPDIR`, `USER`, `LOGNAME`; `SDKROOT`, `DEVELOPER_DIR` and `LIBRARY_PATH` (all three keyed in
-    `hostToolsId`); `RUST_TS_*` and `BUN_*` (the port's own).
+  - Only these pass from the caller: `HOME`, `TMPDIR`, `USER`, `LOGNAME`; `SDKROOT` and `DEVELOPER_DIR` (both keyed in
+    `builtHostToolsId`); `RUST_TS_*` and `BUN_*` (the port's own). `LIBRARY_PATH` no longer passes (review N5, §9).
   - `PATH=/usr/bin:/bin:/usr/sbin:/sbin`.
   - Set as for ripgrep: `CARGO_INCREMENTAL=0` and `GIT_CEILING_DIRECTORIES`.
   - So no `CARGO_*`, `OPENSSL_*`, `PKG_CONFIG*`, `CC`/`CFLAGS`, `LIBGIT2_*` or deployment target reaches a `-sys` build script.
@@ -84,9 +85,11 @@ change, since the harness's files changed: see §6.
     drops `rerun-if-*`, which name what a script watches, not what it found. Link lines and `DEP_*` metadata are kept.
   - `otool -L cargo:` lists the built binary's dylibs.
 - **Key:**
-  - both: `hostToolsId` (cc, ld, SDK, OS) and the harness's sources;
-  - `projectOracleKey` and `binKey` also take the cargo commit and `buildToolsId` (`make --version` and `perl`'s version from the built
-    `PATH`, which build `openssl-src`).
+  - both: the harness's sources and the project's host tools (`Project.hostTools`);
+  - for cargo (after review N5, §9) that is `builtHostToolsId`. For `cc`, `ld`, `xcrun`, `make` and `perl` it takes the path the built
+    `PATH` resolves and the tool's output; it also takes the SDK version, the OS build, and `SDKROOT`/`DEVELOPER_DIR`, all run with the
+    built environment. The caller's `PATH` never enters it. `projectOracleKey` and `binKey` also take the cargo commit;
+  - ripgrep keeps `hostToolsId` (the caller's tools, which its inherited environment uses).
 - **Report:** the header names `--features all-static`, `-j1`, `CARGO_INCREMENTAL=0` and the built `PATH`.
 - **D17:** the target tree is deleted after the report. Only the binary (`cargo-src/bin/<side>/<key>/cargo`) and the logs
   (`cargo-src/kept/cargo-build/<side>-logs`) stay.
@@ -123,7 +126,7 @@ change, since the harness's files changed: see §6.
 |---|---|---|
 | Command | `cargo-project-build.ts run --project cargo --side …` | `cargo-smoke.ts --step <id> --side … --dir <tmp>/rust-ts-cargo-smoke/<hash> -- <compiler>` |
 | Cases | 1 (`cargo-<commit>`) | 12 |
-| Fields | heavy (`rssBudgetMb` 14 GiB: the `cargo` crate took 12,450 MiB), `headroom: "heavy-build"`, `runFirst`, `inputDirs` = the source tree | `caseLock` per case; no `headroom` (not in D20's table) |
+| Fields | heavy (`rssBudgetMb` 14 GiB: the `cargo` crate took 12,450 MiB), `headroom: "heavy-build"`, `runFirst`, `inputDirs` = the source tree and `cargo-home/registry/src` (review N6, §9) | `caseLock` per case; no `headroom` (not in D20's table) |
 | Limits | subject 4 h, oracle 1 h | subject 30 min, oracle 1 h (it may build the oracle's cargo) |
 | Mark | `cargo-harness: no result:` (`cargoNoResultReason`, `uncachedOracle`) | same |
 | Criterion | 100% (report) | 100% (report) |
@@ -290,6 +293,90 @@ Run each from the root checkout, on AC power, with nothing else heavy running. R
   - the subject `rg` keys my runs built with this worktree's and the scratch worktree's compiler paths. No other agent can reuse them,
     because the key has the compiler path.
 
-  I kept the new oracle `rg` key (`9c619b629b2f2665`) and rgtest-binary key (`8ceb12502bdcbf83`), which root's first run after the merge
-  reuses. Removed: subject keys `0474ce9fadda8742` and `e4b02082b00c59ba`, and oracle key `8ae4ebd65d702133` (from the stopped run, on
-  intermediate code).
+  Removed: subject keys `0474ce9fadda8742` and `e4b02082b00c59ba`, and oracle key `8ae4ebd65d702133` (from the stopped run, on
+  intermediate code). After the review fixes the keys changed again (§9). I removed the then-stale oracle key `9c619b629b2f2665` and
+  rgtest-binary key `8ceb12502bdcbf83`. I kept `bin/oracle/4f4206ec6f471206` (the review fixes' code, from §9's oracle run), which root's
+  first run after the merge reuses. The rgtest binary is rebuilt there (about 1 min).
+
+## 9. Review fixes (docs/reviews/harness-m8a-build.md at `2b21b205`, branch `t3/review-harness-m8a-build`: PASS WITH NOTES)
+
+### N1 (fixed): every module the split made is keyed by every suite whose output it shapes
+- **`scripts/lib/rg-behaviour.ts`** (`maskRgTimes`, `rgtestSections`, `corpusBytes`, `ancestorIgnoreFiles`) is now in the oracle keys of
+  `rg-behaviour` and `rg-behaviour-rgtest`. On main it was in `lib/rg-build.ts`, which `RG_BUILD_SOURCES` keyed for all three rg suites.
+- **Audit of the split's files:**
+  - `lib/cargo-project-build.ts`: in `PROJECT_BUILD_SOURCES`, so it is in all five suites' keys (each key includes `projectOracleKey`).
+  - `lib/rg-behaviour.ts`: the two behaviour suites, as above. It shapes nothing in `rg-build`.
+  - `lib/unstable.ts` was imported by `lib/cargo-project-build.ts` only for cargo-smoke's normaliser. That put it in rg-build's import
+    closure unkeyed. The normaliser moved to a new `lib/cargo-smoke.ts`, and `cargo-smoke`'s key has both files.
+- **Keys are now declared once.** `harness/suites.ts` `ORACLE_KEY_FILES` lists, per project-build suite, every file its key hashes. The
+  keys are computed from it.
+- **The new test** (`harness/m8a-suites.test.ts`, "every module a project-build suite's command loads is in its oracle key…"):
+  - It walks each command's import closure from its script, plus the `RUSTC` wrapper for any command that builds.
+  - It fails on any module that is neither in that suite's `ORACLE_KEY_FILES` nor on a short `UNKEYED` list, each entry with a reason:
+    `common`, `env`, `case-lock`, `host-state`, `oracle`, `toolchain`, `tool-oracles`, `llvm-tools`, `rg-check.ts`, `tools-src.ts`,
+    `lib/tools-src.ts`.
+  - It names the split's three modules explicitly, and fails on a stale `UNKEYED` entry.
+  - **Checked:** with `lib/rg-behaviour.ts` removed from `rg-behaviour-rgtest`'s list, it fails naming
+    `rg-behaviour-rgtest: scripts/lib/rg-behaviour.ts`.
+  - **By hand:** appending one line to `lib/rg-behaviour.ts` changed both behaviour keys and left `rg-build`'s alone.
+
+### N2 (fixed): a stop record that cannot be written still stops the build
+- `startWatchdog` catches a failed `recordWatchdogStop` and still kills the group. `stopped.reason` carries the error, and
+  `stopped.file` is `(not written)`.
+- Nothing else in the loop throws, so `done` never rejects. `buildLocked` guards the `await` anyway: if it ever threw, the build counts as
+  stopped, and the handler removal, the group kill, the sweep and the tree's removal all still run. The command ends by
+  `exitWithoutReport`, with the mark and exit 1, so nothing is cached.
+- **What is left:** a stop that was never recorded is not seen by the gate. The suite's case is still non-MATCH (or UNSTABLE on the oracle
+  side), so nothing is lost or protected wrongly.
+- **Tests:**
+  - `watchdog.test.ts`: the stop directory is blocked by a file, there is one kill, and the reason names the error;
+  - `cargo-project-build.test.ts`: a real tiny build with the stop directory blocked ends `stopped`, with `(not written)` and no tree.
+
+### N5 (fixed): host inputs
+- **`LIBRARY_PATH`** is gone from cargo's built environment. No other linker or search-path variable passes: the environment is an
+  allowlist, and `DYLD_*`, `CPATH`, `C_INCLUDE_PATH`, `PKG_CONFIG_PATH` and the like were never on it. `SDKROOT` and `DEVELOPER_DIR` stay:
+  they pick the SDK and developer directory that `xcrun` and `cc` use, and both are keyed.
+- **Host tools keyed as the build finds them.** `Project.hostTools`: cargo uses `builtHostToolsId` (§2, Key); ripgrep keeps `hostToolsId`,
+  since its build inherits the caller's `PATH`, and its value is unchanged. `buildToolsId` is folded into `builtHostToolsId`.
+- **Cargo config outside the pinned source.**
+  - `preconditionRefusal` now refuses both projects while any `.cargo/config.toml` or `.cargo/config` exists in a directory above the
+    source directory, or a `config.toml`/`config` exists in the project's CARGO_HOME (lib `cargoConfigsAbove`).
+  - The source tree's own `.cargo/config.toml` (ripgrep and cargo both have one) is pinned source, so it is not refused.
+  - cargo-smoke checks the same for the directory each step runs in.
+  - None exists on this host. `~/.cargo` holds `credentials.toml` and no config.
+- **Tests:**
+  - `cargoConfigsAbove` (pure);
+  - both projects refused with a config above the source or in CARGO_HOME (fake host);
+  - with a fake `cc` first on the caller's `PATH`, `builtHostToolsId` is unchanged while `hostToolsId` changes;
+  - the tiny real build's `-sys` script, run with `LIBRARY_PATH=/opt/leak/lib` in the caller's environment, prints
+    `cargo:library_path=None`.
+
+### N6 (fixed)
+- `cargo-build`'s `inputDirs` is the source tree plus `cargo-home/registry/src`, as `rg-build` keys ripgrep's crates. `requireCargo`
+  creates the directory if it is missing, so a fresh setup can be keyed.
+- Cost: hashing about 560 MiB once per difftest process. The first oracle build unpacks any missing crates, so the key may change once
+  after it, as rg-build's did.
+
+Left as root directed: N3 and N4 (root's queue), N7 and N8 (information).
+
+### Keys, and the rg proof after these fixes
+| Suite | before the fixes (`868fec8c`) | after |
+|---|---|---|
+| `rg-build` | `c82ca82d2dc4f64624d252b4fbc80ecb47a65cf2` | `a21ffa4a9302a30f3ee833846e9ee0325377a9c6` |
+| `rg-behaviour` | `daff9d601bcc4c8d279e161213c51a62ddcfdd09` | `0a082fa19d34a1dacac4b7fe7852f22e281e3455` |
+| `rg-behaviour-rgtest` | `3e31a61fc3e2f32b518cffacc81e0157852db2a0` | `7416af8e0bec21a69266a5ab9e3c91e7ddcde64e` |
+| `cargo-build` | `5b3fcc566f9367f72c23dd1f60fb1d56aac96a21` | `d3bb989051792c9e76b3f35eb77765d5f84aee6a` |
+| `cargo-smoke` | `8facb13ed9cad781bb118f881cf9b81de66acab3` | `c39bf499890d8ae0cd07350d821bf54741c95fbc` |
+| kept oracle `rg` (`binKey`) | `9c619b629b2f2665` | `4f4206ec6f471206` |
+
+- **Why every key moves:**
+  - `rg-build` and both cargo keys move only because the harness's own files changed: `PROJECT_BUILD_SOURCES` contents. The cargo keys
+    also move because their host-tools part changed (N5).
+  - The two behaviour keys also gain `lib/rg-behaviour.ts` (N1).
+- **What could change rg's output:** only the new config refusal, which every rg build now passes through. No config exists, and the report
+  code, ripgrep's environment and `hostToolsId` are unchanged. So I re-ran **rg-build's oracle side only**, through the suite's own command
+  (32 s, exit 0). Its stdout, stderr and exit are **byte-identical** to main's (`cac26189`) from §6.
+- **Checks:**
+  - `bunx tsc --noEmit -p .`: clean.
+  - `bun test ./scripts ./harness` (`RUST_TS_DATA` set, as the gate sets it; `RUST_TS_REQUIRE_PROBES=1 CI=true`): **680 pass, 0 fail**.
+  - The touched test files take 3.3 s, 0.2 s and 0.4 s alone.

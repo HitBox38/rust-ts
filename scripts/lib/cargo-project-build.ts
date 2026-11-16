@@ -1,12 +1,12 @@
 // The pure parts of the project-build harness (scripts/cargo-project-build.ts and its `RUSTC`, scripts/cargo-project-build-rustc.ts;
 // plan-m8 D8, D15; lanes harness-m7d, harness-m8a-build): a real `cargo build` of a pinned project with every compiler call on the side's
-// compiler, as the suites `rg-build` (ripgrep) and `cargo-build` (cargo) run it, and the stream normalisation of `cargo-smoke`. No imports
-// beyond node: and lib/unstable.ts (which has none), so tests load it without scripts/lib/common.ts.
+// compiler, as the suites `rg-build` (ripgrep) and `cargo-build` (cargo) run it. No imports beyond node:, so tests load it without
+// scripts/lib/common.ts. Every suite of the harness keys this file (scripts/cargo-project-build.ts `PROJECT_BUILD_SOURCES`), so what only
+// one suite needs lives elsewhere (cargo-smoke's normalisation: scripts/lib/cargo-smoke.ts; review harness-m8a-build N1).
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { constants } from "node:os";
-import { join, relative } from "node:path";
-import { maskProgramOutput } from "./unstable.ts";
+import { dirname, join, relative } from "node:path";
 
 /** One compiler call cargo made, as scripts/cargo-project-build-rustc.ts records it. */
 export interface BuildCall {
@@ -35,7 +35,7 @@ export function callKind(args: readonly string[]): BuildCall["kind"] {
 export const sizeHash = (b: Uint8Array): string => `${b.length} bytes, sha256 ${createHash("sha256").update(b).digest("hex")}`;
 
 /** cargo's elapsed time at the end of its `Finished` line: `in 42.13s`, `in 1m 02s`, `in 1h 03m 04s`. */
-const CARGO_TIME = / in (?:\d+h )?(?:\d+m )?\d+(?:\.\d+)?s$/;
+export const CARGO_TIME = / in (?:\d+h )?(?:\d+m )?\d+(?:\.\d+)?s$/;
 
 /** cargo's line for a unit it starts, `   Compiling <package> v<version>` (a build script and its crate both show it). */
 const COMPILING = /^\s*Compiling \S+ v\S+/;
@@ -65,27 +65,6 @@ export function normaliseCargoStderr(text: string, roots: readonly [string, stri
   const compiling = lines.filter((l) => COMPILING.test(l)).map((l) => l.trim());
   compiling.sort();
   return [`compiling: ${compiling.length}`, ...compiling.map((l) => `  ${l}`), "the rest, in order:", ...lines.filter((l) => !COMPILING.test(l) && l !== "").map((l) => `  ${l}`)];
-}
-
-/** cargo's line for a unit it starts, whose order varies with `-j4` (scripts/cargo-smoke.ts). */
-const STARTED = /^\s*(?:Compiling|Checking) \S+ v\S+/;
-
-/**
- * A stream of a cargo-smoke step's cargo (scripts/cargo-smoke.ts) as compared: `roots` named, `\r\n` as `\n`, the thread id and libtest's time masked, the `Finished` line's
- * time masked, and the `Compiling`/`Checking` lines sorted in place of the first of them (the rest keep their order).
- */
-export function normaliseSmokeStream(text: string, roots: readonly [string, string][]): string[] {
-  const lines = maskProgramOutput(text.replaceAll("\r\n", "\n"))
-    .replace(/\n$/, "")
-    .split("\n")
-    .map((l) => nameRoots(l, roots))
-    .map((l) => (/^\s*Finished /.test(l) ? l.replace(CARGO_TIME, " in <time>") : l));
-  if (lines.length === 1 && lines[0] === "") return [];
-  const started = lines.filter((l) => STARTED.test(l)).sort();
-  const first = lines.findIndex((l) => STARTED.test(l));
-  const rest = lines.filter((l) => !STARTED.test(l));
-  if (first >= 0) rest.splice(first, 0, ...started);
-  return rest;
 }
 
 /** Every file under `dir`, relative and sorted; `skip(rel)` leaves out a directory or file and what is under it. */
@@ -169,6 +148,21 @@ export function builtPathRefusal(dirs: readonly string[], exists: (p: string) =>
     if (d !== "/usr/bin" && exists(join(d, "curl-config"))) bad.push(join(d, "curl-config"));
   }
   return bad.length ? `the built PATH (${dirs.join(":")}) has ${bad.join(", ")}: a -sys build script would use the host's library instead of the pinned one (plan-m8 D15)` : undefined;
+}
+
+/**
+ * The cargo config files a cargo run in `dir` would read that are not part of a pinned source (review harness-m8a-build N5): cargo
+ * reads `.cargo/config.toml` and `.cargo/config` in `dir` and in every directory above it, and `config.toml` (or `config`) in
+ * `CARGO_HOME`. `dir`'s own `.cargo` belongs to the source tree, so only its parents and `cargoHome` are listed.
+ */
+export function cargoConfigsAbove(dir: string, cargoHome: string, exists: (p: string) => boolean): string[] {
+  const found: string[] = [];
+  for (let d = dirname(dir); ; d = dirname(d)) {
+    for (const f of ["config.toml", "config"]) if (exists(join(d, ".cargo", f))) found.push(join(d, ".cargo", f));
+    if (dirname(d) === d) break;
+  }
+  for (const f of ["config.toml", "config"]) if (exists(join(cargoHome, f))) found.push(join(cargoHome, f));
+  return found;
 }
 
 /**

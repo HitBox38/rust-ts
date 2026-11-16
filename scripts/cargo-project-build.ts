@@ -20,10 +20,16 @@
 //   probes, build scripts and their dependencies, every crate and the link of the binary. On the port's side the build scripts are the
 //   port's output, and cargo runs them. Nothing of the project is overridden: every `CARGO_*` and `RUSTFLAGS`-like variable of the caller is
 //   dropped, `CARGO_INCREMENTAL=0` (plan-m7 D11, plan-m8 D16) and `GIT_CEILING_DIRECTORIES` (a build script must not find this repository)
-//   are set. **cargo's environment is built, not inherited** (D15): only `HOME`, `TMPDIR`, `USER`, `LOGNAME`, the three variables
-//   `hostToolsId` keys on (`SDKROOT`, `DEVELOPER_DIR`, `LIBRARY_PATH`) and the port's own `RUST_TS_*` and `BUN_*` pass, so no `OPENSSL_*`,
-//   `PKG_CONFIG*`, `CC`, `CFLAGS`, `LIBGIT2_*` or deployment target of the caller reaches a `-sys` build script, and `PATH` is
-//   `/usr/bin:/bin:/usr/sbin:/sbin`, refused if it holds a `pkg-config` or a `curl-config` other than the OS's (lib `builtPathRefusal`).
+//   are set. **cargo's environment is built, not inherited** (D15): only `HOME`, `TMPDIR`, `USER`, `LOGNAME`, the two variables that pick
+//   the SDK and developer tools (`SDKROOT`, `DEVELOPER_DIR`, keyed by `builtHostToolsId`) and the port's own `RUST_TS_*` and `BUN_*` pass,
+//   so no `OPENSSL_*`, `PKG_CONFIG*`, `CC`, `CFLAGS`, `LIBGIT2_*`, deployment target or linker search path (`LIBRARY_PATH`: review
+//   harness-m8a-build N5) of the caller reaches a `-sys` build script or the link, and `PATH` is `/usr/bin:/bin:/usr/sbin:/sbin`, refused if
+//   it holds a `pkg-config` or a `curl-config` other than the OS's (lib `builtPathRefusal`). The host tools are keyed as that environment
+//   finds them (`builtHostToolsId`), not as the caller's `PATH` would.
+// - **No cargo config outside the pinned source** (review harness-m8a-build N5), both projects: cargo reads `.cargo/config.toml` (and
+//   `.cargo/config`) in every directory above the one it runs in, and `config.toml` in `CARGO_HOME`; a build refuses to start while any
+//   of these exists above the source directory or in the project's CARGO_HOME (lib `cargoConfigsAbove`), as none is keyed. The source
+//   tree's own `.cargo/config.toml` is part of the pinned source.
 //   ripgrep's build keeps lane harness-m7d's environment (the caller's, minus the scrubbed variables): its protected report is unchanged.
 // - `-j1`: cargo's stderr is compared, and with more jobs the compilers' diagnostics come in the order the jobs finish. One job also keeps
 //   the port's memory to one compile at a time (D17). Even so, the order of cargo's `Compiling` lines varies, so they are compared sorted.
@@ -50,7 +56,7 @@
 //   pressure it records the stop (lib/headroom.ts `recordWatchdogStop`, which the gate reads after the suite) **before** it kills the
 //   group (review harness-m8a-gate N2), and the build ends as stopped: no report, no stamp, the mark, exit 1.
 // - **The binary is kept** in `<root>/bin/<side>/<key>/<binary>`, `<key>` being `binKey`: this file and its helpers, the project's
-//   `Cargo.lock` and own key parts, the host tools that link it (`hostToolsId`) and the compiler argv; for the oracle its rustc build;
+//   `Cargo.lock` and own key parts, the host tools that build and link it as its environment finds them (`Project.hostTools`) and the compiler argv; for the oracle its rustc build;
 //   for the port everything it reads (review harness-m7d N1, `portInputs`): the state of `src/` (`srcState`), the files outside `src/` it
 //   imports, the config files Bun reads, the compiler's first word (Bun, or a subject binary) by contents, the pinned LLVM tools and the
 //   oracle's rustc build (the std it links against).
@@ -92,6 +98,7 @@ import {
   buildExit,
   builtPathRefusal,
   callLine,
+  cargoConfigsAbove,
   markedPids,
   normaliseCargoStderr,
   otoolLines,
@@ -126,7 +133,9 @@ const INTERRUPTS: NodeJS.Signals[] = ["SIGTERM", "SIGINT", "SIGHUP"];
 const SCRUBBED = (k: string): boolean =>
   k.startsWith("CARGO_") || ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "RUSTFLAGS", "RUSTDOCFLAGS", "RUSTC", "RUSTDOC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTC_BOOTSTRAP"].includes(k);
 /** What a built environment keeps of the caller's (cargo; see the header). */
-const KEPT_IN_BUILT_ENV = (k: string): boolean => ["HOME", "TMPDIR", "USER", "LOGNAME", "SDKROOT", "DEVELOPER_DIR", "LIBRARY_PATH"].includes(k) || k.startsWith("RUST_TS_") || k.startsWith("BUN_");
+const KEPT_IN_BUILT_ENV = (k: string): boolean => [...BUILT_ENV_PASSED, "SDKROOT", "DEVELOPER_DIR"].includes(k) || k.startsWith("RUST_TS_") || k.startsWith("BUN_");
+/** What a built environment keeps of the caller's that names no tool, library or search path. */
+const BUILT_ENV_PASSED = ["HOME", "TMPDIR", "USER", "LOGNAME"];
 /** The built `PATH` (D15): the OS's directories only. */
 export const BUILT_PATH_DIRS = ["/usr/bin", "/bin", "/usr/sbin", "/sbin"];
 /** The marker root keeps while a gate runs (as scripts/subject-bin-bench.ts reads it). */
@@ -163,8 +172,10 @@ export interface Project {
   /** D20's row: the preconditions before a build and the watchdog during it. Unset: neither (ripgrep). */
   headroom?: HeadroomClass;
   noResultMark: string;
-  /** The project's own key parts (beyond the harness's sources, its lock and `hostToolsId`). */
+  /** The project's own key parts (beyond the harness's sources, its lock and its host tools). */
   keyParts: () => string[];
+  /** The host tools that build and link it, as its environment finds them: `hostToolsId` (ripgrep, the caller's) or `builtHostToolsId` (cargo). */
+  hostTools: () => string;
 }
 
 const cargoPin = () => {
@@ -173,16 +184,26 @@ const cargoPin = () => {
   return p;
 };
 
-let buildToolsMemo: string | undefined;
-/** What else cargo's build runs from the built `PATH`: `make` and `perl` build `openssl-src`'s OpenSSL (`all-static`). */
-const buildToolsId = (): string => {
-  if (buildToolsMemo !== undefined) return buildToolsMemo;
+let builtHostToolsMemo: string | undefined;
+/**
+ * The host tools of a build in the built environment (cargo; review harness-m8a-build N5), as that environment finds them: for `cc`, `ld`,
+ * `xcrun`, `make` and `perl` (OpenSSL's build, `all-static`) the path the built `PATH` resolves and its version output, the SDK version and
+ * the OS build, run with exactly the built environment's tool variables (`PATH`, `SDKROOT`, `DEVELOPER_DIR`), whose values are in it too.
+ * What the caller's own `PATH` holds does not matter: the build never sees it.
+ */
+export function builtHostToolsId(): string {
+  if (builtHostToolsMemo !== undefined) return builtHostToolsMemo;
+  const path = BUILT_PATH_DIRS.join(":");
+  const env: Record<string, string> = { PATH: path, ...Object.fromEntries(["SDKROOT", "DEVELOPER_DIR"].flatMap((k) => (process.env[k] === undefined ? [] : [[k, process.env[k]!]]))) };
   const out = (cmd: string[]) => {
-    const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe", env: { PATH: BUILT_PATH_DIRS.join(":") } });
-    return `${r.exitCode}\0${r.stdout.toString()}\0${r.stderr.toString()}`;
+    const where = Bun.which(cmd[0]!, { PATH: path }) ?? `${cmd[0]} not on the built PATH`;
+    const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe", env });
+    return `${where}\0${r.exitCode}\0${r.stdout.toString()}\0${r.stderr.toString()}`;
   };
-  return (buildToolsMemo = hash([BUILT_PATH_DIRS.join(":"), out(["/usr/bin/make", "--version"]), out(["/usr/bin/perl", "-e", "print $^V"])].join("\0")));
-};
+  return (builtHostToolsMemo = hash(
+    [path, out(["cc", "-v"]), out(["ld", "-v"]), out(["xcrun", "--show-sdk-version"]), out(["sw_vers"]), out(["make", "--version"]), out(["perl", "-e", "print $^V"]), ...["SDKROOT", "DEVELOPER_DIR"].map((k) => `${k}=${env[k] ?? "<unset>"}`)].join("\0"),
+  ));
+}
 
 export const PROJECTS: Record<Project["name"], Project> = {
   ripgrep: {
@@ -203,6 +224,7 @@ export const PROJECTS: Record<Project["name"], Project> = {
     sysReport: false,
     noResultMark: NO_RESULT_MARK,
     keyParts: () => [],
+    hostTools: () => hostToolsId(),
   },
   cargo: {
     name: "cargo",
@@ -223,7 +245,8 @@ export const PROJECTS: Record<Project["name"], Project> = {
     sysReport: true,
     headroom: "heavy-build",
     noResultMark: CARGO_NO_RESULT_MARK,
-    keyParts: () => [cargoPin().commit, buildToolsId()],
+    keyParts: () => [cargoPin().commit],
+    hostTools: () => builtHostToolsId(),
   },
 };
 
@@ -314,7 +337,7 @@ const programId = (cmd: readonly string[]): string => {
 
 /** The oracle key of a project's suite: the harness's sources, the project's lock and own parts, the oracle rustc build and the host tools. */
 export function projectOracleKey(p: Project): string {
-  return hash([...PROJECT_BUILD_SOURCES.map((f) => hash(readFileSync(f))), p.name, ...p.keyParts(), rustcDriverHash(), hostToolsId()].join("\0"));
+  return hash([...PROJECT_BUILD_SOURCES.map((f) => hash(readFileSync(f))), p.name, ...p.keyParts(), rustcDriverHash(), p.hostTools()].join("\0"));
 }
 
 /** The key of one side's binary (see the header). */
@@ -322,7 +345,7 @@ export function binKey(p: Project, side: "oracle" | "subject", compiler: readonl
   const lock = readFileSync(join(p.root, p.src(), "Cargo.lock"));
   const sideParts = side === "oracle" ? [rustcDriverHash()] : [srcState(), portInputs(), programId(compiler)];
   const projectParts = p.name === "ripgrep" ? [] : [p.name, ...p.keyParts()];
-  return hash([...PROJECT_BUILD_SOURCES.map((f) => hash(readFileSync(f))), hash(lock), hostToolsId(), ...projectParts, side, JSON.stringify(compiler), ...sideParts].join("\0")).slice(0, 16);
+  return hash([...PROJECT_BUILD_SOURCES.map((f) => hash(readFileSync(f))), hash(lock), p.hostTools(), ...projectParts, side, JSON.stringify(compiler), ...sideParts].join("\0")).slice(0, 16);
 }
 
 /** Kills the process group `pgid`, if any of it is left. */
@@ -450,10 +473,13 @@ export const REAL_PRECONDITION_HOST: PreconditionHost = {
 };
 
 /**
- * Why a build of `p` must not start now, or undefined (D20 "before a run starts", D15's built `PATH`): AC power, no gate running unless
- * this is the gate's, the project's headroom class. Nothing for a project with no `headroom` (ripgrep) but the built-PATH check.
+ * Why a build of `p` must not start now, or undefined (D20 "before a run starts", D15's built `PATH`): no cargo config above the source
+ * or in CARGO_HOME (both projects), then AC power, no gate running unless this is the gate's, the project's headroom class. Nothing more for
+ * a project with no `headroom` (ripgrep) but the built-PATH check.
  */
 export async function preconditionRefusal(p: Project, host: PreconditionHost = REAL_PRECONDITION_HOST): Promise<string | undefined> {
+  const configs = cargoConfigsAbove(join(p.root, p.src()), p.cargoHome, host.exists);
+  if (configs.length) return `${p.suite}: cargo would read ${configs.join(", ")}, which no key covers (review harness-m8a-build N5): move it away`;
   if (p.builtEnv) {
     const bad = builtPathRefusal(BUILT_PATH_DIRS, host.exists);
     if (bad !== undefined) return bad;
@@ -548,7 +574,14 @@ async function buildLocked(p: Project, side: "oracle" | "subject", compiler: str
       : startWatchdog({ readers: host.watchdog.readers, path: DATA, pgid: proc.pid, what: `${p.suite} ${side}`, stopDir: host.watchdog.stopDir, kill: () => terminate(), ...(host.watchdog.limits ? { limits: host.watchdog.limits } : {}) });
   const code = await proc.exited;
   watchdog?.end();
-  await watchdog?.done;
+  // `done` never rejects (lib/watchdog.ts); if it ever did, the build counts as stopped and the cleanup below still runs (review
+  // harness-m8a-build N2), so the process ends by the no-result path with the sweep done, never on an uncaught error.
+  let watchdogError: string | undefined;
+  try {
+    await watchdog?.done;
+  } catch (e) {
+    watchdogError = `the watchdog failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
   for (const [sig, h] of handlers) process.off(sig, h);
   if (escalate !== undefined) clearTimeout(escalate);
   // Whatever cargo ended by: what it left in its group, then what left the group.
@@ -571,9 +604,10 @@ async function buildLocked(p: Project, side: "oracle" | "subject", compiler: str
   // A compiler killed from outside (the kernel under memory pressure sends SIGKILL; a signal to the group, SIGTERM): an interruption. A
   // crash by its own fault (SIGSEGV, SIGABRT, SIGBUS, ...) is deterministic and stays the call's 101, a crash in the report.
   const killedCall = parsed.find((c) => c?.signal !== undefined && ["SIGKILL", ...INTERRUPTS].includes(c.signal));
-  if (watchdog?.stopped !== undefined || interrupted !== undefined || proc.signalCode || killedCall !== undefined) {
+  if (watchdog?.stopped !== undefined || watchdogError !== undefined || interrupted !== undefined || proc.signalCode || killedCall !== undefined) {
     rmSync(tree, { recursive: true, force: true });
     if (watchdog?.stopped !== undefined) return { stopped: watchdog.stopped.reason, record: watchdog.stopped.file };
+    if (watchdogError !== undefined) return { stopped: watchdogError, record: "(not written)" };
     if (interrupted !== undefined || proc.signalCode) return { interrupted: interrupted ?? String(proc.signalCode), signal: interrupted ?? String(proc.signalCode) };
     return { interrupted: `a compiler call of ${killedCall!.crate} ended by ${killedCall!.signal}`, signal: killedCall!.signal! };
   }

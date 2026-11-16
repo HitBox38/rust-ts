@@ -8,10 +8,10 @@ import { caseEnv, mergeEnv } from "../scripts/lib/env.ts";
 import { oracleHost, oraclePinnedPathEnv, oracleRustcCmd, oracleSysroot, rustcDriverHash, verifyOracleToolchain } from "../scripts/lib/oracle.ts";
 import { probePath } from "../scripts/probes.ts";
 import { RG_INPUT_DIRS, RG_ROOT, RG_SRC, rgIsSetUp } from "../scripts/rg-check.ts";
-import { CARGO_PROJECT_BUILD, PROJECTS, projectOracleKey } from "../scripts/cargo-project-build.ts";
+import { CARGO_PROJECT_BUILD, PROJECTS, PROJECT_BUILD_SOURCES, projectOracleKey } from "../scripts/cargo-project-build.ts";
 import { cargoNoResultReason, noResultReason } from "../scripts/lib/cargo-project-build.ts";
 import { CARGO_SMOKE, SMOKE_STEPS, smokeDir } from "../scripts/cargo-smoke.ts";
-import { RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
+import { RG_BEHAVIOUR, RG_BEHAVIOUR_LIB, RG_CORPUS, RG_QUERIES, rgQueries } from "../scripts/rg-behaviour.ts";
 import { AUX_PLACEHOLDER } from "../scripts/pm-self-run.ts";
 import type { IrTier } from "../scripts/lib/ir-normal.ts";
 import type { HeadroomClass } from "../scripts/lib/headroom.ts";
@@ -2870,7 +2870,25 @@ let rgBuildKeyMemo: string | undefined;
  * (scripts/cargo-project-build.ts `projectOracleKey`); rg-behaviour adds its own.
  */
 const rgBuildOracleKey = (): string => (rgBuildKeyMemo ??= projectOracleKey(PROJECTS.ripgrep));
-const rgBehaviourOracleKey = (): string => hash([rgBuildOracleKey(), ...[RG_BEHAVIOUR, RG_CORPUS, RG_QUERIES].map((f) => hash(readFileSync(f)))].join("\0"));
+/**
+ * The files each project-build suite's oracle key hashes, beyond what `projectOracleKey` adds that is not a file (the oracle rustc build,
+ * `hostToolsId`, the project's own parts). Every module the suite's command loads that shapes its output must be here, as on main before
+ * lane harness-m8a-build split scripts/lib/rg-build.ts (review harness-m8a-build N1); harness/m8a-suites.test.ts checks it against the
+ * commands' imports.
+ */
+export const ORACLE_KEY_FILES: Readonly<Record<string, () => string[]>> = {
+  "rg-build": () => [...PROJECT_BUILD_SOURCES],
+  "rg-behaviour": () => [...PROJECT_BUILD_SOURCES, RG_BEHAVIOUR, RG_BEHAVIOUR_LIB, RG_CORPUS, RG_QUERIES],
+  "rg-behaviour-rgtest": () => [...PROJECT_BUILD_SOURCES, RG_BEHAVIOUR, RG_BEHAVIOUR_LIB],
+  "cargo-build": () => [...PROJECT_BUILD_SOURCES],
+  "cargo-smoke": () => [...PROJECT_BUILD_SOURCES, CARGO_SMOKE, join(REPO, "scripts", "lib", "cargo-smoke.ts"), join(REPO, "scripts", "lib", "unstable.ts"), join(RG_ROOT, RG_SRC, "Cargo.lock")],
+};
+/** The files of a suite's key beyond `PROJECT_BUILD_SOURCES` (which `projectOracleKey` hashes), each hashed. */
+const extraKeyFiles = (name: string): string[] =>
+  ORACLE_KEY_FILES[name]!()
+    .filter((f) => !PROJECT_BUILD_SOURCES.includes(f))
+    .map((f) => hash(readFileSync(f)));
+const rgBehaviourOracleKey = (): string => hash([rgBuildOracleKey(), ...extraKeyFiles("rg-behaviour")].join("\0"));
 const requireRg = () => {
   if (!rgIsSetUp()) die(`ripgrep is not set up in ${RG_ROOT}; run: bun scripts/rg-check.ts setup`);
 };
@@ -2978,7 +2996,7 @@ SUITES.push(
       requireRg();
       return [{ id: "integration", file: "", args: [] }];
     },
-    oracleKey: () => hash([rgBuildOracleKey(), hash(readFileSync(RG_BEHAVIOUR)), "rgtest"].join("\0")),
+    oracleKey: () => hash([rgBuildOracleKey(), ...extraKeyFiles("rg-behaviour-rgtest"), "rgtest"].join("\0")),
     oracle: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "oracle", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("oracle")],
     subject: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "subject", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("subject")],
   },
@@ -3031,9 +3049,13 @@ const CARGO_HEAVY = { rssBudgetMb: 14 * 1024 };
 const M8A = (what: string) => `plan-m8 gate M8a: ${what}; a report (neverProtect) until D23 holds`;
 const CARGO_NEVER_PROTECT =
   "plan-m8 D19, D23 (root's decision 2026-11-15 \"M8 kept caches vs headroom\"): a report until the host passes D20's headroom check in steady state with M8's kept caches counted; root clears it in a reviewed harness batch";
-const cargoSmokeOracleKey = (): string => hash([projectOracleKey(PROJECTS.cargo), ...[CARGO_SMOKE, join(REPO, "scripts", "lib", "unstable.ts"), join(RG_ROOT, RG_SRC, "Cargo.lock")].map((f) => hash(readFileSync(f)))].join("\0"));
+const cargoSmokeOracleKey = (): string => hash([projectOracleKey(PROJECTS.cargo), ...extraKeyFiles("cargo-smoke")].join("\0"));
+/** Where the cargo project's crates are unpacked (review harness-m8a-build N6: keyed, as rg-build keys ripgrep's). */
+const CARGO_REGISTRY_SRC = join("cargo-home", "registry", "src");
 const requireCargo = () => {
   if (!PROJECTS.cargo.isSetUp()) die(`cargo is not set up in ${PROJECTS.cargo.root}; run: ${PROJECTS.cargo.setupHint}`);
+  // The first build unpacks the crates here; keyed from the start, an empty directory until then.
+  mkdirSync(join(PROJECTS.cargo.root, CARGO_REGISTRY_SRC), { recursive: true });
 };
 const cargoSmokeCmd = (side: "oracle" | "subject", c: Case): string[] => [process.execPath, CARGO_SMOKE, "--step", c.id, "--side", side, "--dir", smokeDir(c.id), "--", ...rgCompiler(side)];
 
@@ -3054,8 +3076,10 @@ SUITES.push(
     oracleTimeoutMs: 3_600_000,
     heavy: CARGO_HEAVY,
     cwd: PROJECTS.cargo.root,
-    // The source tree; the crates in CARGO_HOME are pinned by its Cargo.lock's checksums (`--locked --offline`).
-    inputDirs: [PROJECTS.cargo.src()],
+    // The source tree and the unpacked crates (review harness-m8a-build N6): cargo checks a crate against Cargo.lock's checksum when it
+    // unpacks it, not again, so a change there would otherwise be unkeyed. About 560 MiB to hash once per difftest process; the first
+    // oracle build unpacks them, so the key changes once after it, as rg-build's did.
+    inputDirs: [PROJECTS.cargo.src(), CARGO_REGISTRY_SRC],
     cases: () => {
       requireCargo();
       return [{ id: PROJECTS.cargo.src(), file: join(PROJECTS.cargo.src(), "Cargo.lock"), args: ["dev", "all-static", "-j1"] }];

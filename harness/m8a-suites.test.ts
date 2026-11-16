@@ -2,8 +2,8 @@
 // scripts/lib/common.ts; see scripts/lib/deps.test.ts for why). No suite runs here: the cargo builds wait on the host (D20), and their
 // harness is tested in scripts/lib/cargo-project-build.test.ts.
 import { expect, test } from "bun:test";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
 
@@ -48,7 +48,8 @@ console.log(JSON.stringify({
   expect(j.build.oracle[7]).toMatch(/\/bin\/rustc$/);
   expect(j.build.subject.slice(1, 7)).toEqual(["run", "--project", "cargo", "--side", "subject", "--"]);
   expect(j.build.subject.join(" ")).toMatch(/src\/rust_ts\/main\.ts --sysroot \/\S+$/);
-  expect(j.build.inputDirs).toEqual([expect.stringMatching(/^cargo-[0-9a-f]{40}$/)]);
+  // The source tree and the unpacked crates (review harness-m8a-build N6), as rg-build keys ripgrep's.
+  expect(j.build.inputDirs).toEqual([expect.stringMatching(/^cargo-[0-9a-f]{40}$/), "cargo-home/registry/src"]);
   expect(j.build.cwd).toEndWith("/cargo-src");
   // cargo-smoke: one case per step, both sides in one directory under one lock, outside any repository.
   expect(j.steps).toEqual(["version", "version-verbose", "new", "build", "run", "test", "build-release", "metadata", "tree", "clean", "rg-check", "rg-tree"]);
@@ -71,4 +72,67 @@ console.log(JSON.stringify({
     ["f2", "a", "b"],
   ]);
   expect(j.realOrder).toEqual(["cargo-build", "parse", "cargo-smoke", "lex", "rg-build"]);
+}, 60_000);
+
+/**
+ * Modules the project-build suites' commands load that need not be in an oracle key, with why: they do not shape a suite's output, or
+ * another key part covers what they read. Everything else a command loads must be in its suite's `ORACLE_KEY_FILES`.
+ */
+const UNKEYED: Record<string, string> = {
+  "scripts/lib/common.ts": "paths, hashing, process helpers",
+  "scripts/lib/env.ts": "difftest's environment merge; the harness sets its own",
+  "scripts/lib/case-lock.ts": "locking only",
+  "scripts/lib/host-state.ts": "host readers for the preconditions and the watchdog, which print no report",
+  "scripts/lib/oracle.ts": "finds the oracle toolchain; its build is keyed by rustcDriverHash",
+  "scripts/lib/toolchain.ts": "the oracle toolchain's checks, under lib/oracle.ts",
+  "scripts/lib/tool-oracles.ts": "clippy/rustfmt oracles, under lib/oracle.ts; not run here",
+  "scripts/lib/llvm-tools.ts": "the port's pinned LLVM tools, keyed in the port's binary key (portInputs)",
+  "scripts/rg-check.ts": "ripgrep's setup and paths; its Cargo.lock and sources are keyed (binKey, inputDirs)",
+  "scripts/tools-src.ts": "cargo's setup and paths; the pinned commit is a key part",
+  "scripts/lib/tools-src.ts": "cargo's pin, read for the commit, which is a key part",
+};
+
+/** Every repo module `entries` load, transitively, by their relative imports (as scripts/cargo-project-build.ts `portInputs` finds them). */
+function importClosure(entries: string[]): string[] {
+  const seen = new Set<string>();
+  const todo = entries.map((f) => resolve(REPO, f));
+  while (todo.length) {
+    const f = todo.pop()!;
+    if (seen.has(f)) continue;
+    seen.add(f);
+    for (const m of readFileSync(f, "utf8").matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)["'](\.{1,2}\/[^"']+)["']/gm)) {
+      const g = resolve(dirname(f), m[1]!);
+      if (existsSync(g)) todo.push(g);
+    }
+  }
+  return [...seen].map((f) => relative(REPO, f)).sort();
+}
+
+test("every module a project-build suite's command loads is in its oracle key, or named harmless (review harness-m8a-build N1)", () => {
+  const code = `
+const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+const fake = { id: "new", file: "", args: [] };
+console.log(JSON.stringify(Object.fromEntries(Object.keys(s.ORACLE_KEY_FILES).map((n) => [n, { script: s.suite(n).oracle([fake])[1], files: s.ORACLE_KEY_FILES[n]() }]))));
+`;
+  const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" } });
+  expect(r.exitCode, r.stderr.toString()).toBe(0);
+  const j = JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!) as Record<string, { script: string; files: string[] }>;
+  expect(Object.keys(j).sort()).toEqual(["cargo-build", "cargo-smoke", "rg-behaviour", "rg-behaviour-rgtest", "rg-build"]);
+  const missing: string[] = [];
+  for (const [name, { script, files }] of Object.entries(j)) {
+    const entries = [relative(REPO, script)];
+    // A command that builds (directly, or through `ensureBinary`) also runs the `RUSTC` wrapper, which cargo starts.
+    if (importClosure(entries).includes("scripts/cargo-project-build.ts")) entries.push("scripts/cargo-project-build-rustc.ts");
+    const keyed = new Set(files.map((f) => relative(REPO, f)));
+    for (const m of importClosure(entries)) if (!keyed.has(m) && UNKEYED[m] === undefined) missing.push(`${name}: ${m}`);
+  }
+  expect(missing).toEqual([]);
+  // The modules lane harness-m8a-build's split made, named: each keyed by every suite whose output it shapes.
+  const has = (n: string, f: string) => j[n]!.files.some((x) => x.endsWith(f));
+  for (const n of ["rg-behaviour", "rg-behaviour-rgtest"]) expect(has(n, "scripts/lib/rg-behaviour.ts")).toBe(true);
+  for (const n of Object.keys(j)) expect(has(n, "scripts/lib/cargo-project-build.ts")).toBe(true);
+  expect(has("cargo-smoke", "scripts/lib/cargo-smoke.ts")).toBe(true);
+  // An entry of UNKEYED that nothing loads any more is stale.
+  const loaded = new Set(Object.values(j).flatMap(({ script }) => importClosure([relative(REPO, script), "scripts/cargo-project-build-rustc.ts"])));
+  expect(Object.keys(UNKEYED).filter((m) => !loaded.has(m))).toEqual([]);
 }, 60_000);

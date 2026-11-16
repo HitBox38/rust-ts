@@ -1,7 +1,7 @@
 // The watchdog beside a heavy build (scripts/lib/watchdog.ts; plan-m8 D20; lane harness-m8a-build), on fake readers and clocks: no real
 // build, no real host reading.
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WATCHDOG, WATCHDOG_START, startWatchdog, watchdogStep } from "./watchdog.ts";
@@ -116,6 +116,18 @@ describe("startWatchdog", () => {
     expect(calm.stopped).toBeUndefined();
     expect(kills).toEqual([7]);
     expect(existsSync(quiet)).toBe(false);
+  });
+  test("a stop record that cannot be written still kills the build, with the error in the reason (review harness-m8a-build N2)", async () => {
+    // A file where the stop directory should be: mkdir and the write fail.
+    const blocked = join(TMP, "not-a-dir");
+    writeFileSync(blocked, "x");
+    const f = fakeReaders([GIB], ["1"], 5_000);
+    const kills: number[] = [];
+    const wd = startWatchdog({ readers: f.readers, path: TMP, pgid: 11, what: "w", stopDir: join(blocked, "stops"), limits: { pollMs: 1 }, kill: (p) => kills.push(p) });
+    await wd.done;
+    expect(kills).toEqual([11]);
+    expect(wd.stopped?.file).toBe("(not written)");
+    expect(wd.stopped?.reason).toStartWith("watchdog (plan-m8 D20): 1.0 GiB free on the data volume, under the 4.0 GiB floor; the stop record could not be written (");
   });
   test("readers that throw or never answer are unreadable, not a crash: the stop comes after 60 s of them", async () => {
     const dir = join(TMP, "stops-unreadable");

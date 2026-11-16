@@ -47,6 +47,8 @@ import { NO_RESULT_MARK, signalNumber } from "./lib/cargo-project-build.ts";
 import { ancestorIgnoreFiles, corpusBytes, maskRgTimes, rgtestSections, type CorpusFile, type RgQuery } from "./lib/rg-behaviour.ts";
 
 export const RG_BEHAVIOUR = join(REPO, "scripts", "rg-behaviour.ts");
+/** This command's pure parts (`maskRgTimes`, `rgtestSections`, ...): they shape both suites' output, so both keys hash them (review harness-m8a-build N1). */
+export const RG_BEHAVIOUR_LIB = join(REPO, "scripts", "lib", "rg-behaviour.ts");
 export const RG_CORPUS = join(REPO, "harness", "corpus", "rg-behaviour", "corpus.json");
 export const RG_QUERIES = join(REPO, "harness", "corpus", "rg-behaviour", "queries.json");
 const QUERY_TIMEOUT_MS = 30_000;

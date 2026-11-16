@@ -18,6 +18,8 @@
 //   (`hello-tests` then gives it one passing and one failing test), and any `pre` steps; their output is not compared unless one fails.
 //   ripgrep's steps run on rg-check's pinned ripgrep 15.2.0 (`$RUST_TS_DATA/ripgrep`, its CARGO_HOME, offline) with the target directory
 //   in the case directory, holding rg-build's lock so no other cargo is in that CARGO_HOME (its "Blocking waiting for file lock" line).
+// - No `.cargo/config.toml` or `.cargo/config` may be above the directory cargo runs in, nor a config in its CARGO_HOME (lib
+//   `cargoConfigsAbove`; review harness-m8a-build N5): a step stops with the mark if one is.
 // - The case directory is outside any git repository (`smokeDir`: this process's temp directory; it refuses one with a `.git` above it),
 //   so `cargo new` makes its own repository through libgit2 as it would for a user. The environment is fixed: the built `PATH` of
 //   cargo-build (D15: no `pkg-config`, no Homebrew `curl-config`), `HOME`, `CARGO_HOME` and `TMPDIR` in the case directory,
@@ -36,7 +38,8 @@ import { withCaseLock } from "./lib/case-lock.ts";
 import { oracleSysroot } from "./lib/oracle.ts";
 import { RG_ROOT, RG_SRC } from "./rg-check.ts";
 import { BUILT_PATH_DIRS, PROJECTS, ensureBinary, parseSideArgs, projectLock, runInGroup, type GroupRun } from "./cargo-project-build.ts";
-import { CARGO_NO_RESULT_MARK, normaliseSmokeStream, signalNumber, sizeHash, walkFiles } from "./lib/cargo-project-build.ts";
+import { CARGO_NO_RESULT_MARK, cargoConfigsAbove, signalNumber, sizeHash, walkFiles } from "./lib/cargo-project-build.ts";
+import { normaliseSmokeStream } from "./lib/cargo-smoke.ts";
 
 export const CARGO_SMOKE = join(REPO, "scripts", "cargo-smoke.ts");
 const STEP_TIMEOUT_MS = 600_000;
@@ -155,6 +158,10 @@ export async function runStep(step: SmokeStep, cargo: string, dir: string): Prom
   ];
   const work = join(dir, "work");
   const projectDir = rg ? join(RG_ROOT, RG_SRC) : step.project === "none" ? work : join(work, "hello");
+  // No cargo config above where cargo runs, or in its CARGO_HOME (review harness-m8a-build N5): none is keyed. For hello, the case
+  // directory is made afresh, so its parents are what is checked.
+  const configs = cargoConfigsAbove(rg ? projectDir : join(dir, "x"), env.CARGO_HOME!, existsSync);
+  if (configs.length) noResult(`cargo would read ${configs.join(", ")}, which no key covers: move it away`, 1);
   const run = (argv: string[], cwd: string): Promise<GroupRun> => runInGroup([cargo, ...argv.map((a) => a.replaceAll("<case>", dir))], { cwd, env, timeoutMs: STEP_TIMEOUT_MS });
   const lines = [`cargo-smoke ${step.id}: the side's cargo (built from cargo's pinned source by the side's compiler), RUSTC = the oracle's rustc`, `cargo ${step.cargo.join(" ")}`];
   const failed = (what: string, r: GroupRun): { lines: string[]; code: number } => {

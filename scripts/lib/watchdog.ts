@@ -91,6 +91,7 @@ export function startWatchdog(o: WatchdogOptions): Watchdog {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let wake: (() => void) | undefined;
   const done = (async () => {
+    // Nothing in the loop throws (readHeadroom fails closed into nulls; the record is caught), so `done` never rejects.
     while (!ended) {
       const reading = await readHeadroom({ ...o.readers, pmset: async () => undefined, load: () => [] }, o.path, o.readLimitMs);
       if (ended) break;
@@ -98,9 +99,14 @@ export function startWatchdog(o: WatchdogOptions): Watchdog {
       state = step.state;
       if (step.stop !== undefined) {
         const stop: WatchdogStop = { at: o.readers.now().toISOString(), pid: o.pgid, what: o.what, reason: step.stop };
-        // The record first, then the signal (see the header).
-        const file = recordWatchdogStop(o.stopDir, stop);
-        stopped = { ...stop, file };
+        // The record first, then the signal (see the header). A record that cannot be written (the disk is full, the directory is not
+        // writable) still stops the build, with the error in the reason (review harness-m8a-build N2: fail closed): the build then ends as
+        // stopped, with its no-result mark, though the gate cannot see a stop that was never recorded.
+        try {
+          stopped = { ...stop, file: recordWatchdogStop(o.stopDir, stop) };
+        } catch (e) {
+          stopped = { ...stop, reason: `${stop.reason}; the stop record could not be written (${e instanceof Error ? e.message : String(e)})`, file: "(not written)" };
+        }
         o.kill(o.pgid);
         break;
       }

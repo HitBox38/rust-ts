@@ -14,12 +14,12 @@ import {
   builtPathRefusal,
   callKind,
   callLine,
+  cargoConfigsAbove,
   cargoNoResultReason,
   comparedBytes,
   markedPids,
   noResultReason,
   normaliseCargoStderr,
-  normaliseSmokeStream,
   notArtifact,
   otoolLines,
   signalNumber,
@@ -27,6 +27,7 @@ import {
   unportedLine,
   walkFiles,
 } from "./cargo-project-build.ts";
+import { normaliseSmokeStream } from "./cargo-smoke.ts";
 
 const TMP = mkdtempSync(join(tmpdir(), "rust-ts-project-build-"));
 afterAll(() => rmSync(TMP, { recursive: true, force: true }));
@@ -44,12 +45,19 @@ const child = (code: string, env: Record<string, string> = {}) => {
 
 // --- Children, started now ---------------------------------------------------------------------------------------------------------------
 
+let TOOLS: Promise<[string, string][]>;
 /** Keys and stamps: prune by last use (re-check note 2), unreadable stamps (note 3), and the preconditions on fake hosts (D20, D15). */
 const KEYS = (() => {
   const bin = join(TMP, "bin");
   for (const d of ["cur", "recent", "old", "used", "x.tmp-999999", `y.tmp-${process.pid}`]) mkdirSync(join(bin, d), { recursive: true });
   writeFileSync(join(bin, "recent", "stamp.json"), '{"key":"recent","outcome":"ok","builtAt":"x"}');
   writeFileSync(join(bin, "old", "stamp.json"), "{half");
+  // A `cc` first on the caller's PATH: the caller-PATH key sees it, the built-PATH key must not (review harness-m8a-build N5).
+  const fakeBin = join(TMP, "fake-bin");
+  mkdirSync(fakeBin, { recursive: true });
+  writeFileSync(join(fakeBin, "cc"), "#!/bin/sh\necho fake cc\n", { mode: 0o755 });
+  const tools = (pathPrefix: string) => child(`const h = await import(${JSON.stringify(HARNESS)}); console.log(JSON.stringify([h.builtHostToolsId(), h.hostToolsId()]));`, { PATH: `${pathPrefix}${process.env.PATH}` });
+  TOOLS = Promise.all([tools(""), tools(`${fakeBin}:`)]);
   return child(`
 const h = await import(${JSON.stringify(HARNESS)});
 const { existsSync, utimesSync } = await import("node:fs");
@@ -85,7 +93,10 @@ console.log(JSON.stringify({
     await pre("cargo", { ...ok, pressure: 4 }),
     await pre("cargo", { ...ok, pathHas: ["/usr/bin/curl-config"] }),
     await pre("cargo", { ...ok, pathHas: ["/usr/sbin/pkg-config"] }),
+    await pre("cargo", { ...ok, pathHas: [h.PROJECTS.cargo.root.replace(/\\/[^/]+$/, "") + "/.cargo/config.toml"] }),
   ],
+  rgConfig: [await pre("ripgrep", { ...ok, pathHas: [h.PROJECTS.ripgrep.cargoHome + "/config"] })],
+  tools: { built: h.builtHostToolsId(), caller: h.hostToolsId(), cargo: h.PROJECTS.cargo.hostTools(), rg: h.PROJECTS.ripgrep.hostTools() },
   dirs: h.BUILT_PATH_DIRS,
 }));
 `);
@@ -154,7 +165,7 @@ const BUILD = (() => {
   writeFileSync(join(src, "Cargo.toml"), '[package]\nname = "tiny"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\ntiny-sys = { path = "tiny-sys" }\n\n[workspace]\n');
   writeFileSync(join(src, "src", "main.rs"), 'fn main() { println!("tiny {}", tiny_sys::answer()); }\n');
   writeFileSync(join(src, "tiny-sys", "Cargo.toml"), '[package]\nname = "tiny-sys"\nversion = "0.1.0"\nedition = "2021"\nlinks = "tiny"\nbuild = "build.rs"\n');
-  writeFileSync(join(src, "tiny-sys", "build.rs"), 'fn main() {\n    println!("cargo:rerun-if-changed=build.rs");\n    println!("cargo:rustc-link-lib=z");\n    println!("cargo:root={}", std::env::var("OUT_DIR").unwrap());\n}\n');
+  writeFileSync(join(src, "tiny-sys", "build.rs"), 'fn main() {\n    println!("cargo:rerun-if-changed=build.rs");\n    println!("cargo:rustc-link-lib=z");\n    println!("cargo:root={}", std::env::var("OUT_DIR").unwrap());\n    println!("cargo:library_path={:?}", std::env::var("LIBRARY_PATH").ok());\n}\n');
   writeFileSync(join(src, "tiny-sys", "src", "lib.rs"), "pub fn answer() -> u32 { 42 }\n");
   writeFileSync(join(src, "Cargo.lock"), 'version = 4\n\n[[package]]\nname = "tiny"\nversion = "0.1.0"\ndependencies = [\n "tiny-sys",\n]\n\n[[package]]\nname = "tiny-sys"\nversion = "0.1.0"\n');
   mkdirSync(join(root, "cargo-home"), { recursive: true });
@@ -162,7 +173,7 @@ const BUILD = (() => {
   return child(`
 const h = await import(${JSON.stringify(HARNESS)});
 const { oracleSysroot } = await import(${JSON.stringify(resolve(import.meta.dir, "oracle.ts"))});
-const { existsSync, readdirSync } = await import("node:fs");
+const { existsSync, readdirSync, writeFileSync } = await import("node:fs");
 const root = ${JSON.stringify(root)};
 const project = (headroom) => ({ ...h.PROJECTS.cargo, name: "cargo", suite: "tiny-build", root, src: () => "src-proj", isSetUp: () => true, cargoHome: root + "/cargo-home",
   cargoArgs: (tree) => ["build", "--locked", "--offline", "-j1", "--target-dir", tree], binary: "tiny", header: () => "tiny-build", rootName: "$TINY", headroom, keyParts: () => ["tiny"] });
@@ -175,8 +186,11 @@ const kept = root + "/bin/oracle/" + key;
 const okState = { kept: existsSync(kept + "/tiny"), stamp: h.readStamp(kept)?.outcome ?? null, tree: existsSync(root + "/target/tiny-build"), logs: existsSync(root + "/kept/tiny-build/oracle-logs/cargo.stderr") };
 const stopped = await h.buildSide({ ...project("heavy-build"), suite: "tiny-stop" }, "oracle", compiler, host(1));
 const records = existsSync(${JSON.stringify(stops)}) ? readdirSync(${JSON.stringify(stops)}).filter((f) => f.endsWith(".json")).length : 0;
-console.log(JSON.stringify({ ok, okState, stopped, records, stopTree: existsSync(root + "/target/tiny-stop") }));
-`);
+// Review harness-m8a-build N2: the stop directory cannot be made (a file is in the way), and the build still ends as stopped.
+writeFileSync(root + "/blocked", "x");
+const unrecorded = await h.buildSide({ ...project("heavy-build"), suite: "tiny-unrec" }, "oracle", compiler, { ...host(1), watchdog: { ...host(1).watchdog, stopDir: root + "/blocked/stops" } });
+console.log(JSON.stringify({ ok, okState, stopped, records, stopTree: existsSync(root + "/target/tiny-stop"), unrecorded, unrecTree: existsSync(root + "/target/tiny-unrec") }));
+`, { LIBRARY_PATH: "/opt/leak/lib" });
 })();
 
 // --- Pure parts ------------------------------------------------------------------------------------------------------------------------------
@@ -319,6 +333,14 @@ describe("D15's recorded checks", () => {
   });
 });
 
+describe("cargo configs no key covers (review harness-m8a-build N5)", () => {
+  test("every parent's .cargo/config.toml and .cargo/config, and CARGO_HOME's config, but not the source's own .cargo", () => {
+    const have = new Set(["/a/b/src/.cargo/config.toml", "/a/.cargo/config", "/.cargo/config.toml", "/home/c/config.toml", "/a/b/.cargo/credentials.toml"]);
+    expect(cargoConfigsAbove("/a/b/src", "/home/c", (f) => have.has(f))).toEqual(["/a/.cargo/config", "/.cargo/config.toml", "/home/c/config.toml"]);
+    expect(cargoConfigsAbove("/a/b/src", "/home/c", () => false)).toEqual([]);
+  });
+});
+
 describe("the sweep's match (re-check note 1, w40t-audit N6)", () => {
   const tag = "CPB_TREE=/d/target/cargo-build#00ff";
   test("only a whole entry of the environment part matches: not the argv, not a longer value, not another nonce", () => {
@@ -361,7 +383,7 @@ test("kept keys: pruned by last use, not build date (re-check note 2); an unread
   expect(j.stamps).toEqual([{ key: "recent", outcome: "ok", builtAt: "x" }, null, null]);
   // ripgrep is outside D20 and keeps lane harness-m7d's environment: no check, whatever the host.
   expect(j.rg).toEqual([null]);
-  const [ok, battery, gate, underGate, free, swap, pressure, osCurl, pkg] = j.cargo;
+  const [ok, battery, gate, underGate, free, swap, pressure, osCurl, pkg, config] = j.cargo;
   expect(ok).toBeNull();
   expect(battery).toStartWith("cargo-build: this host is on battery at 50%");
   expect(gate).toStartWith("cargo-build: a gate is running (");
@@ -371,6 +393,15 @@ test("kept keys: pruned by last use, not build date (re-check note 2); an unread
   expect(pressure).toContain("memory pressure is critical");
   expect(osCurl).toBeNull();
   expect(pkg).toContain("/usr/sbin/pkg-config");
+  // Review harness-m8a-build N5: a cargo config above the source, or in CARGO_HOME, refuses both projects.
+  expect(config).toMatch(/^cargo-build: cargo would read \/\S+\/\.cargo\/config\.toml, which no key covers/);
+  expect(j.rgConfig[0]).toMatch(/^rg-build: cargo would read \S+\/ripgrep\/cargo\/config, which no key covers/);
+  // cargo keys the host tools of its built environment, ripgrep those of the caller's.
+  expect(j.tools.cargo).toBe(j.tools.built);
+  expect(j.tools.rg).toBe(j.tools.caller);
+  const [plain, withFakeCc] = await TOOLS;
+  expect(withFakeCc[0]).toBe(plain[0]);
+  expect(withFakeCc[1]).not.toBe(plain[1]);
   expect(j.dirs).toEqual(["/usr/bin", "/bin", "/usr/sbin", "/sbin"]);
 }, 30_000);
 
@@ -402,9 +433,11 @@ test("a real oracle build through the harness: D15's report sections, the binary
   expect(r).toContain("tiny built");
   expect(r).toContain("-sys build scripts:");
   const sys = r.indexOf("-sys build scripts:");
-  expect(r[sys + 1]).toMatch(/^ {2}tiny-sys\/[0-9a-f]+: 2 lines$/);
+  expect(r[sys + 1]).toMatch(/^ {2}tiny-sys\/[0-9a-f]+: 3 lines$/);
   expect(r[sys + 2]).toBe("    cargo:rustc-link-lib=z");
   expect(r[sys + 3]).toMatch(/^ {4}cargo:root=\$TINY\/target\/tiny-build\/debug\/build\/tiny-sys\/[0-9a-f]+\/out$/);
+  // The caller's LIBRARY_PATH (set for this child) does not reach a build script (review harness-m8a-build N5).
+  expect(r[sys + 4]).toBe("    cargo:library_path=None");
   const otool = r.indexOf("otool -L tiny:");
   expect(otool).toBeGreaterThan(sys);
   expect(r.slice(otool + 1).some((l) => l.startsWith("  /usr/lib/libz."))).toBe(true);
@@ -414,4 +447,7 @@ test("a real oracle build through the harness: D15's report sections, the binary
   expect(j.stopped.record).toContain("build-stops");
   expect(j.records).toBe(1);
   expect(j.stopTree).toBe(false);
+  expect(j.unrecorded.record).toBe("(not written)");
+  expect(j.unrecorded.stopped).toContain("the stop record could not be written (");
+  expect(j.unrecTree).toBe(false);
 }, 60_000);
