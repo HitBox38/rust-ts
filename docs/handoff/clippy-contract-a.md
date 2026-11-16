@@ -188,3 +188,18 @@ deprecated_lints,deprecated_lints.test,combined_early_pass,combined_late_pass,co
 `src/clippy_utils/macros.ts`); this file. Nothing under `tools/`, `harness/`, `scripts/` or `scope.json`; no generated file edited.
 The skeletons were written by a scratch generator from a token scan of the pinned sources and lib.gen.ts's pending output (not
 committed: the files are hand modules from here on).
+
+## After integ-w66 (branch `t3/clippy-contract-a-w66`, from `integ-w66`)
+
+- **No test under `src/clippy*` skips** (the gate refuses unlisted skips). `src/clippy_lints/lib.test.ts`'s tests are plain `test`s
+  now that lib.gen.ts and clippy_config/lib.ts exist. The `get_metadata` case ("explain: a configured lint against the oracle
+  (while Conf::get_metadata is codegen-clippy-conf's stub: it stops unported)") asserts, while `Conf.get_metadata` is the stub,
+  that it stops `Unported` naming codegen-clippy-conf and that `explain("cognitive_complexity")` does too; once codegen-clippy-conf
+  ports it, the same test compares `cognitive_complexity` and `too_many_lines` with the pinned `cargo-clippy clippy --explain`.
+  No edit is needed then. `RUST_TS_REQUIRE_PROBES=1 bun test src/clippy src/clippy_lints src/clippy_config src/clippy_utils
+  src/declare_clippy_lint`: 44 pass, 0 skip, 0 fail.
+- root-w66-check N1: `contract.test.ts`'s unused `dirname` import removed; `lib.test.ts`'s header no longer says its tests skip.
+- root-w66-check N2: clippy-fix-a typed `Config.track_state` / `register_lints` and ported their `Some` arms, so `driver.ts`
+  assigns them directly; the `ConfigCallbacks` cast, its PORT comments and the unused `LintStore` import are gone, and
+  `driver.test.ts` reads the fields without casts. Items 1 and 2 of "Changes needed outside this lane" above are done
+  (clippy-fix-a); the `ConfigCallbacks` mentions above are historical.
