@@ -791,7 +791,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     // A watchdog stop while it ran (scripts/lib/headroom.ts `recordWatchdogStop`): its results are not scored, whatever the suite.
     const stops = watchdogStopsSince(stopsDir, suiteStartMs);
     if (stops.length) {
-      stopAt(i, { suite, kind: "watchdog", reason: `the watchdog stopped ${stops[0]!.what} (pid ${stops[0]!.pid}) at ${stops[0]!.at}: ${stops[0]!.reason}${stops.length > 1 ? ` (and ${stops.length - 1} more stop(s))` : ""}` });
+      stopAt(i, { suite, kind: "watchdog", reason: `the watchdog stopped ${stops[0]!.what} (pid ${stops[0]!.pid}) at ${stops[0]!.at}: ${stops[0]!.reason} (record ${stops[0]!.file})${stops.length > 1 ? ` (and ${stops.length - 1} more stop(s))` : ""}` });
       break;
     }
     const irTier = def.irTier;
@@ -1003,7 +1003,7 @@ async function gateAccept(runId: string): Promise<void> {
   const plan = planAccept(
     runId,
     g.suites.map((s) => s.suite),
-    { suite: getSuite, baseline: (name) => readBaseline(name), matches: (name) => matchesOfRun(runId, name), unstable: (name, base) => protectedUnstable(name, base) },
+    { suite: getSuite, baseline: (name) => readBaseline(name), hasBaseline: (name) => existsSync(join(BASELINE, `${name}.txt`)), matches: (name) => matchesOfRun(runId, name), unstable: (name, base) => protectedUnstable(name, base) },
   );
   if ("refusal" in plan) die(plan.refusal);
   for (const { suite, why } of plan.skipped) console.log(`note: ${suite}: never protected (${why}); its matches are skipped, nothing is written for it`);

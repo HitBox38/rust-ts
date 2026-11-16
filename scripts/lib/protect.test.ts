@@ -32,6 +32,9 @@ describe("neverProtectBaselineErrors: gate run and accept refuse a neverProtect 
     expect(e[0]).toContain("suite report is never protected (neverProtect: plan-m8 D23)");
     expect(e[0]).toContain("harness/baseline/report.txt");
     expect(e[0]!.includes("\n")).toBe(false);
+    // The protected set only grows (AGENTS.md section 2): the way out is clearing the field, never removing the baseline.
+    expect(e[0]).toContain("clear neverProtect in a reviewed harness batch (a baseline is never removed to make a run pass)");
+    expect(e[0]).not.toContain("removing the baseline");
     expect(neverProtectBaselineErrors(suites, () => true).length).toBe(2);
   });
   test("a protected suite with a baseline, or a neverProtect one without: nothing", () => {
@@ -54,6 +57,7 @@ describe("planAccept", () => {
         read.push(`baseline ${n}`);
         return new Set(bases[n] ?? []);
       },
+      hasBaseline: (n) => n in bases,
       matches: (n) => {
         read.push(`matches ${n}`);
         return new Set(runs[n] ?? []);
@@ -71,6 +75,17 @@ describe("planAccept", () => {
     expect(plan.skipped).toEqual([{ suite: "r", why: "report until D23" }]);
     expect(plan.grown.map((g) => [g.suite, [...g.base].sort(), g.before])).toEqual([["p", ["a", "b"], 1]]);
     // Its matches and baseline are never read, so nothing about it can be written.
+    expect(read).toEqual(["baseline p", "matches p"]);
+  });
+
+  test("accept refuses a neverProtect suite that has a baseline file, before any baseline is written (D19; review harness-m8a-gate N1)", () => {
+    const { inp, read } = inputs([{ name: "p" }, { name: "r", neverProtect: "report until D23" }], { p: ["a"], r: ["x"] }, { p: ["a", "b"], r: ["x"] });
+    const plan = planAccept("run", ["p", "r"], inp);
+    expect("refusal" in plan).toBe(true);
+    if (!("refusal" in plan)) return;
+    expect(plan.refusal).toStartWith("gate run run: suite r is never protected (neverProtect: report until D23) but has a baseline file, harness/baseline/r.txt");
+    expect(plan.refusal).toEndWith("; nothing accepted");
+    // The suite's matches and baseline were never read: the refusal comes from its definition and the file's existence alone.
     expect(read).toEqual(["baseline p", "matches p"]);
   });
 

@@ -148,8 +148,9 @@ clippy suites `harness-m8d`'s). Nothing under `src/`, `scripts/coverage.ts` or `
   - the pins equal the manifest's;
   - the real guard plus the oracle components check (skips without setup, fails under `RUST_TS_REQUIRE_PROBES=1`).
 - `scripts/criteria.test.ts`: ENV leaves non-`allCases` denominators and is counted; an `allCases` group counts it.
-- **D13 budget**: the new files take 4.1 s of the runner step (gate-headroom 2.9, tool-oracles 0.6, difftest-env 0.5, rest
-  < 0.1), under 10 s.
+- **D13 budget**: the new files took 4.1 s of the runner step at first (gate-headroom 2.9 s; the review measured 6.0 s at load
+  13–15). After review N4 (§7) they take about 1.7 s: gate-headroom 0.6–0.76 s, tool-oracles 0.55 s, difftest-env 0.3 s, the rest
+  under 0.1 s (load about 5).
 
 ## 5. Proof that today's 71 protected suites are unchanged
 - **Oracle keys**: `bun scripts/oracle-keys.ts` over every registered suite (86 suites), before any edit and after: 391,641 keys,
@@ -177,3 +178,25 @@ clippy suites `harness-m8d`'s). Nothing under `src/`, `scripts/coverage.ts` or `
   watchdog call `recordWatchdogStop`.
 - `harness-m8c`: `cargo-testsuite` with `headroom: "testsuite"`; ENV per test needs `envOracle` support in whatever mode it uses
   (single is supported now).
+
+## 7. Review fixes (docs/reviews/harness-m8a-gate.md on `t3/review-harness-m8a-gate`: PASS WITH NOTES)
+- **N1**: `planAccept` itself refuses a `neverProtect` suite that has a baseline file. It has a new input, `hasBaseline(name)`;
+  `gateAccept` passes the existence of `harness/baseline/<name>.txt`. The refusal comes from the same code as the skip, before any
+  baseline is written, and the suite's matches and baseline are never read. `gateAccept`'s earlier check over every registered suite
+  stays. New test in `protect.test.ts`: "accept refuses a neverProtect suite that has a baseline file…" (D19's accept unit test).
+- **N5**:
+  - `watchdogStopsSince` returns each stop with its record `file`, and the gate's stop reason ends `(record <file>)`. Tested in
+    `headroom.test.ts` and `gate-headroom.test.ts`.
+  - A record that disappears between the listing and its read or stat (`ENOENT`) no longer throws. It counts as a stop at the
+    suite's start, with the reason "the watchdog stop record <file> disappeared while the gate read it; what it recorded is
+    unknown, so it counts as a stop" (fails safe). Tested with a dangling symlink.
+  - A directory that disappears before the listing means no stop, as one that never existed.
+- **N6**: the refusal now ends "clear neverProtect in a reviewed harness batch (a baseline is never removed to make a run pass)",
+  and no longer offers removing the baseline. `protect.test.ts` checks the wording.
+- **N4**: `gate-headroom.test.ts` starts its seven child gates together when the file loads (`RUNS`). Each has its own
+  RUST_TS_DATA, baseline dir and stubs, and the two `accept` checks run inside their tests. The file takes 0.6 s alone, against
+  2.2 s for the sequential version on the same host (load about 5), all 7 tests and 69 assertions.
+- Left as root directed: N2 (watchdog record timing) for `harness-m8a-build`'s review; F1 (`m7d-suites`) is fixed on root's
+  integration branch; N3 is recorded by root.
+- Checks: `bunx tsc --noEmit -p .` clean. gate-headroom, headroom, protect, tool-oracles, difftest-env, criteria, unit-steps, deps,
+  gate-power, gate-static-stop and gate-bun, with `RUST_TS_REQUIRE_PROBES=1`: 130 pass, 0 fail, 0 skipped.

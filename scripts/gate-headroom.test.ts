@@ -29,7 +29,7 @@ interface Stub {
  * Runs `gateRun` once over `stubs`, in order, with the readers giving `freeGiB`, `swapMb` and `pressure`, and `baselines` (suite ->
  * ids) as the protected sets. Each stub has one case, "same", that matches.
  */
-function gate(name: string, stubs: Stub[], host: { freeGiB: number; swapMb: number; pressure: number }, baselines: Record<string, string[]> = {}) {
+async function gate(name: string, stubs: Stub[], host: { freeGiB: number; swapMb: number; pressure: number }, baselines: Record<string, string[]> = {}) {
   const data = join(TMP, name);
   const baseDir = join(data, "baseline");
   mkdirSync(baseDir, { recursive: true });
@@ -72,21 +72,23 @@ await gateRun(${JSON.stringify(stubs.map((s) => s.name))}, true, false, false, {
   const { NODE_ENV: _node, RUST_TS_FREEZE_LISTS: _freeze, ...inherited } = process.env;
   for (const k of Object.keys(UNIT_ENV_REFUSED)) delete inherited[k];
   const env = { ...inherited, RUST_TS_DATA: data };
-  const r = Bun.spawnSync([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env });
+  const p = Bun.spawn([process.execPath, "-e", child], { cwd: REPO, stdout: "pipe", stderr: "pipe", env });
+  const [stdout, stderr, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   const runs = join(data, "runs");
   const dirs = existsSync(runs) ? readdirSync(runs).filter((d) => d.startsWith("gate-")) : [];
   const dir = dirs[0] === undefined ? undefined : join(runs, dirs[0]);
   const gateJson = dir === undefined ? undefined : (JSON.parse(readFileSync(join(dir, "gate.json"), "utf8")) as any);
   return {
-    code: r.exitCode,
-    stdout: r.stdout.toString(),
-    stderr: r.stderr.toString(),
+    code,
+    stdout,
+    stderr,
     gateJson,
     ran: dir === undefined ? [] : stubs.map((s) => s.name).filter((s) => existsSync(join(dir, `${s}.jsonl`))),
     /** `gate.ts accept --run` of this run: it must refuse before reading anything else. */
-    accept: () => {
-      const a = Bun.spawnSync([process.execPath, join(REPO, "scripts/gate.ts"), "accept", "--run", gateJson.runId], { cwd: REPO, stdout: "pipe", stderr: "pipe", env });
-      return { code: a.exitCode, stdout: a.stdout.toString() };
+    accept: async () => {
+      const a = Bun.spawn([process.execPath, join(REPO, "scripts/gate.ts"), "accept", "--run", gateJson.runId], { cwd: REPO, stdout: "pipe", stderr: "pipe", env });
+      const [out, exit] = await Promise.all([new Response(a.stdout).text(), a.exited]);
+      return { code: exit, stdout: out };
     },
   };
 }
@@ -94,8 +96,23 @@ await gateRun(${JSON.stringify(stubs.map((s) => s.name))}, true, false, false, {
 const errorLines = (s: string) => s.split("\n").filter((l) => l.startsWith("ERROR:"));
 const ROOMY = { freeGiB: 30, swapMb: 512, pressure: 1 };
 
-test("a failed headroom check before a covered suite stops the gate there: pass false, the reason named, the rest not run, no lost case; accept refuses", () => {
-  const r = gate("check-fails", [{ name: "hr-before" }, { name: "hr-covered", headroom: "heavy-build" }, { name: "hr-after" }], { freeGiB: 12, swapMb: 8423, pressure: 1 }, { "hr-covered": ["same"], "hr-after": ["same"] });
+/**
+ * Every scenario's child gate, started together when the file loads (review harness-m8a-gate N4: one after another they took 6.0 s at
+ * load 13-15, a large share of D13's budget). Each has its own RUST_TS_DATA, baseline dir and stub suites, so they share nothing; the
+ * tests below await their own.
+ */
+const RUNS = {
+  checkFails: gate("check-fails", [{ name: "hr-before" }, { name: "hr-covered", headroom: "heavy-build" }, { name: "hr-after" }], { freeGiB: 12, swapMb: 8423, pressure: 1 }, { "hr-covered": ["same"], "hr-after": ["same"] }),
+  pressure: gate("pressure", [{ name: "hp-covered", headroom: "testsuite" }], { freeGiB: 30, swapMb: 0, pressure: 4 }),
+  watchdog: gate("watchdog", [{ name: "wd-covered", headroom: "heavy-build", watchdog: true }, { name: "wd-after" }], ROOMY, { "wd-covered": ["same", "gone"] }),
+  report: gate("report", [{ name: "np-report", headroom: "heavy-build", neverProtect: "a report until D23 holds" }, { name: "np-after" }], { freeGiB: 5, swapMb: 0, pressure: 1 }, { "np-after": ["same"] }),
+  roomy: gate("roomy", [{ name: "ok-covered", headroom: "heavy-build" }, { name: "ok-report", neverProtect: "permanently" }], ROOMY),
+  unchanged: gate("unchanged", [{ name: "plain-a" }, { name: "plain-b" }], { freeGiB: 0, swapMb: 9000, pressure: 4 }),
+  npBaseline: gate("np-baseline", [{ name: "np-based", neverProtect: "a report" }], ROOMY, { "np-based": ["same"] }),
+};
+
+test("a failed headroom check before a covered suite stops the gate there: pass false, the reason named, the rest not run, no lost case; accept refuses", async () => {
+  const r = await RUNS.checkFails;
   expect(r.code, r.stdout + r.stderr).toBe(1);
   expect(r.ran).toEqual(["hr-before"]);
   const errors = errorLines(r.stdout);
@@ -118,28 +135,31 @@ test("a failed headroom check before a covered suite stops the gate there: pass 
   expect(g.headroom[0].reading.freeBytes).toBe(12 * GIB);
   expect(g.headroom[0].refused).toBe(g.stop.reason);
   expect(r.stdout).toContain(`gate FAIL run=${g.runId}`);
-  const a = r.accept();
+  const a = await r.accept();
   expect(a.code).toBe(1);
   expect(errorLines(a.stdout)).toEqual([`ERROR: gate run ${g.runId} stopped at hr-covered (headroom: ${g.stop.reason}); nothing accepted; re-run the gate once the host meets plan-m8 D20`]);
 }, 60_000);
 
-test("critical memory pressure fails the check too, with free disk and swap in range", () => {
-  const r = gate("pressure", [{ name: "hp-covered", headroom: "testsuite" }], { freeGiB: 30, swapMb: 0, pressure: 4 });
+test("critical memory pressure fails the check too, with free disk and swap in range", async () => {
+  const r = await RUNS.pressure;
   expect(r.code).toBe(1);
   expect(r.gateJson.stop.reason).toContain("memory pressure is critical (kern.memorystatus_vm_pressure_level 4)");
   expect(r.ran).toEqual([]);
 }, 60_000);
 
-test("a watchdog stop during a covered suite stops the gate there: pass false, no case of it lost, the rest not run; accept refuses", () => {
-  const r = gate("watchdog", [{ name: "wd-covered", headroom: "heavy-build", watchdog: true }, { name: "wd-after" }], ROOMY, { "wd-covered": ["same", "gone"] });
+test("a watchdog stop during a covered suite stops the gate there: pass false, no case of it lost, the rest not run; accept refuses", async () => {
+  const r = await RUNS.watchdog;
   expect(r.code, r.stdout + r.stderr).toBe(1);
   const errors = errorLines(r.stdout);
   expect(errors.length, r.stdout).toBe(1);
   expect(errors[0]).toContain("ERROR: wd-covered: the watchdog stopped the stub's build (pid ");
-  expect(errors[0]).toContain("free disk 3.9 GiB, under the 4 GiB floor; the gate stops here: 2 suite(s) not run");
+  expect(errors[0]).toContain("free disk 3.9 GiB, under the 4 GiB floor (record ");
+  expect(errors[0]).toContain(".json); the gate stops here: 2 suite(s) not run");
   const g = r.gateJson;
   expect(g.pass).toBe(false);
   expect(g.stop.kind).toBe("watchdog");
+  // The reason names the record it came from (review harness-m8a-gate N5).
+  expect(g.stop.reason).toMatch(new RegExp(`\\(record ${join(TMP, "watchdog", "watchdog-stops").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[^)]+\\.json\\)`));
   // The suite ran (its results file exists) but is not scored: "gone", protected and absent, is not counted as lost.
   expect(r.ran).toEqual(["wd-covered"]);
   expect(g.suites).toEqual([]);
@@ -147,13 +167,13 @@ test("a watchdog stop during a covered suite stops the gate there: pass false, n
   expect(g.notRun.map((n: { suite: string; reason: string }) => [n.suite, n.reason.split(":")[0]])).toEqual([["wd-covered", "watchdog stop"], ["wd-after", "the gate stopped at wd-covered"]]);
   // The check before it passed, and is recorded.
   expect(g.headroom[0].refused).toBeUndefined();
-  const a = r.accept();
+  const a = await r.accept();
   expect(a.code).toBe(1);
   expect(a.stdout).toContain(`ERROR: gate run ${g.runId} stopped at wd-covered (watchdog: the watchdog stopped`);
 }, 60_000);
 
-test("a failed check before a never-protected suite only leaves it not run: the gate goes on and passes", () => {
-  const r = gate("report", [{ name: "np-report", headroom: "heavy-build", neverProtect: "a report until D23 holds" }, { name: "np-after" }], { freeGiB: 5, swapMb: 0, pressure: 1 }, { "np-after": ["same"] });
+test("a failed check before a never-protected suite only leaves it not run: the gate goes on and passes", async () => {
+  const r = await RUNS.report;
   expect(r.code, r.stdout + r.stderr).toBe(0);
   expect(errorLines(r.stdout)).toEqual([]);
   expect(r.stdout).toMatch(/^note: np-report not run \(a report suite, never protected\): host headroom \(plan-m8 D20, heavy-build[^\n]*5\.0 GiB free/m);
@@ -164,8 +184,8 @@ test("a failed check before a never-protected suite only leaves it not run: the 
   expect(g.notRun).toEqual([{ suite: "np-report", reason: `headroom check failed: ${g.headroom[0].refused}` }]);
 }, 60_000);
 
-test("enough headroom: the suite runs as before, the reading recorded; a never-protected suite runs as a report", () => {
-  const r = gate("roomy", [{ name: "ok-covered", headroom: "heavy-build" }, { name: "ok-report", neverProtect: "permanently" }], ROOMY);
+test("enough headroom: the suite runs as before, the reading recorded; a never-protected suite runs as a report", async () => {
+  const r = await RUNS.roomy;
   expect(r.code, r.stdout + r.stderr).toBe(0);
   expect(r.ran).toEqual(["ok-covered", "ok-report"]);
   const g = r.gateJson;
@@ -176,8 +196,8 @@ test("enough headroom: the suite runs as before, the reading recorded; a never-p
   expect(r.stdout).toContain("note: ok-report: a report, never protected (permanently); accept skips its matches");
 }, 60_000);
 
-test("a suite with no headroom field is read as before: no check, no `headroom` record, even with no disk free", () => {
-  const r = gate("unchanged", [{ name: "plain-a" }, { name: "plain-b" }], { freeGiB: 0, swapMb: 9000, pressure: 4 });
+test("a suite with no headroom field is read as before: no check, no `headroom` record, even with no disk free", async () => {
+  const r = await RUNS.unchanged;
   expect(r.code, r.stdout + r.stderr).toBe(0);
   expect(r.ran).toEqual(["plain-a", "plain-b"]);
   expect(r.gateJson.headroom).toBeUndefined();
@@ -185,8 +205,8 @@ test("a suite with no headroom field is read as before: no check, no `headroom` 
   expect(Object.keys(r.gateJson.suites[0])).not.toContain("env");
 }, 60_000);
 
-test("gate run refuses a never-protected suite that has a baseline file, before anything runs", () => {
-  const r = gate("np-baseline", [{ name: "np-based", neverProtect: "a report" }], ROOMY, { "np-based": ["same"] });
+test("gate run refuses a never-protected suite that has a baseline file, before anything runs", async () => {
+  const r = await RUNS.npBaseline;
   expect(r.code).toBe(1);
   const errors = errorLines(r.stdout);
   expect(errors.length).toBe(1);

@@ -1,7 +1,7 @@
 // scripts/lib/headroom.ts (plan-m8 D20, lane harness-m8a-gate), on fake host readers: no real heavy run. scripts/gate-headroom.test.ts
 // runs the gate itself on them.
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { HostReaders } from "./host-state.ts";
@@ -95,9 +95,12 @@ describe("watchdog stop records", () => {
     expect(watchdogStopsSince(dir, 0)).toEqual([]);
     recordWatchdogStop(dir, { at: "2026-11-16T01:00:00.000Z", pid: 11, what: "old", reason: "free disk 3.9 GiB" });
     recordWatchdogStop(dir, { at: "2026-11-16T02:00:05.000Z", pid: 13, what: "later", reason: "pressure critical for 60 s" });
-    recordWatchdogStop(dir, { at: "2026-11-16T02:00:00.000Z", pid: 12, what: "cargo-build", reason: "free disk 3.5 GiB" });
+    const path = recordWatchdogStop(dir, { at: "2026-11-16T02:00:00.000Z", pid: 12, what: "cargo-build", reason: "free disk 3.5 GiB" });
     const since = watchdogStopsSince(dir, Date.parse("2026-11-16T02:00:00.000Z"));
     expect(since.map((s) => [s.what, s.pid])).toEqual([["cargo-build", 12], ["later", 13]]);
+    // Each stop names its record file, so a stale one can be found (review harness-m8a-gate N5).
+    expect(since[0]!.file).toBe(path);
+    expect(since[0]!.reason).toBe("free disk 3.5 GiB");
     expect(watchdogStopsSince(dir, Date.parse("2026-11-16T03:00:00.000Z"))).toEqual([]);
   });
   test("a record that cannot be read counts as a stop at its file's time: a gate never runs on past it", () => {
@@ -113,5 +116,20 @@ describe("watchdog stop records", () => {
     // An old one, by its file's time, is not.
     for (const f of ["broken.json", "notime.json"]) utimesSync(join(dir, f), new Date("2020-01-01"), new Date("2020-01-01"));
     expect(watchdogStopsSince(dir, Date.parse("2021-01-01"))).toEqual([]);
+  });
+  test("a record that disappears between the listing and its read is a stop, named, never a crash (review harness-m8a-gate N5)", () => {
+    // A dangling link: listed by readdir, gone by the time it is read or stat'ed, as a record removed in between.
+    const dir = join(TMP, "c");
+    mkdirSync(dir, { recursive: true });
+    symlinkSync(join(dir, "nowhere.json"), join(dir, "vanished.json"));
+    const since = Date.parse("2030-01-01T00:00:00.000Z");
+    const got = watchdogStopsSince(dir, since);
+    expect(got.length).toBe(1);
+    expect(got[0]!.file).toBe(join(dir, "vanished.json"));
+    expect(got[0]!.reason).toBe(`the watchdog stop record ${join(dir, "vanished.json")} disappeared while the gate read it; what it recorded is unknown, so it counts as a stop`);
+    // Taken at the time asked about, so it is this suite's stop whatever the clock.
+    expect(Date.parse(got[0]!.at)).toBe(since);
+    // A directory that is not there: no stop.
+    expect(watchdogStopsSince(join(TMP, "never"), 0)).toEqual([]);
   });
 });

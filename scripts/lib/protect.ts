@@ -16,7 +16,7 @@ export interface ProtectSuite {
 export function neverProtectBaselineErrors(suites: readonly ProtectSuite[], hasBaseline: (suite: string) => boolean): string[] {
   return suites
     .filter((s) => s.neverProtect !== undefined && hasBaseline(s.name))
-    .map((s) => `suite ${s.name} is never protected (neverProtect: ${s.neverProtect}) but has a baseline file, harness/baseline/${s.name}.txt; a skipped suite must not skip a loss check against an existing baseline: clearing neverProtect (a reviewed harness batch) or removing the baseline is root's recorded decision`);
+    .map((s) => `suite ${s.name} is never protected (neverProtect: ${s.neverProtect}) but has a baseline file, harness/baseline/${s.name}.txt; a skipped suite must not skip a loss check against an existing baseline: clear neverProtect in a reviewed harness batch (a baseline is never removed to make a run pass)`);
 }
 
 /** The MATCH ids of a run's `<suite>.jsonl` (one `{ id, status }` per line): the only ids `accept` may protect. ENV never is. */
@@ -35,6 +35,8 @@ export interface AcceptInputs {
   suite(name: string): ProtectSuite;
   /** Its protected set now. */
   baseline(name: string): Set<string>;
+  /** Whether it has a baseline file (a `neverProtect` suite that has one is refused, as `neverProtectBaselineErrors` says). */
+  hasBaseline(name: string): boolean;
   /** Its MATCH ids in the run (`matchIdsOfJsonl` of the run's own results). */
   matches(name: string): Set<string>;
   /** Ids of `base` the suite lists as unstable (gate.ts `protectedUnstable`). */
@@ -53,7 +55,9 @@ export type AcceptPlan =
 /**
  * What `gate accept` does with a run's suites (`runSuites`, as gate.json lists them), or why it accepts nothing. Every suite is checked
  * before any baseline is written, so a refusal leaves every baseline as it was. A `neverProtect` suite is skipped whatever the run's
- * suites named: its matches are not read and its baseline is not written.
+ * suites named: its matches are not read and its baseline is not written. A `neverProtect` suite that has a baseline file refuses the
+ * whole run (review harness-m8a-gate N1): the refusal lives in the same code as the skip, so a skip can never pass over a loss check
+ * against an existing baseline, whatever the caller checked before.
  */
 export function planAccept(runId: string, runSuites: readonly string[], inp: AcceptInputs): AcceptPlan {
   const grown: { suite: string; base: Set<string>; before: number }[] = [];
@@ -61,6 +65,7 @@ export function planAccept(runId: string, runSuites: readonly string[], inp: Acc
   for (const name of runSuites) {
     const s = inp.suite(name); // registered suite names only (also keeps the baseline path inside harness/baseline)
     if (s.neverProtect !== undefined) {
+      if (inp.hasBaseline(name)) return { refusal: `gate run ${runId}: ${neverProtectBaselineErrors([s], () => true)[0]!}; nothing accepted` };
       skipped.push({ suite: name, why: s.neverProtect });
       continue;
     }
