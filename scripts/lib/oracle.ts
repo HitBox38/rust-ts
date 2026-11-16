@@ -4,9 +4,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
-import { PIN, UPSTREAM, die, hash, run } from "./common.ts";
+import { DATA, PIN, UPSTREAM, die, hash, run } from "./common.ts";
 import { pinnedPathEnv } from "./env.ts";
 import { hostTupleError, oracleToolchainError } from "./toolchain.ts";
+import { TOOL_NAMES, toolArgs, toolBinary, toolEnv, toolGuardErrors, toolOracleKeyOf, toolPins, type ToolGuardIo, type ToolName, type ToolPin } from "./tool-oracles.ts";
 
 /**
  * An oracle process that times out is run once more with this many times its timeout (difftest's oracle
@@ -133,3 +134,51 @@ export function rustcDriverHash(): string {
   }
   die(`no rustc_driver library under ${sysroot}`);
 }
+
+/** UPSTREAM.json `rust.tools` (plan-m8 D2; scripts/lib/tool-oracles.ts); dies if it lacks a tool's pin. */
+export function toolPinsOrDie(): Record<ToolName, ToolPin> {
+  const pins = toolPins(PIN.tools);
+  if (pins === undefined) die(`UPSTREAM.json rust.tools lacks a { url, sha256 } for one of ${TOOL_NAMES.join(", ")} (plan-m8 D2)`);
+  return pins;
+}
+
+/** `otool -L` and `tar -xOf` on the host, for `toolGuardErrors`. */
+export const HOST_TOOL_GUARD_IO: ToolGuardIo = {
+  otool: (path) => {
+    const r = Bun.spawnSync(["/usr/bin/otool", "-L", path], { stdout: "pipe", stderr: "pipe" });
+    return r.exitCode === 0 ? r.stdout.toString() : undefined;
+  },
+  tarMember: (tarball, member) => {
+    const r = Bun.spawnSync(["/usr/bin/tar", "-xOf", tarball, member], { stdout: "pipe", stderr: "pipe" });
+    return r.exitCode === 0 ? r.stdout : undefined;
+  },
+};
+
+let toolsVerified = false;
+
+/**
+ * Dies (one `ERROR:` line per problem) unless the tool oracles pass their guard (scripts/lib/tool-oracles.ts `toolGuardErrors`) and the
+ * oracle toolchain its own (`verifyOracleToolchain`). For the suites that run a tool oracle (plan-m8 D2), before any case.
+ */
+export function verifyToolOracles(): void {
+  if (toolsVerified) return;
+  verifyOracleToolchain();
+  const errors = toolGuardErrors(DATA, toolPinsOrDie(), oracleSysroot(), PIN.commit, HOST_TOOL_GUARD_IO);
+  for (const e of errors.slice(1)) console.log(`ERROR: ${e}`);
+  if (errors.length) die(errors[0]!);
+  toolsVerified = true;
+}
+
+/** A tool oracle's command: `bin` of `tool` by absolute path, then `toolArgs` (the oracle's `--sysroot` where the tool takes one). */
+export function toolOracleCmd(tool: ToolName, bin: string, args: readonly string[]): string[] {
+  return [toolBinary(DATA, toolPinsOrDie()[tool], tool, bin), ...toolArgs(tool, oracleSysroot(), args)];
+}
+
+/** The subject side's arguments for `tool`: the same `--sysroot=<oracle sysroot>` as the oracle's (plan-m8 D2), then `args`. */
+export const toolSubjectArgs = (tool: ToolName, args: readonly string[]): string[] => toolArgs(tool, oracleSysroot(), args);
+
+/** A tool oracle process's environment: the oracle's `librustc_driver` (`DYLD_LIBRARY_PATH`). */
+export const toolOracleEnv = (): Record<string, string> => toolEnv(oracleSysroot());
+
+/** `Suite.oracleKey` of a suite whose oracle is `tool`: its tarball's pinned SHA-256 and the oracle `librustc_driver` build. */
+export const toolOracleKey = (tool: ToolName): string => toolOracleKeyOf(tool, toolPinsOrDie()[tool], rustcDriverHash());

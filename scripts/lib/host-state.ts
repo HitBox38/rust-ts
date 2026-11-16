@@ -3,7 +3,7 @@
 // a STOP. So `scripts/gate.ts run` refuses to start on battery unless told otherwise, and records power, load and swap through the run.
 // **Everything here is a report:** no status, loss or pass reads it, and a reader that fails gives `null`, never an error.
 // No imports beyond node:, so unit tests can load it without scripts/lib/common.ts.
-import { existsSync } from "node:fs";
+import { existsSync, statfsSync } from "node:fs";
 import { loadavg } from "node:os";
 
 export interface PowerState {
@@ -31,6 +31,13 @@ export interface HostReaders {
   swapusage(): Promise<string | undefined>;
   load(): number[];
   now(): Date;
+  /**
+   * Bytes free for an unprivileged writer on the volume of `path` (`statfs`: `bavail * bsize`, as `df` prints). Read only by
+   * scripts/lib/headroom.ts (plan-m8 D20), where a missing reader is a failed check; nothing in this file reads it.
+   */
+  freeBytes?(path: string): Promise<number | undefined>;
+  /** `sysctl -n kern.memorystatus_vm_pressure_level`; as `freeBytes`, read only by scripts/lib/headroom.ts. */
+  vmPressure?(): Promise<string | undefined>;
 }
 
 /** `pmset -g batt`: `Now drawing from 'AC Power'`, then, with a battery, ` -InternalBattery-0 (id=...)\t100%; charged; ...`. */
@@ -74,6 +81,15 @@ export const REAL_HOST: HostReaders = {
   swapusage: () => commandOutput(["/usr/sbin/sysctl", "-n", "vm.swapusage"]),
   load: () => loadavg(),
   now: () => new Date(),
+  freeBytes: async (path) => {
+    try {
+      const s = statfsSync(path);
+      return s.bavail * s.bsize;
+    } catch {
+      return undefined;
+    }
+  },
+  vmPressure: () => commandOutput(["/usr/sbin/sysctl", "-n", "kern.memorystatus_vm_pressure_level"]),
 };
 
 /** How long a sample waits for a reader; past `commandOutput`'s limit, so that a killed command is seen as failed first. */

@@ -12,6 +12,10 @@
     "miri": {
       "target": "x86_64-unknown-linux-gnu",
       "components": ["cargo-{host}", "miri-preview-{host}", "rust-src", "rust-std-{host}", "rustc-{host}"]
+    },
+    "tools": {
+      "clippy": { "url": "https://static.rust-lang.org/dist/2026-10-11/clippy-nightly-aarch64-apple-darwin.tar.xz", "sha256": "08d0af9f8706ff7756863d099bd622ed3dcc992fd7ad1de08fc10316e97e5e25" },
+      "rustfmt": { "url": "https://static.rust-lang.org/dist/2026-10-11/rustfmt-nightly-aarch64-apple-darwin.tar.xz", "sha256": "3ed6326d5922f45113b8513935deec2cbebc67cd7a036861ab95387bee0803ea" }
     }
   },
   "cargo": {

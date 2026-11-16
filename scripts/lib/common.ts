@@ -27,6 +27,12 @@ export interface UpstreamPin {
   components: string[];
   /** The isolated Miri toolchain (plan-m6 D1; scripts/lib/miri.ts). */
   miri?: MiriPin;
+  /**
+   * The tool oracles (plan-m8 D2; scripts/lib/tool-oracles.ts): the pinned nightly's `clippy-preview` and `rustfmt-preview` dist
+   * tarballs (the channel manifest's `xz_url` and `xz_hash`), unpacked under `$RUST_TS_DATA/tools/<sha256>/` by `bun scripts/tools.ts
+   * setup` and run on the oracle's own `librustc_driver`. Nothing is installed into the oracle toolchain.
+   */
+  tools?: Record<string, { url: string; sha256: string }>;
 }
 
 /** UPSTREAM.json `rust.miri`. */

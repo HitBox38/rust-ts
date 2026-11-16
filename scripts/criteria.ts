@@ -78,7 +78,7 @@ export interface GateRecord {
   skipStatic: boolean;
   head: string;
   dirty: string[];
-  suites: { suite: string; match: number; total: number; oracleTimeouts: string[]; unstable?: string[]; lost?: string[]; gained?: string[] }[];
+  suites: { suite: string; match: number; total: number; oracleTimeouts: string[]; unstable?: string[]; env?: string[]; lost?: string[]; gained?: string[] }[];
 }
 
 export interface GroupResult {
@@ -88,6 +88,8 @@ export interface GroupResult {
   oracleTimeouts: number;
   /** UNSTABLE cases left out (`excludeUnstable` groups only; 0 otherwise). */
   unstable: number;
+  /** ENV cases left out (plan-m8 §6: every denominator but an `allCases` group's); absent when there are none. */
+  env?: number;
   percent: number;
   target: number;
   met: boolean;
@@ -184,6 +186,7 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
   let of = 0;
   let oracleTimeouts = 0;
   let unstable = 0;
+  let env = 0;
   const problems = [...gateProblems(g), ...protectedNotRun(g, protectedSuites)];
   for (const name of group.suites) {
     const s = g.suites.find((x) => x.suite === name);
@@ -192,7 +195,11 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
       continue;
     }
     match += s.match;
-    let left = group.allCases ? 0 : s.oracleTimeouts.length;
+    // ENV (the oracle does not pass the case on this host, on two runs; plan-m8 D9) is out of every denominator but an `allCases`
+    // group's; gate.json lists it only when there is one, so a gate.json without the list has none.
+    const envHere = group.allCases ? 0 : (s.env?.length ?? 0);
+    env += envHere;
+    let left = group.allCases ? 0 : s.oracleTimeouts.length + envHere;
     if (group.excludeUnstable && !group.allCases) {
       if (!Array.isArray(s.unstable)) problems.push(`${name}: this gate.json has no unstable list to leave out`);
       else left += s.unstable.length;
@@ -204,7 +211,7 @@ export function groupResult(group: CriteriaGroup, g: GateRecord, protectedSuites
   const percent = of ? Math.round(((100 * match) / of) * 100) / 100 : 0;
   // On the exact counts, not the rounded percentage.
   const met = problems.length === 0 && of > 0 && 100 * match >= group.percent * of && match >= (group.minMatch ?? 0);
-  return { name: group.name, match, of, oracleTimeouts, unstable, percent, target: group.percent, met, problems, ...(group.minMatch !== undefined ? { minMatch: group.minMatch } : {}) };
+  return { name: group.name, match, of, oracleTimeouts, unstable, ...(env ? { env } : {}), percent, target: group.percent, met, problems, ...(group.minMatch !== undefined ? { minMatch: group.minMatch } : {}) };
 }
 
 if (import.meta.main) {
@@ -255,7 +262,7 @@ if (import.meta.main) {
     const why = r.problems.length ? ` (${r.problems.join("; ")})` : "";
     if (r.minMatch !== undefined) console.log(`${r.name}: MATCH ${r.match} of ${r.of} cases vs >= ${r.minMatch}, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}: ${r.met ? "met" : "not met"}${why}`);
     else if (r.count) console.log(`${r.name}: MATCH ${r.match} of ${r.of} ${r.count.what} vs >= ${r.count.atLeast}, ${r.oracleTimeouts} oracle timeouts: ${r.met ? "met" : "not met"}${why}`);
-    else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}${group.excludeUnstable && !group.allCases ? `, ${r.unstable} unstable excluded` : ""}: ${r.met ? "met" : "not met"}${why}`);
+    else console.log(`${r.name}: MATCH ${r.match}/${r.of} = ${r.percent}% vs >= ${r.target}%, ${r.oracleTimeouts} oracle timeouts ${group.allCases ? "counted" : "excluded"}${group.excludeUnstable && !group.allCases ? `, ${r.unstable} unstable excluded` : ""}${r.env ? `, ${r.env} ENV excluded` : ""}: ${r.met ? "met" : "not met"}${why}`);
   }
   for (const line of milestoneVerdicts(verdicts)) console.log(line);
   process.exit(allMet ? 0 : 1);
