@@ -1022,8 +1022,8 @@ Available lint options:
   /** `format!("{:7.7}", s)` */
   const w7 = (s: string): string => [...s].slice(0, 7).join("").padEnd(7);
 
-  let max_name_len = Math.max(0, ...[...loaded, ...builtin].map((s) => chars_count(s.name)));
-  let padded = (x: string): string => {
+  const max_name_len = Math.max(0, ...[...loaded, ...builtin].map((s) => chars_count(s.name)));
+  const padded = (x: string): string => {
     let s = " ".repeat(max_name_len - chars_count(x));
     s += x;
     return s;
@@ -1043,50 +1043,56 @@ Available lint options:
 
   print_lints(builtin);
 
-  max_name_len = Math.max(utf8_len("warnings"), Math.max(0, ...[...loaded_groups, ...builtin_groups].map(([s]) => chars_count(s))));
+  // PORT: upstream's second `let max_name_len` / `let padded` are new bindings that shadow the first ones, so
+  // `print_lints` (used again below for `loaded`) keeps the lint-name width while `print_lint_groups` uses the
+  // group-name width. TS cannot redeclare in one scope, so the rest of the function is a nested block holding
+  // the shadowing `const`s (same names, same reach: to the end of the function).
+  {
+    const max_name_len = Math.max(utf8_len("warnings"), Math.max(0, ...[...loaded_groups, ...builtin_groups].map(([s]) => chars_count(s))));
 
-  padded = (x: string): string => {
-    let s = " ".repeat(max_name_len - chars_count(x));
-    s += x;
-    return s;
-  };
+    const padded = (x: string): string => {
+      let s = " ".repeat(max_name_len - chars_count(x));
+      s += x;
+      return s;
+    };
 
-  safe_println("Lint groups provided by rustc:\n");
+    safe_println("Lint groups provided by rustc:\n");
 
-  const print_lint_groups = (lints: [string, LintId[]][], all_warnings: boolean): void => {
-    safe_println(`    ${padded("name")}  sub-lints`);
-    safe_println(`    ${padded("----")}  ---------`);
+    const print_lint_groups = (lints: [string, LintId[]][], all_warnings: boolean): void => {
+      safe_println(`    ${padded("name")}  sub-lints`);
+      safe_println(`    ${padded("----")}  ---------`);
 
-    if (all_warnings) {
-      safe_println(`    ${padded("warnings")}  all lints that are set to issue warnings`);
-    }
+      if (all_warnings) {
+        safe_println(`    ${padded("warnings")}  all lints that are set to issue warnings`);
+      }
 
-    for (const [name_, to] of lints) {
-      const name = name_.toLowerCase().replaceAll("_", "-");
-      const desc = to.map((x) => LintIdC.to_string(x).replaceAll("_", "-")).join(", ");
-      safe_println(`    ${padded(name)}  ${desc}`);
-    }
-    safe_println("\n");
-  };
+      for (const [name_, to] of lints) {
+        const name = name_.toLowerCase().replaceAll("_", "-");
+        const desc = to.map((x) => LintIdC.to_string(x).replaceAll("_", "-")).join(", ");
+        safe_println(`    ${padded(name)}  ${desc}`);
+      }
+      safe_println("\n");
+    };
 
-  print_lint_groups(builtin_groups, true);
+    print_lint_groups(builtin_groups, true);
 
-  const l = loaded.length;
-  const g = loaded_groups.length;
-  if (!registered_lints && (l === 0 || g === 0)) {
-    safe_println("Lint tools like Clippy can load additional lints and lint groups.");
-  } else if (!registered_lints) {
-    panic("didn't load additional lints but got them anyway!");
-  } else if (l === 0 && g === 0) {
-    safe_println("This crate does not load any additional lints or lint groups.");
-  } else {
-    if (l > 0) {
-      safe_println("Lint checks loaded by this crate:\n");
-      print_lints(loaded);
-    }
-    if (g > 0) {
-      safe_println("Lint groups loaded by this crate:\n");
-      print_lint_groups(loaded_groups, false);
+    const l = loaded.length;
+    const g = loaded_groups.length;
+    if (!registered_lints && (l === 0 || g === 0)) {
+      safe_println("Lint tools like Clippy can load additional lints and lint groups.");
+    } else if (!registered_lints) {
+      panic("didn't load additional lints but got them anyway!");
+    } else if (l === 0 && g === 0) {
+      safe_println("This crate does not load any additional lints or lint groups.");
+    } else {
+      if (l > 0) {
+        safe_println("Lint checks loaded by this crate:\n");
+        print_lints(loaded);
+      }
+      if (g > 0) {
+        safe_println("Lint groups loaded by this crate:\n");
+        print_lint_groups(loaded_groups, false);
+      }
     }
   }
 }
