@@ -772,9 +772,11 @@ Queued for wave 42 briefs: root-w67-check 1-3 (contract guard uniqueness check, 
 Plan §8 wave 42. Batch 1 (5-6 heavy lanes at a time): dispatch-a (doc, matches mod.rs), dispatch-c (casts, types, attrs), dispatch-d (functions, transmute, misc_early, write, cargo), clippy-utils-a (source, res, paths, attrs, numeric_literal), vendor-fmt-small (diff, unicode-segmentation, semver, bytecount, unicode-width 0.1, dirs via src/std), harness-m8d (clippy suites). Then: dispatch-methods-a/-b, dispatch-b, dispatch-e, clippy-early-a…e, clippy-utils-b…g, codegen-clippy-conf, vendor-toml (2), vendor-serde-de, vendor-ignore, harness-m8b (rustfmt suites), harness-m8c code, the 13 rustfmt fill lanes.
 | lane | scope | status |
 |---|---|---|
-| dispatch-a | `doc/mod.rs`, `matches/mod.rs` | started |
-| dispatch-c | `casts/mod.rs`, `types/mod.rs`, `attrs/mod.rs` | started |
-| dispatch-d | `functions`, `transmute`, `misc_early`, `write`, `cargo` mod.rs | started |
+| dispatch-a | `doc/mod.rs`, `matches/mod.rs` | done (686bd10b), in review |
+| dispatch-c | `casts/mod.rs`, `types/mod.rs`, `attrs/mod.rs` | done (cf1c0e5f), in review |
+| dispatch-d | `functions`, `transmute`, `misc_early`, `write`, `cargo` mod.rs | done (812dce02), in review |
+| dispatch-b | `operators`, `loops` mod.rs | started |
+| dispatch-e | every other directory's mod.rs except methods/utils | started |
 | clippy-utils-a | `source`, `res`, `paths`, `attrs`, `numeric_literal` | started |
 | vendor-fmt-small | diff, unicode-segmentation, semver, bytecount, unicode-width 0.1, dirs | started |
 | harness-m8d | clippy-ui, clippy-ui-lane, clippy-ui-json, clippy-ui-toml, clippy subject entry | started |
