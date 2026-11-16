@@ -9,9 +9,6 @@
 // - `rustc_driver::catch_with_exit_code` is ported for `()` (src/rustc_driver_impl/lib.ts); clippy's closure returns an `ExitCode`
 //   (`T: Termination`). `catch_with_exit_code_` below is the generic form: the closure's value on `Ok` (`x.report()`), `FAILURE` on
 //   `Err`, as upstream's `match catch_fatal_errors(f) { Ok(x) => x.report(), Err(_) => ExitCode::FAILURE }`.
-// - `interface::Config`'s `track_state` and `register_lints` are typed `undefined` in src/rustc_interface/interface.ts, whose
-//   `run_compiler` ports only their `None` arms (interface.rs:480, :488). Clippy is the first driver to set them, so they are assigned
-//   through `ConfigCallbacks`; the `Some` arms are an interface.ts change outside this lane (docs/handoff/clippy-contract-a.md).
 // - `rustc_tools_util::get_version_info!()` is a macro of crate `rustc_tools_util` (`env!`/`option_env!` of its build script's
 //   variables), not ported yet: `get_version_info` stops `unported`.
 // - `color_print::cstr!` expands at compile time to a string with ANSI SGR codes; `help_message` holds that expansion, mirroring the
@@ -22,7 +19,6 @@ import { LintListBuilder } from "../declare_clippy_lint/lib.ts";
 import { EXIT_FAILURE, EXIT_SUCCESS, type Callbacks, catch_with_exit_code, compiler_entrypoint, init_rustc_env_logger, install_ice_hook } from "../rustc_driver_impl/lib.ts";
 import { raw_args } from "../rustc_driver_impl/args.ts";
 import type { Config } from "../rustc_interface/interface.ts";
-import type { LintStore } from "../rustc_lint/context.ts";
 import { ErrorOutputType } from "../rustc_session/config.ts";
 import { EarlyDiagCtxt, type Session } from "../rustc_session/session.ts";
 import { Symbol } from "../rustc_span/symbol.ts";
@@ -103,13 +99,6 @@ function track_files(sess: Session): void {
   // PORT: `cfg!(debug_assertions)` is false in the oracle's (release) build, so the block is not compiled (PORTING §3).
 }
 
-/** PORT: the `Config` callbacks interface.ts types as `undefined` (header). */
-interface ConfigCallbacks {
-  track_state: ((sess: Session) => void) | undefined;
-  register_lints: ((sess: Session, lint_store: LintStore) => void) | undefined;
-}
-const config_callbacks = (config: Config): ConfigCallbacks => config as unknown as ConfigCallbacks;
-
 class DefaultCallbacks implements Callbacks {
   // impl rustc_driver::Callbacks for DefaultCallbacks {}: the provided `config` (an empty body)
   config(_config: Config): void {}
@@ -125,7 +114,7 @@ class RustcCallbacks implements Callbacks {
   config(config: Config): void {
     const clippy_args_var = this.clippy_args_var; // `.take()`
     this.clippy_args_var = undefined;
-    config_callbacks(config).track_state = (sess) => {
+    config.track_state = (sess) => {
       track_clippy_args(sess, clippy_args_var);
     };
     config.extra_symbols = [...sym.EXTRA_SYMBOLS];
@@ -139,12 +128,11 @@ class ClippyCallbacks implements Callbacks {
   // #[expect(rustc::bad_opt_access, reason = "necessary in clippy driver to set `mir_opt_level`")]
   // rustc: src/tools/clippy/src/driver.rs:140 config
   config(config: Config): void {
-    const callbacks = config_callbacks(config);
-    const previous = callbacks.register_lints; // `.take()`
-    callbacks.register_lints = undefined;
+    const previous = config.register_lints; // `.take()`
+    config.register_lints = undefined;
     const clippy_args_var = this.clippy_args_var; // `.take()`
     this.clippy_args_var = undefined;
-    callbacks.track_state = (sess) => {
+    config.track_state = (sess) => {
       track_clippy_args(sess, clippy_args_var);
       track_files(sess);
 
@@ -153,7 +141,7 @@ class ClippyCallbacks implements Callbacks {
       const dir = var_("CLIPPY_CONF_DIR");
       sess.env_depinfo.add(JSON.stringify([Symbol.as_str(sym.CLIPPY_CONF_DIR), dir.$ === "Ok" ? Symbol.as_str(Symbol.intern(dir._0)) : null]));
     };
-    callbacks.register_lints = (sess, lint_store) => {
+    config.register_lints = (sess, lint_store) => {
       // technically we're ~guaranteed that this is none but might as well call anything that
       // is there already. Certainly it can't hurt.
       if (previous !== undefined) {

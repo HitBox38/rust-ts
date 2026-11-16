@@ -181,7 +181,12 @@ test("main: --version stops unported (rustc_tools_util::get_version_info!)", () 
 
 /** A `Config` with only what the callbacks write. */
 function fake_config(): Config {
-  return { opts: { unstable_opts: { mir_opt_level: undefined, mir_enable_passes: [], flatten_format_args: true } }, extra_symbols: [] } as unknown as Config;
+  return {
+    opts: { unstable_opts: { mir_opt_level: undefined, mir_enable_passes: [], flatten_format_args: true } },
+    extra_symbols: [],
+    track_state: undefined,
+    register_lints: undefined,
+  } as unknown as Config;
 }
 
 test("ClippyCallbacks::config and RustcCallbacks::config", () => {
@@ -196,13 +201,12 @@ test("ClippyCallbacks::config and RustcCallbacks::config", () => {
   ]);
   expect(c.opts.unstable_opts.flatten_format_args).toBe(false);
   expect(c.extra_symbols).toEqual([...sym.EXTRA_SYMBOLS]);
-  const cb = c as unknown as { track_state?: (sess: Session) => void; register_lints?: unknown };
-  expect(typeof cb.register_lints).toBe("function");
+  expect(typeof c.register_lints).toBe("function");
   const r = fake_config();
   rustc!.callbacks.config(r);
   expect(r.opts.unstable_opts.mir_opt_level).toBe(undefined);
   expect(r.extra_symbols).toEqual([...sym.EXTRA_SYMBOLS]);
-  expect((r as unknown as { register_lints?: unknown }).register_lints).toBe(undefined);
+  expect(r.register_lints).toBe(undefined);
 
   // track_state: CLIPPY_ARGS (as given to the callbacks), CLIPPY_CONF_DIR (read when it runs) and Cargo.toml if present
   const depinfo = (f: (sess: Session) => void, env: Record<string, string | undefined>): [string[], string[]] =>
@@ -212,8 +216,7 @@ test("ClippyCallbacks::config and RustcCallbacks::config", () => {
       return [[...sess.env_depinfo], [...sess.file_depinfo].map((s) => Symbol.as_str(s))];
     });
   const cargo_toml = existsSync("Cargo.toml") ? ["Cargo.toml"] : [];
-  expect(depinfo(cb.track_state!, { CLIPPY_CONF_DIR: "conf" })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR","conf"]'], cargo_toml]);
-  expect(depinfo(cb.track_state!, { CLIPPY_CONF_DIR: undefined })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR",null]'], cargo_toml]);
-  const rcb = r as unknown as { track_state: (sess: Session) => void };
-  expect(depinfo(rcb.track_state, { CLIPPY_CONF_DIR: undefined })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]'], []]);
+  expect(depinfo(c.track_state!, { CLIPPY_CONF_DIR: "conf" })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR","conf"]'], cargo_toml]);
+  expect(depinfo(c.track_state!, { CLIPPY_CONF_DIR: undefined })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]', '["CLIPPY_CONF_DIR",null]'], cargo_toml]);
+  expect(depinfo(r.track_state!, { CLIPPY_CONF_DIR: undefined })).toEqual([['["CLIPPY_ARGS","-Dwarnings"]'], []]);
 });

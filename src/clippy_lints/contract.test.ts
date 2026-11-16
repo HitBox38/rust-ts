@@ -9,7 +9,7 @@
 // (contract.d.ts and its check were removed at integ-w66, when clippy_config/lib.ts and lib.gen.ts landed.)
 import { expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { rustFns } from "../../scripts/lib/rust-fns.ts";
 import { FrontmatterAllowed, strip_shebang, tokenize } from "../rustc_lexer/lib.ts";
 import { LateContext } from "../rustc_lint/context.ts";
