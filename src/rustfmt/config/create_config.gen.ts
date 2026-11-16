@@ -5,7 +5,7 @@
 import { type Fmt, debug_bool, debug_int, debug_str, debug_struct } from "../../std/fmt.ts";
 import { type IoResult, debug_IoError, write_stderr } from "../../std/io.ts";
 import { type ParseIntError, usize_from_str } from "../../std/num.ts";
-import { panic, unported, unreachable } from "../../std/panic.ts";
+import { panic, unreachable } from "../../std/panic.ts";
 import { Err, Ok, type Result, expect_result, unwrap_result } from "../../std/result.ts";
 import { missing_field } from "../../vendor/serde/private/de.ts";
 import { deserialize_IgnoredAny } from "../../vendor/serde_core/de/ignored_any.ts";
@@ -19,7 +19,7 @@ import { ListTactic, ListTactic_eq, SeparatorPlace, SeparatorTactic, clone_ListT
 import { clone_MacroSelectors, debug_MacroSelectors, default_MacroSelectors, deserialize_MacroSelectors, serialize_MacroSelectors } from "./macro_names.gen.ts";
 import { MacroSelectors, MacroSelectors_eq, debug_MacroSelectorsError, display_MacroSelectors } from "./macro_names.ts";
 import { BraceStyle, Color, ControlBraceStyle, Density, DocCodeHeuristics, Edition, EmitMode, FloatLiteralTrailingZero, GroupImportsTactic, Heuristics, HexLiteralCase, IgnoreList, ImportGranularity, IndentStyle, MatchArmLeadingPipe, NewlineStyle, StyleEdition, TypeDensity, Verbosity, Version, WidthHeuristics, clone_IgnoreList, clone_WidthHeuristics, config_type_BraceStyle, config_type_Color, config_type_ControlBraceStyle, config_type_Density, config_type_DocCodeHeuristics, config_type_Edition, config_type_EmitMode, config_type_FloatLiteralTrailingZero, config_type_GroupImportsTactic, config_type_Heuristics, config_type_HexLiteralCase, config_type_ImportGranularity, config_type_IndentStyle, config_type_MatchArmLeadingPipe, config_type_NewlineStyle, config_type_StyleEdition, config_type_TypeDensity, config_type_Verbosity, config_type_Version, debug_BraceStyle, debug_Color, debug_ControlBraceStyle, debug_Density, debug_DocCodeHeuristics, debug_Edition, debug_EmitMode, debug_FloatLiteralTrailingZero, debug_GroupImportsTactic, debug_Heuristics, debug_HexLiteralCase, debug_IgnoreList, debug_ImportGranularity, debug_IndentStyle, debug_MatchArmLeadingPipe, debug_NewlineStyle, debug_StyleEdition, debug_TypeDensity, debug_Verbosity, debug_Version, debug_WidthHeuristics, default_IgnoreList, deserialize_BraceStyle, deserialize_Color, deserialize_ControlBraceStyle, deserialize_Density, deserialize_DocCodeHeuristics, deserialize_Edition, deserialize_EmitMode, deserialize_FloatLiteralTrailingZero, deserialize_GroupImportsTactic, deserialize_Heuristics, deserialize_HexLiteralCase, deserialize_ImportGranularity, deserialize_IndentStyle, deserialize_MatchArmLeadingPipe, deserialize_NewlineStyle, deserialize_StyleEdition, deserialize_TypeDensity, deserialize_Verbosity, deserialize_Version, deserialize_WidthHeuristics, display_BraceStyle, display_Color, display_ControlBraceStyle, display_Density, display_DocCodeHeuristics, display_Edition, display_EmitMode, display_FloatLiteralTrailingZero, display_GroupImportsTactic, display_Heuristics, display_HexLiteralCase, display_ImportGranularity, display_IndentStyle, display_MatchArmLeadingPipe, display_NewlineStyle, display_StyleEdition, display_TypeDensity, display_Verbosity, display_Version, serialize_BraceStyle, serialize_Color, serialize_ControlBraceStyle, serialize_Density, serialize_DocCodeHeuristics, serialize_Edition, serialize_EmitMode, serialize_FloatLiteralTrailingZero, serialize_GroupImportsTactic, serialize_Heuristics, serialize_HexLiteralCase, serialize_ImportGranularity, serialize_IndentStyle, serialize_MatchArmLeadingPipe, serialize_NewlineStyle, serialize_StyleEdition, serialize_TypeDensity, serialize_Verbosity, serialize_Version, serialize_WidthHeuristics } from "./options.gen.ts";
-import { IgnoreList_eq, WidthHeuristics_eq, deserialize_IgnoreList, display_IgnoreList, display_WidthHeuristics, serialize_IgnoreList } from "./options.ts";
+import { IgnoreList_eq, USIZE_MAX, WidthHeuristics_eq, deserialize_IgnoreList, display_IgnoreList, display_WidthHeuristics, serialize_IgnoreList } from "./options.ts";
 import type { StyleEditionDefault } from "./style_edition.ts";
 
 // ---- config_option_with_style_edition_default! (src/tools/rustfmt/src/config/options.rs:599) at src/tools/rustfmt/src/config/options.rs:630 ----
@@ -9589,11 +9589,11 @@ function __set_dependent_options(config: Config, key: string): void {
 // ---- module-local helpers (std pieces src/std does not have yet) ----
 /** `isize::MAX` as a usize (only compared with config widths, far below 2^53). */
 const ISIZE_MAX = 2 ** 63 - 1;
-/** `usize::saturating_add_signed` on config widths: never below 0; a result past 2^53 cannot be represented exactly, so it is not guessed. */
+/** `usize::saturating_add_signed` over the port's `usize::MAX` (tools/codegen/create_config.ts `usizeSaturatingAddSigned`). */
 function usize_saturating_add_signed(value: number, delta: number): number {
+  if (value >= USIZE_MAX) return USIZE_MAX;
   const r = value + delta;
-  if (r > Number.MAX_SAFE_INTEGER) return unported("usize::saturating_add_signed past 2^53 (Config::adjust_max_width)");
-  return r < 0 ? 0 : r;
+  return r <= 0 ? 0 : r >= USIZE_MAX ? USIZE_MAX : r;
 }
 /** `dyn std::io::Write` as `print_docs` uses it: `writeln!(out, ..)` is `out.write_fmt(<text>)` (std::io::Write::write_fmt). */
 export interface Write {
