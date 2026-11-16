@@ -572,25 +572,25 @@ export const SERDE_SURFACE_DECLS: Record<SerdeModule, Record<string, string>> = 
   },
 };
 
-/** Type aliases at the top of each module's contract block (`$SRC` = the path from the contract file to src/). */
+/** Type aliases at the top of each module's contract block (`import("@/<src-relative path>")`: resolved by rustfmt.ts `contractText`). */
 export const SERDE_SURFACE_PRELUDE: Record<SerdeModule, string[]> = {
-  de: ['type Result<T, E> = import("$SRC/std/result.ts").Result<T, E>;'],
+  de: ['type Result<T, E> = import("@/std/result.ts").Result<T, E>;'],
   de_impls: [
-    'type Result<T, E> = import("$SRC/std/result.ts").Result<T, E>;',
-    'type Deserialize<T> = import("$SRC/vendor/serde_core/de/mod.ts").Deserialize<T>;',
-    'type Deserializer<E> = import("$SRC/vendor/serde_core/de/mod.ts").Deserializer<E>;',
+    'type Result<T, E> = import("@/std/result.ts").Result<T, E>;',
+    'type Deserialize<T> = import("@/vendor/serde_core/de/mod.ts").Deserialize<T>;',
+    'type Deserializer<E> = import("@/vendor/serde_core/de/mod.ts").Deserializer<E>;',
   ],
-  ignored_any: ['type Result<T, E> = import("$SRC/std/result.ts").Result<T, E>;', 'type Deserializer<E> = import("$SRC/vendor/serde_core/de/mod.ts").Deserializer<E>;'],
+  ignored_any: ['type Result<T, E> = import("@/std/result.ts").Result<T, E>;', 'type Deserializer<E> = import("@/vendor/serde_core/de/mod.ts").Deserializer<E>;'],
   private_de: [
-    'type Result<T, E> = import("$SRC/std/result.ts").Result<T, E>;',
-    'type Deserialize<T> = import("$SRC/vendor/serde_core/de/mod.ts").Deserialize<T>;',
-    'type Error<E> = import("$SRC/vendor/serde_core/de/mod.ts").Error<E>;',
+    'type Result<T, E> = import("@/std/result.ts").Result<T, E>;',
+    'type Deserialize<T> = import("@/vendor/serde_core/de/mod.ts").Deserialize<T>;',
+    'type Error<E> = import("@/vendor/serde_core/de/mod.ts").Error<E>;',
   ],
-  ser: ['type Result<T, E> = import("$SRC/std/result.ts").Result<T, E>;'],
+  ser: ['type Result<T, E> = import("@/std/result.ts").Result<T, E>;'],
   ser_impls: [
-    'type Result<T, E> = import("$SRC/std/result.ts").Result<T, E>;',
-    'type Serialize<T> = import("$SRC/vendor/serde_core/ser/mod.ts").Serialize<T>;',
-    'type Serializer<O, E> = import("$SRC/vendor/serde_core/ser/mod.ts").Serializer<O, E>;',
+    'type Result<T, E> = import("@/std/result.ts").Result<T, E>;',
+    'type Serialize<T> = import("@/vendor/serde_core/ser/mod.ts").Serialize<T>;',
+    'type Serializer<O, E> = import("@/vendor/serde_core/ser/mod.ts").Serializer<O, E>;',
   ],
 };
 

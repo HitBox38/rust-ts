@@ -7,14 +7,14 @@
 // - the emitted TS run against a minimal serde runtime (a JSON-like value deserializer): field order, unknown / duplicate /
 //   missing fields, sequences, newtypes, `#[config_type]`'s case-insensitive values and its errors.
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { PIN, UPSTREAM } from "../../scripts/lib/common.ts";
 import { test_scratch_dir } from "../../src/rust_ts/test_scratch.ts";
 import * as CT from "./config_type.ts";
 import { renderRustDefault, renderRustOverrideValue, renderRustPrintDocs } from "./create_config.ts";
 import { firstTokenDiff, normRust } from "./rust_tokens.ts";
-import { generateRustfmt } from "./rustfmt.ts";
+import { CANON, CONTRACT, generateRustfmt } from "./rustfmt.ts";
 import { readFixture, stripDerived } from "./rustfmt_oracle.ts";
 import * as SD from "./serde.ts";
 import { type PItem, type ProbeJson, type PType, REPO } from "./types.ts";
@@ -66,6 +66,27 @@ test.skipIf(!HAVE_UPSTREAM && !REQUIRE_PROBES)("oracle: every serde derive, #[co
     if (d) diffs.push(`${k}: ${d}`);
   }
   expect(diffs).toEqual([]);
+});
+
+// The contract blocks (review N2): each is named by the exact canonical specifier of a module that does not exist, and nothing
+// outside src/rustfmt/ writes that specifier, so a block can never hide a missing import elsewhere in the program.
+test("contract: blocks name only missing modules, by specifiers no file outside src/rustfmt/ uses", () => {
+  const text = readFileSync(join(SRC, CONTRACT), "utf8");
+  const specs = [...text.matchAll(/^declare module "([^"]+)" \{$/gm)].map((m) => m[1]!);
+  expect(specs.length).toBeGreaterThan(0);
+  for (const name of specs) {
+    expect(name.endsWith("*") && name.startsWith(CANON) && !name.slice(0, -1).includes("*")).toBe(true);
+    // a module that exists must be checked for real, not through its block (rerun bun tools/codegen/rustfmt.ts)
+    expect({ name, exists: existsSync(join(SRC, name.slice(CANON.length, -1))) }).toEqual({ name, exists: false });
+  }
+  const users: string[] = [];
+  for (const f of readdirSync(SRC, { recursive: true, encoding: "utf8" })) {
+    if (!/\.(ts|tsx|mts|cts)$/.test(f) || f.split(/[\\/]/)[0] === "rustfmt") continue;
+    const src = readFileSync(join(SRC, f), "utf8");
+    for (const name of specs) if (src.includes(`"${name.slice(0, -1)}`) || src.includes(`'${name.slice(0, -1)}`)) users.push(`src/${f}: ${name}`);
+  }
+  expect(users).toEqual([]);
+  expect(relative(SRC, join(SRC, CONTRACT))).toBe("rustfmt/contract.gen.d.ts");
 });
 
 // ---- refusals ----
@@ -211,9 +232,9 @@ export function missing_field<V, E>(de: Deserialize<V>, field: string, _err: unk
 export class Serializer {
   readonly Error = Error;
   serialize_str(v: string) { return Ok(JSON.stringify(v)); }
-  serialize_unit_variant(_n: string, _i: number, v: string) { return Ok(JSON.stringify(v)); }
+  serialize_unit_variant(_n: string, i: number, v: string) { return Ok(\`\${JSON.stringify(v)}#\${i}\`); }
   serialize_newtype_struct<T>(_n: string, v: T, ser: any) { return ser(v, this); }
-  serialize_newtype_variant<T>(_n: string, _i: number, variant: string, v: T, ser: any) { const r = ser(v, this); return Ok(\`{\${JSON.stringify(variant)}:\${r._0}}\`); }
+  serialize_newtype_variant<T>(_n: string, i: number, variant: string, v: T, ser: any) { const r = ser(v, this); return Ok(\`{\${JSON.stringify(variant)}#\${i}:\${r._0}}\`); }
   serialize_struct(_n: string, len: number) {
     const parts: string[] = [];
     const self = this;
@@ -255,6 +276,18 @@ test("emitted TS: struct / newtype / enum serde and #[config_type], run against 
   const body: string[] = ["export class W { constructor(public a: number, public b_c: number | undefined) {} }", "export interface N { _0: string }"];
   for (const p of SD.serdePlans(W, "w:1", (m) => errs.push(m), (f) => f.name!)) body.push(...SD.renderTs(p, ctx("W", W.fields!.fields, true)));
   for (const p of SD.serdePlans(N, "n:1", (m) => errs.push(m), () => "_0")) body.push(...SD.renderTs(p, ctx("N", N.fields!.fields, false)));
+  // a data enum's Serialize (`MacroSelector`'s shape: a newtype variant, then a unit variant): the variant indices (review N1)
+  const S = item({
+    kind: "enum",
+    name: "S",
+    attrs: [derive("Serialize")],
+    variants: [
+      { name: "Name", line: 2, attrs: [], docs: [], fields: { style: "unnamed", fields: [fl(null, 0, path("String"))] }, discriminant: null },
+      { name: "All", line: 3, attrs: [], docs: [], fields: { style: "unit", fields: [] }, discriminant: null },
+    ],
+  });
+  body.push('export type S = { readonly $: "Name"; _0: string } | { readonly $: "All" };');
+  for (const p of SD.serdePlans(S, "s:1", (m) => errs.push(m), () => "_0")) body.push(...SD.renderTs(p, ctx("S", [], false)));
   // a #[config_type] enum
   const C = item({
     kind: "enum",
@@ -302,6 +335,8 @@ test("emitted TS: struct / newtype / enum serde and #[config_type], run against 
   const ser = new R.Serializer();
   expect(G.serialize_W(new G.W(1, 2), ser)).toEqual({ $: "Ok", _0: '{"a":1,"b_c":2}#2' });
   expect(G.serialize_N({ _0: "q" }, ser)).toEqual({ $: "Ok", _0: '"q"' });
+  expect(G.serialize_S({ $: "Name", _0: "m" }, ser)).toEqual({ $: "Ok", _0: '{"Name"#0:"m"}' });
+  expect(G.serialize_S({ $: "All" }, ser)).toEqual({ $: "Ok", _0: '"All"#1' });
   // #[config_type]: values (case-insensitive), FromStr / Deserialize errors, Display, doc hint
   expect(de(G.deserialize_C, "NATIVE-NL")).toEqual({ $: "Ok", _0: "Native" });
   expect(de(G.deserialize_C, "Native")).toEqual({ $: "Err", _0: "unknown variant `Native`, expected one of `Auto`, `native-nl`" });

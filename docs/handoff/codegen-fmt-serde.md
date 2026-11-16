@@ -26,8 +26,8 @@ Generator (all new except `types.ts`):
 | `tools/codegen/config_type.ts` | config_proc_macro port (`item_enum.rs`, `attrs.rs`): plans, `renderRust`, `renderTs`, `companionMembers` (FromStr) |
 | `tools/codegen/create_config.ts` | `create_config!` / `config_option_with_style_edition_default!` / `style_edition_default!`: parser (ported rustc_lexer), Rust renderings of the parse-dependent parts, TS expansion |
 | `tools/codegen/rust_tokens.ts` | layout-free token comparison (ported rustc_lexer) |
-| `tools/codegen/rustfmt_oracle.ts` | **the checked script**: `write` / `check` run the oracle's expansion of rustfmt and clippy_config and extract the blocks |
-| `tools/codegen/rustfmt.test.ts` | golden, oracle, refusals, behaviour of the emitted TS (5 tests, ~0.1 s) |
+| `tools/codegen/rustfmt_oracle.ts` | **the checked script**: `write` / `check` run the oracle's expansion of rustfmt and clippy_config and extract the blocks; removes its whole scratch dir afterwards (unless `--keep`) |
+| `tools/codegen/rustfmt.test.ts` | golden, oracle, the contract guard, refusals, behaviour of the emitted TS (6 tests, ~1 s: the guard scans src/) |
 | `tools/codegen/fixtures/rustfmt.typedefs.json`, `tools/codegen/fixtures/rustfmt.expanded.rs` | probe fixture; the oracle's blocks (714 KiB, 129 blocks) |
 | `tools/codegen/types.ts` (**shared file**) | (1) `fileModule` maps `src/tools/rustfmt/src/<path>.rs` to crate `rustfmt` (one regex alternative next to Miri's); (2) `GenOptions.hooks` (`ItemHooks`: `itemLines`, `companionMembers`, `fileTrailer`) and `ItemHookCtx`, called after `serLines(r)` for structs / fieldless / data enums, inside the companion consts, and at the file's end. Without hooks nothing changes: all `tools/codegen` goldens pass unchanged (71 pass). **codegen-clippy-macros may touch the same `fileModule` line** (clippy paths): merge both alternatives. |
 
@@ -41,7 +41,7 @@ Generated (all `// GENERATED`, regenerate with `bun tools/codegen/rustfmt.ts`, `
 | `src/rustfmt/config/macro_names.gen.ts` | `MacroName` (both), `MacroSelector` (Serialize), `MacroSelectors` (both, `default_MacroSelectors`) |
 | `src/rustfmt/emitter/json.gen.ts` | `JsonEmitter`, `MismatchedBlock`, `MismatchedFile` (Serialize) |
 | `src/rustfmt/config/create_config.gen.ts` | the 90 `StyleEditionDefault` tables; `Config` (+ `clone_Config`, `default_Config`), `PartialConfig` (+ clone, both serde impls), `ConfigSetter`, `CliConfigSetter`, `ConfigWasSet`, `CliConfigWasSet` |
-| `src/rustfmt/contract.gen.d.ts` | ambient `declare module "*/x.ts"` blocks for every module the generated code imports that does not exist yet (serde surface, rustfmt hand modules): exactly the names used, typed |
+| `src/rustfmt/contract.gen.d.ts` | ambient `declare module "../../<path under src/>*"` blocks for every module the generated code imports that does not exist yet (serde surface, rustfmt hand modules): exactly the names used, typed. Named by the exact specifier the generated files use (see "Review fixes", N2) |
 | `src/rustfmt/contract_augment.gen.d.ts` | module augmentation of `./config/options.gen.ts` with what `config/options.ts` will add (`WidthHeuristics.{null,set,scaled,from_str}`, `IgnoreList.from_str`, `IgnoreList#add_prefix`) |
 
 Layout follows `types.ts` (`<path>.gen.ts` next to the future hand module `<path>.ts`, `// rustc-type:` / `// rustc-derive:` lines).
@@ -171,3 +171,32 @@ two tests). The other generated files hold types and derives only (no `// rustc:
 - `vendor-serde-de`: implement the surface above; then `deserialize_*` of these types can be exercised by `toml`'s deserializer.
 - A rustfmt test that imports the generated modules at runtime has to wait for the hand modules (`import { type X }` keeps the import
   under `verbatimModuleSyntax`).
+
+## Review fixes (review `codegen-fmt-serde`, PASS WITH NOTES; root's decision "codegen-fmt-serde PORT #2")
+
+Root's decision covers N3 (serde surface gaps → `vendor-serde-de`'s brief), N4 (`format-diff/main.rs:78` → the bins lane's brief),
+N5 (PORT #2 stands as a deduplication of generated output) and N6 (root runs `rustfmt_oracle.ts check` at integration). Fixed here:
+
+- **N2 (contract blocks applied project-wide).** Every generated import of a module that does not exist is now written as the
+  canonical specifier `../../<path under src/>` (`canonicalizeImports` in rustfmt.ts; the generated files sit two directories below
+  src/, so it resolves to the same file), and its block is named by that exact text plus `*`
+  (`declare module "../../rustfmt/config/config_type.ts*"`). TypeScript never matches an ambient name that looks relative, so the
+  `*` is required; the name is then a pattern whose prefix is the whole specifier and whose wildcard matches the empty rest. The old
+  `*/config_type.ts`-style suffix patterns are gone. References between blocks are written `import("@/<path>")` in the tables and
+  resolved to the real module when it exists, else to its block's specifier.
+  - The reviewer's example (a file in `src/rustc_span/` importing `config_type_bool, is_stable_option_and_value` from
+    `"./config_type.ts"` and `MacroSelectors` from `"./macro_names.ts"`) now fails `tsc`:
+    `TS2307: Cannot find module './config_type.ts'` and `TS2307: Cannot find module './macro_names.ts'` (probe file removed afterwards).
+  - New test "contract: blocks name only missing modules, by specifiers no file outside src/rustfmt/ uses": every block name is
+    `CANON + path + "*"`, the path does not exist under src/, and no `.ts` file outside src/rustfmt/ contains a declared specifier.
+    Checked by mutation: a file in `src/rustc_span/` importing `"../../rustfmt/config/config_type.ts"` fails it.
+- **N1 (data-enum Serialize only golden-checked).** The behaviour test now serializes a `MacroSelector`-shaped enum (newtype variant
+  `Name(String)`, unit variant `All`) through a serializer that records the variant index: `{"Name"#0:"m"}` and `"All"#1`. The
+  reviewer's mutation (`serialize_unit_variant` index `v.index + 1`) now fails it (`"All"#2`). The `create_config!` templates the review
+  lists as golden-only (N1 table) still are: the config lane's oracle check (`rustfmt --help=config`, deprecation stderr) is in its brief.
+- **N7 (empty scratch dir left behind).** `rustfmt_oracle.ts` removes `$RUST_TS_DATA/tmp/codegen-fmt-serde/` entirely unless `--keep`;
+  after `check` the directory no longer exists.
+
+Checks after the fixes: `bunx tsc --noEmit -p .` clean; `bun scripts/coverage.ts --check` markers ok; `bun tools/codegen/rustfmt.ts
+--check` clean; `bun test tools/codegen` 72 pass, 0 fail; `bun tools/codegen/rustfmt_oracle.ts check` ok. Generated output changed
+only in the import specifiers of missing modules (`./config_type.ts` → `../../rustfmt/config/config_type.ts`) and the contract file.

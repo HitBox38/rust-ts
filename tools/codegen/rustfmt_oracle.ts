@@ -13,7 +13,7 @@
 //   bun tools/codegen/rustfmt_oracle.ts check    run both expansions; ERROR if the fixture differs (the checked script)
 //
 // Scratch (the cargo target dir and the two expansions, about 100 MiB) goes to $RUST_TS_DATA/tmp/codegen-fmt-serde/ and is removed
-// afterwards unless `--keep` is given.
+// afterwards (the whole directory) unless `--keep` is given.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { closeOf, joinToks, lexRust, type RTok } from "./rust_tokens.ts";
@@ -234,6 +234,7 @@ if (import.meta.main) {
     console.log(String((e as Error).message).startsWith("ERROR:") ? (e as Error).message : `ERROR: ${(e as Error).message}`);
     process.exit(1);
   } finally {
-    if (!keep) rmSync(join(scratch, "target"), { recursive: true, force: true });
+    // the scratch dir holds only the target dir (and, with --keep, the two expansions): nothing is left behind otherwise
+    if (!keep) rmSync(scratch, { recursive: true, force: true });
   }
 }

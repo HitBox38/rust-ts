@@ -3,14 +3,16 @@
 // consults a block only while no file resolves the import, so the generated code type-checks now, and once a module lands
 // the real one is checked against the same uses (rerun `bun tools/codegen/rustfmt.ts` then: its block is dropped). Each block
 // lists exactly what the generated code needs from that module; docs/handoff/codegen-fmt-serde.md has the conventions.
+// A block is named by the exact specifier the generated files use (`../../<path under src/>`) plus `*`, which TypeScript
+// needs to accept a relative-looking name; only imports written exactly so (by nothing outside src/rustfmt/) match it.
 
-declare module "*/config_type.ts" {
+declare module "../../rustfmt/config/config_type.ts*" {
   // `pub(crate) trait ConfigType: Sized` (config/config_type.rs:6), as a table per type (PORTING §5 "Traits")
   export interface ConfigType<T> {
     doc_hint(): string;
     stable_variant(self: T): boolean;
   }
-  export const config_type_FileLines: ConfigType<import("./config/file_lines.ts").FileLines>;
+  export const config_type_FileLines: ConfigType<import("../../rustfmt/config/file_lines.ts").FileLines>;
   export const config_type_IgnoreList: ConfigType<import("./config/options.gen.ts").IgnoreList>;
   export const config_type_MacroSelectors: ConfigType<import("./config/macro_names.gen.ts").MacroSelectors>;
   export const config_type_String: ConfigType<string>;
@@ -21,10 +23,10 @@ declare module "*/config_type.ts" {
   export function is_stable_option_and_value<T>(option_name: string, option_stable: boolean, option_value: T, config_type_T: ConfigType<T>, debug_T: import("../std/fmt.ts").Debug<T>): boolean;
 }
 
-declare module "*/file_lines.ts" {
+declare module "../../rustfmt/config/file_lines.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Serializer<O, E> = import("../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
-  type Deserializer<E> = import("../vendor/serde_core/de/mod.ts").Deserializer<E>;
+  type Serializer<O, E> = import("../../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
+  type Deserializer<E> = import("../../vendor/serde_core/de/mod.ts").Deserializer<E>;
   type FileLinesError = unknown;
   // `pub struct FileLines(Option<HashMap<FileName, Vec<Range>>>)` (config/file_lines.rs:165): hand-written (tools/codegen/rustfmt.json skip_notes)
   export class FileLines {
@@ -43,10 +45,10 @@ declare module "*/file_lines.ts" {
   export function serialize_FileName<O, E>(self: import("./config/file_lines.gen.ts").FileName, serializer: Serializer<O, E>): Result<O, E>;
 }
 
-declare module "*/macro_names.ts" {
+declare module "../../rustfmt/config/macro_names.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Serializer<O, E> = import("../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
-  type Deserializer<E> = import("../vendor/serde_core/de/mod.ts").Deserializer<E>;
+  type Serializer<O, E> = import("../../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
+  type Deserializer<E> = import("../../vendor/serde_core/de/mod.ts").Deserializer<E>;
   type MacroSelectorsError = unknown;
   export type MacroSelectors = import("./config/macro_names.gen.ts").MacroSelectors;
   // `impl FromStr for MacroSelectors` (config/macro_names.rs:86) on the type's companion const (PORTING §8)
@@ -57,10 +59,10 @@ declare module "*/macro_names.ts" {
   export function display_MacroSelectors(self: import("./config/macro_names.gen.ts").MacroSelectors): string;
 }
 
-declare module "*/options.ts" {
+declare module "../../rustfmt/config/options.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Serializer<O, E> = import("../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
-  type Deserializer<E> = import("../vendor/serde_core/de/mod.ts").Deserializer<E>;
+  type Serializer<O, E> = import("../../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
+  type Deserializer<E> = import("../../vendor/serde_core/de/mod.ts").Deserializer<E>;
   export function IgnoreList_eq(self: import("./config/options.gen.ts").IgnoreList, other: import("./config/options.gen.ts").IgnoreList): boolean;
   export function WidthHeuristics_eq(self: import("./config/options.gen.ts").WidthHeuristics, other: import("./config/options.gen.ts").WidthHeuristics): boolean;
   export function deserialize_IgnoreList<E>(deserializer: Deserializer<E>): Result<import("./config/options.gen.ts").IgnoreList, E>;
@@ -69,31 +71,31 @@ declare module "*/options.ts" {
   export function serialize_IgnoreList<O, E>(self: import("./config/options.gen.ts").IgnoreList, serializer: Serializer<O, E>): Result<O, E>;
 }
 
-declare module "*/style_edition.ts" {
+declare module "../../rustfmt/config/style_edition.ts*" {
   // `pub trait StyleEditionDefault { type ConfigType; fn style_edition_default(StyleEdition) -> Self::ConfigType; }` (config/style_edition.rs:5)
   export interface StyleEditionDefault<ConfigType> {
     style_edition_default(style_edition: import("./config/options.gen.ts").StyleEdition): ConfigType;
   }
 }
 
-declare module "*/vendor/serde/private/de.ts" {
+declare module "../../vendor/serde/private/de.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Deserialize<T> = import("../vendor/serde_core/de/mod.ts").Deserialize<T>;
-  type Error<E> = import("../vendor/serde_core/de/mod.ts").Error<E>;
+  type Deserialize<T> = import("../../vendor/serde_core/de/mod.ts").Deserialize<T>;
+  type Error<E> = import("../../vendor/serde_core/de/mod.ts").Error<E>;
   export function missing_field<V, E>(deserialize_V: Deserialize<V>, field: string, err: Error<E>): Result<V, E>;
 }
 
-declare module "*/vendor/serde_core/de/ignored_any.ts" {
+declare module "../../vendor/serde_core/de/ignored_any.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Deserializer<E> = import("../vendor/serde_core/de/mod.ts").Deserializer<E>;
+  type Deserializer<E> = import("../../vendor/serde_core/de/mod.ts").Deserializer<E>;
   export type IgnoredAny = null;
   export function deserialize_IgnoredAny<E>(deserializer: Deserializer<E>): Result<IgnoredAny, E>;
 }
 
-declare module "*/vendor/serde_core/de/impls.ts" {
+declare module "../../vendor/serde_core/de/impls.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Deserialize<T> = import("../vendor/serde_core/de/mod.ts").Deserialize<T>;
-  type Deserializer<E> = import("../vendor/serde_core/de/mod.ts").Deserializer<E>;
+  type Deserialize<T> = import("../../vendor/serde_core/de/mod.ts").Deserialize<T>;
+  type Deserializer<E> = import("../../vendor/serde_core/de/mod.ts").Deserializer<E>;
   export function deserialize_Option<T>(deserialize_T: Deserialize<T>): Deserialize<T | undefined>;
   export function deserialize_String<E>(deserializer: Deserializer<E>): Result<string, E>;
   export function deserialize_Vec<T>(deserialize_T: Deserialize<T>): Deserialize<T[]>;
@@ -102,7 +104,7 @@ declare module "*/vendor/serde_core/de/impls.ts" {
   export function deserialize_usize<E>(deserializer: Deserializer<E>): Result<number, E>;
 }
 
-declare module "*/vendor/serde_core/de/mod.ts" {
+declare module "../../vendor/serde_core/de/mod.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
   export type Deserialize<T> = <E>(deserializer: Deserializer<E>) => Result<T, E>;
   export interface Expected {
@@ -142,10 +144,10 @@ declare module "*/vendor/serde_core/de/mod.ts" {
   export function Expected_str(s: string): Expected;
 }
 
-declare module "*/vendor/serde_core/ser/impls.ts" {
+declare module "../../vendor/serde_core/ser/impls.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
-  type Serialize<T> = import("../vendor/serde_core/ser/mod.ts").Serialize<T>;
-  type Serializer<O, E> = import("../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
+  type Serialize<T> = import("../../vendor/serde_core/ser/mod.ts").Serialize<T>;
+  type Serializer<O, E> = import("../../vendor/serde_core/ser/mod.ts").Serializer<O, E>;
   export function serialize_Option<T>(serialize_T: Serialize<T>): Serialize<T | undefined>;
   export function serialize_String<O, E>(self: string, serializer: Serializer<O, E>): Result<O, E>;
   export function serialize_Vec<T>(serialize_T: Serialize<T>): Serialize<readonly T[]>;
@@ -155,7 +157,7 @@ declare module "*/vendor/serde_core/ser/impls.ts" {
   export function serialize_usize<O, E>(self: number, serializer: Serializer<O, E>): Result<O, E>;
 }
 
-declare module "*/vendor/serde_core/ser/mod.ts" {
+declare module "../../vendor/serde_core/ser/mod.ts*" {
   type Result<T, E> = import("../std/result.ts").Result<T, E>;
   export type Serialize<T> = <O, E>(self: T, serializer: Serializer<O, E>) => Result<O, E>;
   export interface SerializeStruct<O, E> {

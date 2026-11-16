@@ -195,6 +195,7 @@ export function generateRustfmt(probeIn: ProbeJson, opts: { out: string; srcRoot
     const helpers = fileHelpers(r);
     files.set(join(opts.out, "rustfmt/config/create_config.gen.ts"), helpers.length ? `${r}\n${helpers.join("\n")}\n` : r);
   } else if (!opts.upstream) err("create_config!: no upstream checkout given");
+  canonicalizeImports(files, opts.out, opts.srcRoot, err);
   files.set(join(opts.out, CONTRACT), contractText(files, opts.out, opts.srcRoot, opts.pin, err));
   files.set(join(opts.out, AUGMENT), augmentText(opts.srcRoot, opts.pin));
   return { files, errors, report: res.report, serdePlans, configTypePlans: plans, createConfig: cc };
@@ -210,15 +211,16 @@ export function fileHelpers(body: string): string[] {
 
 // ---- the contract of not-yet-ported modules -------------------------------------------------------
 
-// The declarations below use paths relative to src/rustfmt/ (where the contract files are): `import("./config/options.gen.ts")`.
-const RES = 'type Result<T, E> = import("../std/result.ts").Result<T, E>;';
-const SER = 'type Serializer<O, E> = import("../vendor/serde_core/ser/mod.ts").Serializer<O, E>;';
-const DES = 'type Deserializer<E> = import("../vendor/serde_core/de/mod.ts").Deserializer<E>;';
-const G = (file: string, name: string) => `import("./config/${file}.gen.ts").${name}`;
+// The declarations below name other modules as `import("@/<src-relative path>")`; `contractText` resolves each to the module's
+// real path from src/rustfmt/ if it exists, else to its canonical specifier (the block that declares it).
+const RES = 'type Result<T, E> = import("@/std/result.ts").Result<T, E>;';
+const SER = 'type Serializer<O, E> = import("@/vendor/serde_core/ser/mod.ts").Serializer<O, E>;';
+const DES = 'type Deserializer<E> = import("@/vendor/serde_core/de/mod.ts").Deserializer<E>;';
+const G = (file: string, name: string) => `import("@/rustfmt/config/${file}.gen.ts").${name}`;
 const fnDecls = (ty: string, tyRef: string, err: string | undefined, manualSerde: boolean, extra: Record<string, string> = {}): Record<string, string> => ({
   [`display_${ty}`]: `export function display_${ty}(self: ${tyRef}): string;`,
   [`${ty}_eq`]: `export function ${ty}_eq(self: ${tyRef}, other: ${tyRef}): boolean;`,
-  ...(err ? { [`debug_${err}`]: `export const debug_${err}: import("../std/fmt.ts").Debug<${err}>;` } : {}),
+  ...(err ? { [`debug_${err}`]: `export const debug_${err}: import("@/std/fmt.ts").Debug<${err}>;` } : {}),
   ...(manualSerde
     ? {
         [`serialize_${ty}`]: `export function serialize_${ty}<O, E>(self: ${tyRef}, serializer: Serializer<O, E>): Result<O, E>;`,
@@ -247,13 +249,13 @@ export const HAND_DECLS: Record<string, { prelude: string[]; decls: Record<strin
       config_type_bool: "export const config_type_bool: ConfigType<boolean>;",
       config_type_usize: "export const config_type_usize: ConfigType<number>;",
       config_type_String: "export const config_type_String: ConfigType<string>;",
-      config_type_FileLines: 'export const config_type_FileLines: ConfigType<import("./config/file_lines.ts").FileLines>;',
+      config_type_FileLines: 'export const config_type_FileLines: ConfigType<import("@/rustfmt/config/file_lines.ts").FileLines>;',
       config_type_MacroSelectors: `export const config_type_MacroSelectors: ConfigType<${G("macro_names", "MacroSelectors")}>;`,
       config_type_WidthHeuristics: `export const config_type_WidthHeuristics: ConfigType<${G("options", "WidthHeuristics")}>;`,
       config_type_IgnoreList: `export const config_type_IgnoreList: ConfigType<${G("options", "IgnoreList")}>;`,
       is_stable_option_and_value: [
         "// config/config_type.rs:675 (`T: PartialEq + Debug + ConfigType`: the ConfigType and Debug impls are passed)",
-        'export function is_stable_option_and_value<T>(option_name: string, option_stable: boolean, option_value: T, config_type_T: ConfigType<T>, debug_T: import("../std/fmt.ts").Debug<T>): boolean;',
+        'export function is_stable_option_and_value<T>(option_name: string, option_stable: boolean, option_value: T, config_type_T: ConfigType<T>, debug_T: import("@/std/fmt.ts").Debug<T>): boolean;',
       ].join("\n"),
     },
   },
@@ -300,7 +302,7 @@ export const HAND_DECLS: Record<string, { prelude: string[]; decls: Record<strin
       ].join("\n"),
       ...fnDecls("FileLines", "FileLines", "FileLinesError", true, {
         clone_FileLines: "export function clone_FileLines(v: FileLines): FileLines;",
-        debug_FileLines: 'export const debug_FileLines: import("../std/fmt.ts").Debug<FileLines>;',
+        debug_FileLines: 'export const debug_FileLines: import("@/std/fmt.ts").Debug<FileLines>;',
       }),
       serialize_FileName: `export function serialize_FileName<O, E>(self: ${G("file_lines", "FileName")}, serializer: Serializer<O, E>): Result<O, E>;`,
       deserialize_FileName: `export function deserialize_FileName<E>(deserializer: Deserializer<E>): Result<${G("file_lines", "FileName")}, E>;`,
@@ -338,6 +340,33 @@ export const AUGMENT_DECLS: Record<string, { hand: string; decl: string[] }> = {
   },
 };
 
+/**
+ * The specifier every generated file uses for a module that does not exist yet: `../../<src-relative path>` (the generated files
+ * sit two directories below src/). Its contract block is named by this exact text plus a trailing `*` (TypeScript never matches an
+ * ambient module name that looks relative; with the `*` the name is a pattern whose prefix is the whole specifier and whose
+ * wildcard matches the empty rest). So a block covers only imports written exactly this way, which nothing outside src/rustfmt/
+ * may use (tools/codegen/rustfmt.test.ts checks it).
+ */
+export const CANON = "../../";
+
+/** Generated files' imports of modules that are neither on disk nor generated, rewritten to their canonical specifier. */
+export function canonicalizeImports(files: Map<string, string>, out: string, srcRoot: string, err: (m: string) => void): void {
+  const generated = new Set([...files.keys()].map((f) => relative(out, f).replaceAll("\\", "/")));
+  for (const [file, text] of files) {
+    if (file.endsWith(".d.ts")) continue;
+    const dir = dirname(relative(out, file)).replaceAll("\\", "/");
+    let bad = false;
+    const next = text.replace(/^(import (?:type )?\{[^}]*\} from ")([^"]+)(";)$/gm, (line, a: string, spec: string, b: string) => {
+      const target = join(dir, spec).replaceAll("\\", "/");
+      if (generated.has(target) || existsSync(join(srcRoot, target))) return line;
+      if (dir.split("/").length !== CANON.split("/").length - 1) bad = true;
+      return `${a}${CANON}${target}${b}`;
+    });
+    if (bad) err(`contract: ${relative(out, file)} imports a missing module but is not ${CANON.split("/").length - 1} directories below src/`);
+    files.set(file, next);
+  }
+}
+
 /** The contract file: ambient blocks for every imported module missing under `srcRoot` and not generated here. */
 export function contractText(files: Map<string, string>, out: string, srcRoot: string, pin: string | undefined, err: (m: string) => void): string {
   const wanted = new Map<string, Set<string>>(); // src-relative module -> names
@@ -355,27 +384,36 @@ export function contractText(files: Map<string, string>, out: string, srcRoot: s
     }
   }
   const serdeByPath = new Map(Object.entries(SD.SERDE_MODULES).map(([k, v]) => [v as string, k as SD.SerdeModule]));
+  // `import("@/x")`: the real module from src/rustfmt/ if it exists (or is generated), else the canonical specifier of its block
+  const resolveRefs = (l: string) =>
+    l.replace(/import\("@\/([^"]+)"\)/g, (_m, t: string) => {
+      if (generated.has(t) || existsSync(join(srcRoot, t))) {
+        const r = relative(join(out, "rustfmt"), join(out, t)).replaceAll("\\", "/");
+        return `import("${r.startsWith(".") ? r : `./${r}`}")`;
+      }
+      if (!wanted.has(t)) err(`contract: a declaration refers to ${t}, which is missing and has no block`);
+      return `import("${CANON}${t}")`;
+    });
   const lines = [
     `// GENERATED by tools/codegen/rustfmt.ts${pin ? ` @ ${pin}` : ""}. Do not edit.`,
     "// The modules src/rustfmt's generated code imports that do not exist yet, as ambient `declare module` blocks: TypeScript",
     "// consults a block only while no file resolves the import, so the generated code type-checks now, and once a module lands",
     "// the real one is checked against the same uses (rerun `bun tools/codegen/rustfmt.ts` then: its block is dropped). Each block",
     "// lists exactly what the generated code needs from that module; docs/handoff/codegen-fmt-serde.md has the conventions.",
+    `// A block is named by the exact specifier the generated files use (\`${CANON}<path under src/>\`) plus \`*\`, which TypeScript`,
+    "// needs to accept a relative-looking name; only imports written exactly so (by nothing outside src/rustfmt/) match it.",
   ];
   for (const target of [...wanted.keys()].sort()) {
     const sm = serdeByPath.get(target);
     const table = sm ? SD.SERDE_SURFACE_DECLS[sm] : HAND_DECLS[target]?.decls;
-    const prelude = sm ? SD.SERDE_SURFACE_PRELUDE[sm].map((l) => l.replaceAll("$SRC", "..")) : (HAND_DECLS[target]?.prelude ?? []);
+    const prelude = sm ? SD.SERDE_SURFACE_PRELUDE[sm] : (HAND_DECLS[target]?.prelude ?? []);
     if (!table) {
       err(`contract: no declarations for module ${target} (tools/codegen/rustfmt.ts HAND_DECLS)`);
       continue;
     }
-    // the pattern: `*/` and the path segments every specifier of the module ends with, after its leading `./` / `../`
-    // (`./config_type.ts` -> `*/config_type.ts`, `../../vendor/serde_core/de/mod.ts` -> `*/vendor/serde_core/de/mod.ts`)
-    const segs = [...specifiers.get(target)!].map((sp) => sp.replace(/^(\.\.?\/)+/, "").split("/"));
-    let n = Math.min(...segs.map((x) => x.length));
-    while (n > 1 && !segs.every((x) => x.slice(-n).join("/") === segs[0]!.slice(-n).join("/"))) n--;
-    lines.push("", `declare module "*/${segs[0]!.slice(-n).join("/")}" {`, ...prelude.map((l) => `  ${l}`));
+    // named by the exact canonical specifier (see CANON), which every generated import of the module uses
+    for (const sp of specifiers.get(target)!) if (sp !== `${CANON}${target}`) err(`contract: ${target} is imported as ${sp}, not ${CANON}${target} (canonicalizeImports)`);
+    lines.push("", `declare module "${CANON}${target}*" {`, ...prelude.map((l) => `  ${resolveRefs(l)}`));
     const declared = new Set<string>();
     const emit = (n: string) => {
       if (declared.has(n)) return;
@@ -387,7 +425,7 @@ export function contractText(files: Map<string, string>, out: string, srcRoot: s
       declared.add(n);
       // a declaration that names another of the module's own declarations pulls it in first
       for (const other of Object.keys(table)) if (other !== n && new RegExp(`\\b${other}\\b`).test(d)) emit(other);
-      lines.push(...d.split("\n").map((l) => `  ${l}`));
+      lines.push(...d.split("\n").map((l) => `  ${resolveRefs(l)}`));
     };
     for (const n of [...wanted.get(target)!].sort()) emit(n);
     lines.push("}");
