@@ -30,8 +30,8 @@ test("test_adjust_max_width", () => {
   // Increase with huge amount saturates instead of wraparound.
   config = default_Config();
   config.set().max_width(USIZE_MAX - 1);
-  // PORT: a width past 2^53 is not representable (create_config.gen.ts `usize_saturating_add_signed`): the port stops there.
-  expect(() => config.increase_max_width(2)).toThrow(Unported);
+  config.increase_max_width(2);
+  expect(config.max_width()).toBe(USIZE_MAX);
 });
 
 // rustc: src/tools/rustfmt/src/config/mod.rs:719 test_config_used_to_toml

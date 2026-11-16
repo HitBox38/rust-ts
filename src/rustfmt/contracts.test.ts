@@ -147,11 +147,11 @@ function contract_violations(files: Map<string, string>, blocks: readonly Block[
   return bad;
 }
 
-test("N3: contract_lib.d.ts blocks name missing modules as ../rustfmt/<path>", () => {
+test("N3: contract_lib.d.ts blocks name missing modules as ../rustfmt/<path> or ../vendor/<crate>/<path>", () => {
   const blocks = contract_blocks().filter((b) => b.contract === "contract_lib.d.ts");
   expect(blocks.length).toBeGreaterThan(0);
   for (const b of blocks) {
-    expect(b.spec).toMatch(/^\.\.\/rustfmt\/[\w/]+\.ts$/);
+    expect(b.spec).toMatch(/^\.\.\/(rustfmt|vendor\/\w+)\/[\w/]+\.ts$/); // vendor blocks: root decision \"rustfmt crate-wide rules\" (4)
     // a stale block (its module has landed) must be deleted
     expect({ spec: b.spec, exists: existsSync(b.module) }).toEqual({ spec: b.spec, exists: false });
   }
@@ -161,8 +161,9 @@ test("N3: every import a contract block matches resolves to the block's module",
   const blocks = contract_blocks();
   expect(contract_violations(src_files(), blocks)).toEqual([]);
   // the reviewer's case: a wrong-depth import from config/ type-checks through the `*` pattern, and fails here
-  const probe = new Map([[join(CONFIG, "zz_probe.ts"), 'import { indent_next_line } from "../rustfmt/utils.ts";\n']]);
-  expect(contract_violations(probe, blocks)).toEqual(["rustfmt/config/zz_probe.ts: ../rustfmt/utils.ts (contract_lib.d.ts declares rustfmt/utils.ts)"]);
+  // (utils.ts has landed, so the probe uses visitor.ts's block; integ-w67, review rustfmt-contract-2 N1)
+  const probe = new Map([[join(CONFIG, "zz_probe.ts"), 'import { SnippetProvider } from "../rustfmt/visitor.ts";\n']]);
+  expect(contract_violations(probe, blocks)).toEqual(["rustfmt/config/zz_probe.ts: ../rustfmt/visitor.ts (contract_lib.d.ts declares rustfmt/visitor.ts)"]);
   // and for the generated contract inside src/rustfmt/: `../../vendor/...` from src/rustfmt/ itself is one level too far
   const gen_probe = new Map([[join(RUSTFMT, "zz_probe.ts"), 'import { deserialize_String } from "../../vendor/serde_core/de/impls.ts";\n']]);
   expect(contract_violations(gen_probe, blocks)).toEqual([
