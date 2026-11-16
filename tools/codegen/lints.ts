@@ -23,9 +23,9 @@ import { unescape_str } from "../../src/vendor/rustc_literal_escaper/lib.ts";
 import { Str, utf8_len } from "../../src/std/str.ts";
 import { PIN, REPO, UPSTREAM, die, hash, requireUpstream } from "../../scripts/lib/common.ts";
 
-const LIB_PATH = "compiler/rustc_lint_defs/src/lib.rs";
+export const LIB_PATH = "compiler/rustc_lint_defs/src/lib.rs";
 const SRC_PATH = "compiler/rustc_lint_defs/src/builtin.rs";
-const EDITION_PATH = "compiler/rustc_span/src/edition.rs";
+export const EDITION_PATH = "compiler/rustc_span/src/edition.rs";
 const OUT_PATH = "src/rustc_lint_defs/builtin.gen.ts";
 
 /// sha1 of the token texts (joined by one space) of the macro_rules bodies this generator implements.
@@ -50,9 +50,9 @@ export interface Tok {
   comment?: string;
 }
 
-class GenError extends Error {}
+export class GenError extends Error {}
 
-function fail(path: string, t: { line: number } | undefined, msg: string): never {
+export function fail(path: string, t: { line: number } | undefined, msg: string): never {
   throw new GenError(`ERROR: ${path}:${t?.line ?? "?"}: ${msg}`);
 }
 
@@ -76,10 +76,10 @@ export function lex(src: string): Tok[] {
   return out;
 }
 
-const isComment = (t: Tok): boolean => t.kind.$ === "LineComment" || t.kind.$ === "BlockComment";
+export const isComment = (t: Tok): boolean => t.kind.$ === "LineComment" || t.kind.$ === "BlockComment";
 
 /** `LitStr::value()` of a `"..."` / `r#"..."#` token. */
-function strValue(path: string, t: Tok): string {
+export function strValue(path: string, t: Tok): string {
   const k = t.kind;
   if (k.$ !== "Literal") fail(path, t, `expected a string literal, found \`${t.text}\``);
   if (k.suffix_start !== utf8_len(t.text)) fail(path, t, "string literal suffixes are not supported");
@@ -108,7 +108,7 @@ function intValue(path: string, t: Tok): number {
 }
 
 /** Cursor over the non-comment tokens (comments are collected separately where wanted). */
-class Cursor {
+export class Cursor {
   i = 0;
   constructor(
     readonly path: string,
@@ -298,7 +298,7 @@ function defaultFields(path: string, toks: Tok[], ty: string): Map<string, Tok[]
 }
 
 /** Fingerprint of the body of `macro_rules! <name> { .. }`. */
-function macroFingerprint(path: string, toks: Tok[], name: string): string {
+export function macroFingerprint(path: string, toks: Tok[], name: string): string {
   let at = -1;
   for (let i = 0; i + 2 < toks.length; i++) {
     if (toks[i]!.text === "macro_rules" && toks[i + 1]!.text === "!" && toks[i + 2]!.text === name) {
@@ -317,7 +317,7 @@ function macroFingerprint(path: string, toks: Tok[], name: string): string {
 
 // ---- expressions -> TS ----------------------------------------------------------------------
 
-interface Ctx {
+export interface Ctx {
   levels: string[];
   editions: string[];
 }
@@ -534,7 +534,7 @@ function parseDeclareLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[
   return { line: nameTok.line, name, docs, comments, fields };
 }
 
-function rawText(toks: Tok[]): string {
+export function rawText(toks: Tok[]): string {
   let s = "";
   let prev: Tok | undefined;
   const word = (t: Tok): boolean => /^[\w"']/.test(t.text);
@@ -549,6 +549,10 @@ function rawText(toks: Tok[]): string {
 // Defaults (filled in by main before parsing builtin.rs).
 let lint_defaults_raw = new Map<string, string>();
 let fii_defaults = new Map<string, string>();
+/** The TS expression of `Lint` field `f` from `Lint::default_fields_for_macro` (after `setup`). */
+export function lintDefault(f: string): string | undefined {
+  return lint_defaults_raw.get(f);
+}
 
 export interface Generated {
   text: string;
@@ -556,14 +560,14 @@ export interface Generated {
   hardwired: string[];
 }
 
-interface Setup {
+export interface Setup {
   ctx: Ctx;
   lintFields: string[];
   fiiFields: Map<string, Tok[]>;
 }
 
 /** Reads lib.rs (macro fingerprints, `Lint`/`FutureIncompatibleInfo` fields and defaults) and edition.rs. */
-function setup(libSrc: string, editionSrc: string): Setup {
+export function setup(libSrc: string, editionSrc: string): Setup {
   const libToks = lex(libSrc);
   for (const [name, want] of Object.entries(MACRO_FINGERPRINTS)) {
     const got = macroFingerprint(LIB_PATH, libToks, name);
@@ -727,10 +731,10 @@ export const RUSTC_LINT_SRC = "compiler/rustc_lint/src";
 export const RUSTC_LINT_OUT = "src/rustc_lint";
 
 /// sha1 (as MACRO_FINGERPRINTS) of `macro_rules! declare_tool_lint` (lib.rs), expanded by parseDeclareToolLint.
-const TOOL_LINT_FINGERPRINT = "d2da9e620511f9c29d0e73036c98856f180791ac";
+export const TOOL_LINT_FINGERPRINT = "d2da9e620511f9c29d0e73036c98856f180791ac";
 
 /** `declare_tool_lint!` per the three arms of `macro_rules! declare_tool_lint` (lib.rs). */
-function parseDeclareToolLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[]): LintDecl {
+export function parseDeclareToolLint(path: string, c: Cursor, ctx: Ctx, lintFields: string[]): LintDecl {
   const comments: string[] = [];
   // $(#[$attr:meta])* $vis:vis $tool:ident ::$NAME:ident, $Level:ident, $desc:expr
   const docs = parseOuterAttrs(path, c, comments, "declare_tool_lint!");
@@ -960,7 +964,7 @@ export function generateModule(libSrc: string, editionSrc: string, path: string,
   return { path, out, text: L.join("\n") + "\n", lints, passes };
 }
 
-function walkRs(dir: string, rel: string, out: string[]): string[] {
+export function walkRs(dir: string, rel: string, out: string[]): string[] {
   for (const e of readdirSync(join(dir, rel), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) walkRs(dir, r, out);
