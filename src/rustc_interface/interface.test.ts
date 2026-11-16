@@ -85,15 +85,20 @@ test("run_compiler without Config.make_codegen_backend gets the default backend"
 
 // `Config.track_state` and `Config.register_lints` (interface.rs:480, :488; clippy-driver sets both, src/tools/clippy/src/driver.rs),
 // with a fake tool registration.
-test("run_compiler calls Config.track_state once with the session, after check_config and before the lint store exists", () => {
+test("run_compiler calls Config.track_state once with the session, after parse_check_cfg and before the lint store exists", () => {
   const config = config_of(source_file());
   expect(config.track_state).toBeUndefined();
+  // `parse_check_cfg` is the last statement upstream runs before `track_state` (interface.rs:474; `psess_created`, between
+  // them, is always `None`). `build_session` already sets a default `CheckCfg`, so the check is this `--check-cfg` name being
+  // in it, which only `sess.check_config = parse_check_cfg(..)` puts there (review N2).
+  const FAKE_CFG = "faketool_cfg";
+  config.crate_check_cfg = [...config.crate_check_cfg, `cfg(${FAKE_CFG})`];
   const calls: string[] = [];
   let tracked: Session | undefined;
   config.track_state = (sess) => {
     calls.push("track_state");
     tracked = sess;
-    expect(sess.check_config).toBeDefined();
+    expect(sess.check_config.expecteds.has(Symbol.intern(FAKE_CFG))).toBe(true);
     expect(sess.lint_store).toBeUndefined();
     // What a driver does with it: record otherwise untracked inputs for the dep-info file (passes.rs write_out_deps).
     sess.env_depinfo.add(JSON.stringify(["FAKE_TOOL_ARGS", "-Dwarnings"]));

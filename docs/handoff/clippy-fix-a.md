@@ -29,7 +29,9 @@ Base: `1bed6c9a` (main; `git merge-base --is-ancestor 526cb6df HEAD` ok). Fixes 
 ## Tests
 
 - `src/rustc_interface/interface.test.ts` (+3): `track_state` is called once, with the session that `f` then sees, after
-  `check_config` is set and before the lint store exists, and before `register_lints`. What it writes to
+  `parse_check_cfg` and before the lint store exists, and before `register_lints`. "After `parse_check_cfg`" is checked by a
+  `--check-cfg` name (`cfg(faketool_cfg)` added to `config.crate_check_cfg`) being in `sess.check_config` when `track_state`
+  runs; `build_session`'s default `CheckCfg` does not have it (review N2). What it writes to
   `env_depinfo`/`file_depinfo` is on the session. `register_lints` gets the session and the fresh store (builtin lints
   already in, nothing externally loaded). A fake tool lint `faketool::FAKE_LINT` and group `faketool::all` it registers are in
   `sess.lint_store` (`get_lints`, `find_lints`, `get_lint_groups`). Without the hooks there are no externally loaded lints.
@@ -43,9 +45,20 @@ Base: `1bed6c9a` (main; `git merge-base --is-ancestor 526cb6df HEAD` ok). Fixes 
     - A tool group name wider than every lint name: the old code padded the loaded lints to the group width.
   - **Oracle case:** the pinned `clippy-driver -W help` (tool oracle, `toolOracleCmd("clippy", ..)`), **byte for byte**. The
     fake tool registers the lints and groups the oracle lists (835 lints, 10 groups: names, default levels, descriptions,
-    members in order). The port does all sorting and padding itself. Here the lint width is 55 and the group width 42. It skips
+    members in order), **in reverse of the oracle's order**, so the output's order comes from the port's `sort_lints` /
+    `sort_lint_groups` (`LintStore` keeps registration order; review N1). Constructed case 1 also registers its two groups
+    out of order. The port does all sorting and padding itself. Here the lint width is 55 and the group width 42. It skips
     visibly if the tool oracle is not installed, and `RUST_TS_REQUIRE_PROBES=1` makes that a failure.
   - All 3 fail on the old lib.ts (checked by reverting it) and pass with the fix.
+- **Mutations (review N1, N2; each applied, run, then reverted):**
+
+  | Mutation | Result |
+  |---|---|
+  | M1: `describe_lints` doesn't sort `loaded` (`const loaded = loaded_`) | all 3 `describe_lints` tests fail, the oracle case included |
+  | M2: `describe_lints` doesn't sort `loaded_groups` | constructed case 1 and the oracle case fail (case 2 has one group) |
+  | MI3: `track_state` moved above `sess.check_config = parse_check_cfg(..)` | the `track_state` hook test fails |
+
+  Before the review fix M1 passed the oracle case, M2 passed all three, and MI3 passed all five interface tests.
 - `bun test src/rustc_interface src/rustc_driver_impl`: **216 pass, 0 fail** (10 files, no SKIP lines; about 208 s at load 18).
 
 ## Checks

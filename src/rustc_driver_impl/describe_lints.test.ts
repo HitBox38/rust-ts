@@ -8,8 +8,9 @@
 //   after each table): a tool lint name longer than its group names (the case that threw `RangeError` before the fix) and a
 //   group name longer than the tool's lint names (the case that padded the loaded lints to the group width);
 // - the pinned clippy-driver's `-W help` (tool oracle, plan-m8 D2), byte for byte, with a fake tool that registers the lints
-//   and groups the oracle lists (names, default levels, descriptions, members in order). Skipped visibly when the tool
-//   oracle is not installed; RUST_TS_REQUIRE_PROBES=1 makes that a failure.
+//   and groups the oracle lists (names, default levels, descriptions, members in order), registered in reverse order so the
+//   port's own sort is what orders them. Skipped visibly when the tool oracle is not installed; RUST_TS_REQUIRE_PROBES=1 makes
+//   that a failure.
 import { expect, test } from "bun:test";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -98,9 +99,10 @@ test("describe_lints: a tool lint name longer than every group name keeps the li
       [SHORT_LINT, "Warn", "a short one"],
       [LONG_LINT, "Allow", "a long one"],
     ],
+    // registered out of `sort_lints` / `sort_lint_groups` order, so the output's order is the port's sort (review N1)
     groups: [
-      ["faketool::all", [SHORT_LINT, LONG_LINT]],
       ["faketool::g", [LONG_LINT]],
+      ["faketool::all", [SHORT_LINT, LONG_LINT]],
     ],
   };
   const gw = Math.max("warnings".length, "faketool::all".length, column_width_of_builtin_groups());
@@ -162,5 +164,8 @@ test("describe_lints: the port's -W help with a tool's lints equals the pinned c
   // The case that threw before the fix: tool lint names wider than every group name.
   expect(lw).toBeGreaterThan(gw);
 
-  expect(run_port({ lints, groups })).toBe(want);
+  // Registered in reverse of the oracle's (sorted) order, so a missing `sort_lints` / `sort_lint_groups` of the loaded lints
+  // and groups shows (`LintStore` keeps registration order; review N1). Each group's members keep their order: describe_lints
+  // prints them as registered.
+  expect(run_port({ lints: [...lints].reverse(), groups: [...groups].reverse() })).toBe(want);
 });
