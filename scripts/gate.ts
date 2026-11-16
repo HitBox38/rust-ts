@@ -44,11 +44,22 @@
 //       and the copy is removed after it ends; a SIGKILL leaves the gate running and its copy behind until a later gate prunes it,
 //       which it does only once that gate has ended too (`owner.json` records both processes; review bun-144-recheck3 N1).
 //       A `RUST_TS_DATA` whose real path holds a `:` is refused (it would split the copy's PATH entry; recheck3 N4).
+//       Never protected (plan-m8 D19, scripts/lib/protect.ts): it refuses to start while a `Suite.neverProtect` suite has a baseline
+//       file; such a suite runs as a report (a `note:` says so). ENV cases (scripts/difftest.ts) are listed per suite (`env`) and are
+//       never MATCH, so a protected one is lost like any other non-MATCH.
+//       Headroom (plan-m8 D20, scripts/lib/headroom.ts): a suite with `Suite.headroom` has free disk, swap and memory pressure checked
+//       against its minimum immediately before it starts, and the watchdog stops recorded while it ran are read right after it. A failed
+//       check or a stop **stops the gate there**: one `ERROR:` line, gate.json `stop` names the suite and reason, that suite and every
+//       one after it are listed in `notRun` (none of their cases counts as lost), `pass: false`, and `accept` refuses the run. Re-run it
+//       once the host meets D20. A failed check before a `neverProtect` suite only leaves it not run (a `note:`): nothing protected
+//       depends on it. gate.json `headroom` records each check's reading.
 //   bun scripts/gate.ts accept --run <run-id>
 //       grow the protected set with that gate run's new MATCHes. Refused if the run lost anything,
 //       skipped static checks, skipped a protected suite, ran on a dirty tree, ran on a Bun build other than `GATE_BUN`
 //       (when its gate.json records one), saw the Bun file change (`bunExec`, when recorded), did not run from a copy of its Bun
-//       (`bunClone` null; absent in older runs: a note), or HEAD has moved since.
+//       (`bunClone` null; absent in older runs: a note), or HEAD has moved since. Refused too if the run stopped (`stop`: a failed
+//       headroom check or a watchdog stop, plan-m8 D20) or a `neverProtect` suite has a baseline file; such a suite's matches are
+//       skipped with a note, whatever the run's suites were (plan-m8 D19).
 //
 // Unstable cases (`Suite.unstable`, difftest's UNSTABLE status: oracle output that is not reproducible) are never
 // protected: a run fails if a baseline lists one, and accept refuses to add one. The upstream checkout must be clean
@@ -62,6 +73,8 @@ import { parsePmSelfArgs } from "./pm-self-run.ts";
 import { difftest, heavyErrorLines, heavyLine, unstableOf, type HeavyRun, type OracleRerun, type RetryLoad, type Usage } from "./difftest.ts";
 import { DATA, ORACLE_CACHE, REPO, RUNS, UPSTREAM, die, ensureDir, nowId, parseArgs, run } from "./lib/common.ts";
 import { HostLog, REAL_HOST, StuckReads, batteryRefusal, sampleHost, type HostReaders, type HostSample } from "./lib/host-state.ts";
+import { headroomRefusal, readHeadroom, watchdogStopDir, watchdogStopsSince, type GateStop, type HeadroomReading } from "./lib/headroom.ts";
+import { matchIdsOfJsonl, neverProtectBaselineErrors, planAccept } from "./lib/protect.ts";
 import { miriBinary } from "./lib/miri.ts";
 import { prepareSubject, subjectBinBuilds } from "./lib/subject-bin.ts";
 import { pruneGateBunDirs, acceptBunCloneRefusal, acceptBunExeRefusal, acceptBunRefusal, builtByRefusal, bunExeChange, cloneBunFile, cloneRefusal, execBunRefusal, gateBunRefusal, readBunExe, runningBun, showBunExe, type BunBuild, type BunClone, type BunExecRecord } from "./lib/bun-pin.ts";
@@ -81,8 +94,9 @@ import { record } from "./state.ts";
 
 const BASELINE = join(REPO, "harness", "baseline");
 
-export function readBaseline(suite: string): Set<string> {
-  const p = join(BASELINE, `${suite}.txt`);
+/** `dir`: tests only (`GateHost.baselineDir`). */
+export function readBaseline(suite: string, dir: string = BASELINE): Set<string> {
+  const p = join(dir, `${suite}.txt`);
   if (!existsSync(p)) return new Set();
   return new Set(readFileSync(p, "utf8").split("\n").filter(Boolean));
 }
@@ -103,6 +117,8 @@ interface SuiteGate {
   lostSkipped?: { id: string; reason: string }[];
   /** Cases whose oracle output is not reproducible (UNSTABLE: listed in `Suite.unstable` or detected); never protected. */
   unstable?: string[];
+  /** Cases the oracle does not pass on this host, on two runs (ENV, plan-m8 D9/D19); never protected. Absent when there are none. */
+  env?: string[];
   /** Cases whose subject timed out in difftest's parallel pool and were re-run alone (their status is the re-run's). */
   retried?: string[];
   /**
@@ -152,6 +168,8 @@ export interface GateHost {
   execPath?: string;
   /** The private copy of the gate's Bun it runs from (`gateBunClone`); gate.json `bunClone`, null without one (tests). */
   bunClone?: BunClone;
+  /** Tests only: the directory of the protected sets instead of harness/baseline. */
+  baselineDir?: string;
 }
 const REAL_GATE_HOST: GateHost = { readers: REAL_HOST, pollMs: 60_000, keepEveryMs: 600_000 };
 
@@ -668,6 +686,11 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   for (const name of requested) getSuite(name); // unknown suite names fail here
   const envRefused = gateEnvRefusal();
   if (envRefused !== undefined) die(envRefused);
+  // A never-protected suite with a baseline file (plan-m8 D19): every registered suite, run or not.
+  const baseDir = gateHost.baselineDir ?? BASELINE;
+  const npErrors = neverProtectBaselineErrors(SUITES, (name) => existsSync(join(baseDir, `${name}.txt`)));
+  for (const e of npErrors.slice(1)) console.log(`ERROR: ${e}`);
+  if (npErrors.length) die(npErrors[0]!);
   // Before anything starts. What this reads decides only whether a run starts: no status or verdict reads the record below.
   const note = (l: string) => console.log(l);
   const stuck = new StuckReads(note);
@@ -703,7 +726,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   }
   let unstableOk = true;
   for (const suite of suites) {
-    const bad = protectedUnstable(suite);
+    const bad = protectedUnstable(suite, readBaseline(suite, baseDir));
     if (bad.length) {
       console.log(`ERROR: ${suite}: the baseline protects ${bad.length} case(s) the suite lists as unstable (e.g. ${bad[0]}); an unstable case can never be protected`);
       unstableOk = false;
@@ -727,17 +750,52 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     process.exit(1);
   }
   const out: SuiteGate[] = [];
+  /** Where and why the gate stopped (plan-m8 D20): a failed headroom check or a watchdog stop. */
+  let stop: GateStop | undefined;
+  const headroomChecks: { suite: string; reading: HeadroomReading; refused?: string }[] = [];
+  const stopsDir = watchdogStopDir(DATA);
+  /** Stops the gate at suite `i` (it and the ones after it are not run): one `ERROR:` line. */
+  const stopAt = (i: number, st: GateStop): void => {
+    stop = st;
+    const left = suites.slice(i);
+    console.log(`ERROR: ${st.suite}: ${st.reason}; the gate stops here: ${left.length} suite(s) not run, none of their cases counts as lost, and this run cannot be accepted (re-run it once the host meets plan-m8 D20)`);
+    for (const l of left) notRun.push({ suite: l, reason: l === st.suite ? `${st.kind === "headroom" ? "headroom check failed" : "watchdog stop"}: ${st.reason}` : `the gate stopped at ${st.suite}` });
+  };
   for (const [i, suite] of suites.entries()) {
     // A changed Bun file stops the run here: the suites left would run on a build the run did not start on.
     if (!bunUnchanged(i === 0 ? `before suite ${suite} (since the start)` : `before suite ${suite} (during ${suites[i - 1]})`)) {
       for (const left of suites.slice(i)) notRun.push({ suite: left, reason: `the Bun file changed ${bunExec.changed}` });
       break;
     }
+    const def = getSuite(suite);
+    // Headroom immediately before the suite (plan-m8 D20), not only at the gate's start.
+    if (def.headroom !== undefined) {
+      const reading = await readHeadroom(gateHost.readers, DATA, gateHost.readLimitMs);
+      const refused = headroomRefusal(def.headroom, reading);
+      headroomChecks.push({ suite, reading, ...(refused !== undefined ? { refused } : {}) });
+      if (refused !== undefined) {
+        if (def.neverProtect !== undefined) {
+          // A report: nothing protected depends on it, so the gate goes on without it.
+          console.log(`note: ${suite} not run (a report suite, never protected): ${refused}`);
+          notRun.push({ suite, reason: `headroom check failed: ${refused}` });
+          continue;
+        }
+        stopAt(i, { suite, kind: "headroom", reason: refused });
+        break;
+      }
+    }
     const hostStart = await host.mark();
+    const suiteStartMs = Date.now();
     const { results, stats, upstreamChanges, heavy, extra, oracleReruns } = await difftest({ suite, runId, quiet: true });
     const hostEnd = await host.mark();
-    const irTier = getSuite(suite).irTier;
-    const base = readBaseline(suite);
+    // A watchdog stop while it ran (scripts/lib/headroom.ts `recordWatchdogStop`): its results are not scored, whatever the suite.
+    const stops = watchdogStopsSince(stopsDir, suiteStartMs);
+    if (stops.length) {
+      stopAt(i, { suite, kind: "watchdog", reason: `the watchdog stopped ${stops[0]!.what} (pid ${stops[0]!.pid}) at ${stops[0]!.at}: ${stops[0]!.reason}${stops.length > 1 ? ` (and ${stops.length - 1} more stop(s))` : ""}` });
+      break;
+    }
+    const irTier = def.irTier;
+    const base = readBaseline(suite, baseDir);
     const match = new Set(results.filter((r) => r.status === "MATCH").map((r) => r.id));
     const lost = [...base].filter((id) => !match.has(id));
     const gained = [...match].filter((id) => !base.has(id));
@@ -746,11 +804,13 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     const skippedWhy = new Map((getSuite(suite).skipped?.() ?? []).map((k) => [k.id, k.reason]));
     const lostSkipped = lost.filter((id) => skippedWhy.has(id)).map((id) => ({ id, reason: skippedWhy.get(id)! }));
     const unstable = results.filter((r) => r.status === "UNSTABLE").map((r) => r.id);
+    const env = results.filter((r) => r.status === "ENV").map((r) => r.id);
     const retried = results.filter((r) => r.retried).map((r) => r.id);
     const retryTimes = results.flatMap((r) => (r.attempts ? [{ id: r.id, status: r.status, ...r.attempts }] : []));
     const heavyErrors = (heavy ?? []).flatMap((h) => heavyErrorLines(suite, h));
-    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, retried, retryTimes, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}), startedAt: hostStart.at, endedAt: hostEnd.at, hostStart, hostEnd, ...(irTier ? { irTier } : {}) });
+    out.push({ suite, baseline: base.size, match: match.size, total: results.length, lost, gained, batchOnlyFailures: stats.batchOnlyFailures, batchOnlyTimeouts: stats.batchOnlyTimeouts, oracleTimeouts, lostSkipped, unstable, ...(env.length ? { env } : {}), retried, retryTimes, upstreamChanges, ...(heavy ? { heavy, heavyErrors } : {}), ...(extra !== undefined ? { extra, oracleReruns } : {}), startedAt: hostStart.at, endedAt: hostEnd.at, hostStart, hostEnd, ...(irTier ? { irTier } : {}) });
     console.log(`${lost.length ? "ERROR:" : "ok   "} ${suite}: protected=${base.size} match=${match.size}/${results.length} lost=${lost.length} gained=${gained.length}`);
+    if (def.neverProtect !== undefined) console.log(`note: ${suite}: a report, never protected (${def.neverProtect}); accept skips its matches`);
     if (irTier) console.log(`note: ${suite}: read at IR tier ${irTier}`);
     for (const h of heavy ?? []) console.log(`  ${heavyLine(suite, h)}`);
     // (Reported, recorded in gate.json, but not a gate failure by themselves: see `SuiteGate.heavyErrors`.)
@@ -765,6 +825,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
       const r = byId.get(id);
       if (r?.status === "ORACLE_TIMEOUT") return ` (ORACLE_TIMEOUT; subject: ${r.subject})`;
       if (r?.status === "UNSTABLE") return ` (UNSTABLE: ${r.unstable}; subject: ${r.subject})`;
+      if (r?.status === "ENV") return ` (ENV: ${r.env})`;
       if (skippedWhy.has(id)) return ` (not applicable on this host: ${skippedWhy.get(id)})`;
       if (!r) return " (no longer a case of this suite)";
       if (r.retried) return ` (${r.status}, after a pool TIMEOUT and a re-run alone)`;
@@ -773,6 +834,7 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
     for (const id of lost.slice(0, 20)) console.log(`  lost: ${id}${why(id)}`);
     if (oracleTimeouts.length) console.log(`note: ${suite}: ${oracleTimeouts.length} case(s) ORACLE_TIMEOUT (the oracle timed out twice; not compared)`);
     if (unstable.length) console.log(`note: ${suite}: ${unstable.length} case(s) UNSTABLE (the oracle's output is not reproducible; not compared, never protected)`);
+    if (env.length) console.log(`note: ${suite}: ${env.length} case(s) ENV (the oracle does not pass them on this host; not compared, never protected)`);
     if (retried.length) {
       const still = retried.filter((id) => byId.get(id)!.status === "TIMEOUT").length;
       console.log(`note: ${suite}: ${retried.length} subject TIMEOUT(s) in the pool re-run alone: ${retried.length - still} finished, ${still} timed out again`);
@@ -789,11 +851,11 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
   if (!upstreamOk) console.log("ERROR: a suite changed the upstream checkout (see `upstreamChanges` in gate.json)");
   // At the end too (a change during the last suite); a change seen before a suite keeps its first reading of where.
   const bunOk = bunExec.changed === undefined && bunUnchanged(`at the end (during ${suites.at(-1) ?? "the run"})`);
-  const pass = staticOk && unchanged && unstableOk && upstreamOk && bunOk && out.every((s) => s.lost.length === 0);
+  const pass = staticOk && unchanged && unstableOk && upstreamOk && bunOk && stop === undefined && out.every((s) => s.lost.length === 0);
   await host.mark();
   host.stop();
   if (host.powerLost.length) console.log(`note: this gate lost power ${host.powerLost.length} time(s), first seen at ${host.powerLost[0]!.at}; a lost case from about then on may be a false timeout (\`host\` in gate.json)`);
-  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), subject, bun, bunExec, bunClone, host: host.record(allowBattery) }, null, 1));
+  writeFileSync(join(RUNS, runId, "gate.json"), JSON.stringify({ runId, pass, staticOk, skipStatic, unitTestSkips: st.skips ?? null, staticNotes: st.notes ?? [], head: prov.head, dirty: prov.dirty, unstableOk, upstreamOk, frozenLists: frozenListsRecord(runDir), suites: out, ...(notRun.length ? { notRun } : {}), ...(stop ? { stop } : {}), ...(headroomChecks.length ? { headroom: headroomChecks } : {}), subject, bun, bunExec, bunClone, host: host.record(allowBattery) }, null, 1));
   console.log(`gate ${pass ? "PASS" : "FAIL"} run=${runId}`);
   if (!pass) process.exit(1);
 }
@@ -801,17 +863,11 @@ export async function gateRun(requested: string[], skipStatic: boolean, skipHeav
 /** A suite's entry in the accept record; the tier as the run read it, so a protected set says which tier it was protected at. */
 export const acceptEntry = (protectedCases: number, s: Pick<SuiteGate, "total" | "irTier">) => ({ protected: protectedCases, total: s.total, ...(s.irTier ? { irTier: s.irTier } : {}) });
 
-/** MATCH ids of one suite, re-read from the run's own per-case results (not from gate.json). */
+/** MATCH ids of one suite, re-read from the run's own per-case results (not from gate.json). Never an ENV one (`matchIdsOfJsonl`). */
 function matchesOfRun(runId: string, suite: string): Set<string> {
   const p = join(RUNS, runId, `${suite}.jsonl`);
   if (!existsSync(p)) die(`gate run ${runId} has no results for ${suite}`);
-  const ids = new Set<string>();
-  for (const line of readFileSync(p, "utf8").split("\n")) {
-    if (!line) continue;
-    const r = JSON.parse(line) as { id: string; status: string };
-    if (r.status === "MATCH") ids.add(r.id);
-  }
-  return ids;
+  return matchIdsOfJsonl(readFileSync(p, "utf8"));
 }
 
 /** The argument (`--gate-bun-clone=<record file>`) by which the first process tells the second which copy of its Bun it runs from. */
@@ -913,7 +969,9 @@ export async function gateBunClone(opts: { argv?: string[]; dir?: string; cp?: r
 async function gateAccept(runId: string): Promise<void> {
   const p = join(RUNS, runId, "gate.json");
   if (!existsSync(p)) die(`no gate result at ${p}`);
-  const g = JSON.parse(readFileSync(p, "utf8")) as { pass: boolean; skipStatic?: boolean; head?: string; dirty?: string[]; bun?: BunBuild; bunExec?: BunExecRecord; bunClone?: BunClone | null; suites: SuiteGate[] };
+  const g = JSON.parse(readFileSync(p, "utf8")) as { pass: boolean; skipStatic?: boolean; head?: string; dirty?: string[]; bun?: BunBuild; bunExec?: BunExecRecord; bunClone?: BunClone | null; suites: SuiteGate[]; stop?: GateStop };
+  // A run that stopped (plan-m8 D20) is never accepted, whatever else it records.
+  if (g.stop !== undefined) die(`gate run ${runId} stopped at ${g.stop.suite} (${g.stop.kind}: ${g.stop.reason}); nothing accepted; re-run the gate once the host meets plan-m8 D20`);
   if (!g.pass) die(`gate run ${runId} did not pass; nothing accepted`);
   // The run's Bun must be the gate's (scripts/lib/bun-pin.ts); a gate.json from before `bun` was recorded is let through with a note.
   const bunRefused = acceptBunRefusal(runId, g.bun);
@@ -936,24 +994,22 @@ async function gateAccept(runId: string): Promise<void> {
   if (stray.length) die(`tree is dirty outside docs/state/ (${stray.slice(0, 3).join("; ")}); commit or stash, then re-run the gate`);
   const missing = protectedSuites().filter((name) => !g.suites.some((x) => x.suite === name));
   if (missing.length) die(`gate run ${runId} did not run protected suite(s) ${missing.join(", ")}; nothing accepted`);
+  // A never-protected suite with a baseline file (plan-m8 D19), as `gate run` refuses it.
+  const npErrors = neverProtectBaselineErrors(SUITES, (name) => existsSync(join(BASELINE, `${name}.txt`)));
+  for (const e of npErrors.slice(1)) console.log(`ERROR: ${e}`);
+  if (npErrors.length) die(npErrors[0]!);
   const summary: Record<string, ReturnType<typeof acceptEntry>> = {};
-  // Every suite is checked before any baseline is written, so a refusal leaves every baseline as it was.
-  const grown: { suite: string; base: Set<string>; before: number; run: SuiteGate }[] = [];
-  for (const s of g.suites) {
-    getSuite(s.suite); // registered suite names only (also keeps the baseline path inside harness/baseline)
-    const base = readBaseline(s.suite);
-    const before = base.size;
-    const match = matchesOfRun(runId, s.suite);
-    const lost = [...base].filter((id) => !match.has(id));
-    if (lost.length) die(`gate run ${runId}: ${s.suite} results lose ${lost.length} protected case(s) (e.g. ${lost[0]})`);
-    for (const id of match) base.add(id);
-    const unstable = protectedUnstable(s.suite, base);
-    if (unstable.length) die(`gate run ${runId}: ${s.suite} would protect ${unstable.length} case(s) the suite lists as unstable (e.g. ${unstable[0]}); nothing accepted`);
-    grown.push({ suite: s.suite, base, before, run: s });
-  }
-  for (const { suite, base, before, run } of grown) {
+  // Every suite is checked before any baseline is written, so a refusal leaves every baseline as it was (scripts/lib/protect.ts).
+  const plan = planAccept(
+    runId,
+    g.suites.map((s) => s.suite),
+    { suite: getSuite, baseline: (name) => readBaseline(name), matches: (name) => matchesOfRun(runId, name), unstable: (name, base) => protectedUnstable(name, base) },
+  );
+  if ("refusal" in plan) die(plan.refusal);
+  for (const { suite, why } of plan.skipped) console.log(`note: ${suite}: never protected (${why}); its matches are skipped, nothing is written for it`);
+  for (const { suite, base, before } of plan.grown) {
     writeFileSync(join(BASELINE, `${suite}.txt`), [...base].sort().join("\n") + "\n");
-    summary[suite] = acceptEntry(base.size, run);
+    summary[suite] = acceptEntry(base.size, g.suites.find((s) => s.suite === suite)!);
     console.log(`${suite}: protected set ${before} -> ${base.size}`);
   }
   record("accept", `accepted gate run ${runId} (tested ${g.head})`, { runId, head: g.head, suites: summary });

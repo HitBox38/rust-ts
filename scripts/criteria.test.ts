@@ -199,3 +199,12 @@ test("the percent groups naming one suite agree on excludeUnstable, so difftest'
   for (const g of GROUPS) if (!g.count && !g.allCases) for (const suite of g.suites) by.set(suite, (by.get(suite) ?? new Set()).add(g.excludeUnstable === true));
   expect([...by].filter(([, v]) => v.size > 1).map(([k]) => k)).toEqual([]);
 });
+
+test("ENV leaves every denominator but an allCases group's, and is counted (plan-m8 §6, D19); a gate.json without the list has none", () => {
+  const r = groupResult(miriPass, gate([{ ...s("miri-pass", 8, 13, ["a"]), env: ["e1", "e2"] }, s("miri-pass-heavy", 0, 0)]));
+  expect([r.match, r.of, r.oracleTimeouts, r.env, r.met]).toEqual([8, 10, 1, 2, true]);
+  expect("env" in groupResult(miriPass, gate([s("miri-pass", 8, 10), s("miri-pass-heavy", 0, 0)]))).toBe(false);
+  // An allCases group counts every case: an ENV one is not left out.
+  const ir = groupResult(group("ir-hello"), gate([{ ...s("ir-hello", 1, 2), env: ["b"] }]));
+  expect([ir.of, ir.met, ir.env]).toEqual([2, false, undefined]);
+});
