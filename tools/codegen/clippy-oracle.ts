@@ -1,7 +1,10 @@
 // Oracle check of tools/codegen/clippy.ts (plan-m8 D5, lane codegen-clippy-macros). Not part of the unit step (it runs the
 // oracle rustc and clippy-driver, about a minute); run by hand after changing the generator or the pin:
 //
-//   bun tools/codegen/clippy-oracle.ts        prints one summary line per check; details under $RUST_TS_DATA/tmp/codegen-clippy-macros/
+//   bun tools/codegen/clippy-oracle.ts [--work <dir>]   one summary line per check; details in the scratch directory
+//
+// The scratch directory is a new `$RUST_TS_DATA/tmp/codegen-clippy-oracle-XXXXXX` per run (review N7: two users must not
+// share one), or `--work <dir>`, which must not exist yet or be empty. Nothing is ever deleted; remove it when done.
 //
 // 1. `-Zunpretty=expanded` with the oracle rustc and its rustc-dev: a scratch copy of the clippy sources in which every byte
 //    outside the expanded macros is blanked (newlines kept, so `line!()` is unchanged; the scratch root is remapped to
@@ -9,20 +12,40 @@
 //    declare_clippy_lint's lib.rs (built to an rmeta), rustc_lint_defs's `declare_tool_lint!`/`declare_lint_pass!`/
 //    `impl_lint_pass!` and rustc_lint's `{early,late}_lint_methods!` from the sysroot, clippy's combined_*_pass.rs, sym.rs's
 //    `generate!`, msrvs.rs's `msrv_aliases!` and conf.rs's `define_Conf!`. Every lint static, `_INFO` static, lint-pass
-//    impl, extra symbol, msrv alias, combined-pass field and define_Conf table is then compared with the generator's model.
+//    impl, extra symbol, msrv alias, combined-pass field and define_Conf table is then compared with the generator's model,
+//    and the combined passes' TS (each field's constructor and `is_active` guard, each call's trait method, guard and
+//    arguments) is rebuilt from the expansion and compared line by line with the emitted lib.gen.ts.
 // 2. The oracle clippy-driver's `-W help` (the clippy-preview tarball unpacked under $RUST_TS_DATA/tools): every clippy lint's
 //    name, default level and description, and every clippy lint group's members in order, against the generated statics and
 //    lint_tables.gen.ts's LINT_GROUPS.
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+// 3. The emitted files (review N3): every written `.lints.gen.ts`, sym.gen.ts, msrvs.gen.ts and lint_tables.gen.ts is
+//    imported, and its values (lint statics, `_INFO`, lint passes' `name`/`get_lints`/`lint_vec`, symbols, versions, the
+//    sub-pass rows and groups) are compared with what was read from the oracle in 1 and 2, not with the generator's model.
+// 4. A type-check of the pending lib.gen.ts against stub hand modules.
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, requireUpstream } from "../../scripts/lib/common.ts";
 import { FrontmatterAllowed, tokenize } from "../../src/rustc_lexer/lib.ts";
 import { Str } from "../../src/std/str.ts";
 import { CONF_PATH, DCL_PATH, LINTS_LIB_PATH, MSRVS_PATH, RUSTC_PASSES_PATH, SYM_PATH, generateAll, lintFilesOf, moduleFile, parseLintMethods, type GenerateResult, type Read } from "./clippy.ts";
+import { lintDefault } from "./lints.ts";
 import { Cursor, isComment, lex, strValue, type Tok } from "./lints.ts";
 
-const WORK = join(DATA, "tmp", "codegen-clippy-macros");
-const SCRATCH = join(WORK, "s");
+// set by main: `--work <dir>` or a new directory per run
+let WORK = "";
+let SCRATCH = "";
+
+/** What 1 and 2 read from the oracle, for 3 (the emitted files). */
+const ORACLE = {
+  lints: new Map<string, Map<string, string>>(),
+  infos: new Map<string, Map<string, string>>(),
+  passes: new Map<string, { kind: "declare" | "impl"; lints: string[]; lint_vec?: string[] }>(),
+  combined: new Map<string, [field: string, ty: string][]>(),
+  symValues: [] as string[],
+  symConsts: [] as [string, string][],
+  msrvs: [] as [string, string][],
+  groups: [] as [string, string[]][],
+};
 
 interface PTok {
   start: number;
@@ -135,7 +158,6 @@ const LINT_MACROS = new Set(["declare_clippy_lint", "declare_lint_pass", "impl_l
 
 /** Builds the scratch tree and expands the four crates; returns the expanded texts. */
 function expand(read: Read): Record<"lints" | "sym" | "msrvs" | "conf", string> {
-  rmSync(WORK, { recursive: true, force: true });
   mkdirSync(SCRATCH, { recursive: true });
   const remap = `--remap-path-prefix=${SCRATCH}=/rustc/${PIN.commit}`;
   const base = ["--edition=2024", "--crate-type=lib", "-Awarnings", remap];
@@ -293,6 +315,9 @@ function checkLints(r: Report, expanded: string, g: GenerateResult, files: Reado
     }
   }
   for (const [k, p] of passes) if (unitStructs.has(k)) p.kind = "declare";
+  ORACLE.lints = lints;
+  ORACLE.infos = infos;
+  ORACLE.passes = passes;
   // compare
   let n = 0;
   for (const m of g.mods) {
@@ -327,6 +352,27 @@ function checkLints(r: Report, expanded: string, g: GenerateResult, files: Reado
 
 // ---- 1b. the combined passes ------------------------------------------------------------------------------------
 
+/**
+ * The TS a combined-pass constructor should be, written independently of clippy.ts's `ctorTs`/`modNs` so that a slip there
+ * is caught (review N2): `a::b::T::new(x, y.clone())` -> `mod_a_b.T.new(x, y)`, `a::T` -> `new mod_a.T()`,
+ * `a::T::default()` / `<a::T>::default()` / `<a::T<'_>>::default()` -> `mod_a.T.default()`. The storages' `.clone()` is
+ * the shared value (both are `Arc` newtypes).
+ */
+function oracleCtorTs(rust: string): string {
+  const ns = (path: string): string => {
+    const segs = path.replace(/<'[\w_]+>$/, "").split("::");
+    return `mod_${segs.slice(0, -1).join("_")}.${segs[segs.length - 1]}`;
+  };
+  let m = /^<(.+)>::default\(\)$/.exec(rust);
+  if (m !== null) return `${ns(m[1]!)}.default()`;
+  m = /^(.+)::default\(\)$/.exec(rust);
+  if (m !== null) return `${ns(m[1]!)}.default()`;
+  m = /^(.+)::new\((.*)\)$/.exec(rust);
+  if (m !== null) return `${ns(m[1]!)}.new(${m[2]!.split(",").filter((a) => a !== "").map((a) => a.replace(/\.clone\(\)$/, "")).join(", ")})`;
+  if (/^\w+(::\w+)*$/.test(rust)) return `new ${ns(rust)}()`;
+  return `<unknown constructor ${rust}>`;
+}
+
 function checkCombined(r: Report, expanded: string, g: GenerateResult, read: Read): string {
   const toks = lex(expanded).filter((t) => !isComment(t) && t.doc === undefined);
   const out: string[] = [];
@@ -345,6 +391,7 @@ function checkCombined(r: Report, expanded: string, g: GenerateResult, read: Rea
     }
     const unwrap = (ty: string): string => (c.kind === "late" ? ty.replace(/^Option<(.*)>$/, "$1") : ty);
     r.eq(`${c.name} fields`, fields.map(([f, t]) => [f, unwrap(t)]), c.entries.map((e) => [e.field, e.ty]));
+    ORACLE.combined.set(c.kind, fields.map(([f, t]) => [f, unwrap(t)]));
     // new: `pub fn new(params) -> Self { Self { field: ctor, .. } }`
     const ni = toks.findIndex((t, k) => k > sc.i && t.text === "fn" && toks[k + 1]?.text === "new");
     // past `<F: Fn(&rustc_lint::LintVec) -> bool>` (late); a `>` after `-` is part of `->`
@@ -375,10 +422,13 @@ function checkCombined(r: Report, expanded: string, g: GenerateResult, read: Rea
     bc.i = bo + 2;
     const bg = bc.group(toks[bo + 1]!);
     const ctors: [string, string][] = [];
+    const ctorToks: Tok[][] = [];
     while (!bg.atEnd()) {
       const f = bg.ident();
       bg.expect(":");
-      ctors.push([f.text, txt(bg.exprUntilComma()).replaceAll(" ", "")]);
+      const e = bg.exprUntilComma();
+      ctorToks.push(e);
+      ctors.push([f.text, txt(e).replaceAll(" ", "")]);
       bg.eat(",");
     }
     const wantCtor = (e: (typeof c.entries)[number]): string => {
@@ -410,6 +460,8 @@ function checkCombined(r: Report, expanded: string, g: GenerateResult, read: Rea
     ic.i = io + 1;
     const ig = ic.group(toks[io]!);
     const methods: { name: string; params: string[]; calls: string[] }[] = [];
+    // each call as [field, called trait method, arguments after the pass]
+    const oracleCalls: [string, string, string[]][][] = [];
     while (!ig.atEnd()) {
       const t = ig.next();
       if (t.text !== "fn") continue;
@@ -429,11 +481,28 @@ function checkCombined(r: Report, expanded: string, g: GenerateResult, read: Rea
       }
       const body = ig.group(ig.expect("{"));
       const calls: string[] = [];
+      const exact: [string, string, string[]][] = [];
+      let field = "";
       for (let k = body.i; k < body.end; k++) {
         // early: `EarlyLintPass :: check_x ( & mut self . FIELD ,`; late: `if let Some ( pass ) = & mut self . FIELD`
-        if (toks[k]!.text === "self" && toks[k + 1]?.text === "." && toks[k - 1]?.text === "mut") calls.push(toks[k + 2]!.text);
+        if (toks[k]!.text === "self" && toks[k + 1]?.text === "." && toks[k - 1]?.text === "mut") calls.push((field = toks[k + 2]!.text));
+        // `rustc_lint :: {Early,Late}LintPass :: NAME ( <pass> , args.. )`
+        if ((toks[k]!.text === "EarlyLintPass" || toks[k]!.text === "LateLintPass") && toks[k + 1]?.text === ":" && toks[k + 2]?.text === ":") {
+          const ac = new Cursor("expanded", toks);
+          ac.i = k + 5;
+          const ag = ac.group(toks[k + 4]!);
+          const args: string[] = [];
+          while (!ag.atEnd()) {
+            args.push(txt(ag.exprUntilComma()));
+            ag.eat(",");
+          }
+          // early: the pass is the first argument (`&mut self.FIELD`); late: `pass`, bound from `self.FIELD` just before
+          const first = args[0]!.split(" ");
+          exact.push([first[0] === "&" ? first[first.length - 1]! : field, toks[k + 3]!.text, args.slice(1)]);
+        }
       }
       methods.push({ name, params, calls });
+      oracleCalls.push(exact);
     }
     const lm = parseLintMethods(read(RUSTC_PASSES_PATH), c.kind === "early" ? "early_lint_methods" : "late_lint_methods");
     r.eq(`${c.name} methods`, methods, lm.map((m) => ({ name: m.name, params: m.params, calls: c.entries.map((e) => e.field) })));
@@ -446,8 +515,32 @@ function checkCombined(r: Report, expanded: string, g: GenerateResult, read: Rea
       name: m[1]!,
       params: m[2] === undefined ? [] : m[2].split(", ").map((x) => x.split(":")[0]!),
       calls: [...m[3]!.matchAll(/_provided\.\w+\(this\.(\w+),/g)].map((x) => x[1]!),
+      lines: m[3]!.split("\n").filter((l) => l !== ""),
     }));
-    r.eq(`${c.name} TS methods`, tsMethods, methods);
+    r.eq(`${c.name} TS methods`, tsMethods.map(({ lines: _, ...m }) => m), methods);
+    // review N2: every TS call line rebuilt from the oracle's call (trait method, field, guard, arguments)
+    const Pass = c.kind === "early" ? "EarlyLintPass" : "LateLintPass";
+    const wantLines = methods.map((m, i) =>
+      oracleCalls[i]!.map(([f, called, args]) => {
+        const call = `${Pass}_provided.${called}(this.${f}, ${args.join(", ")});`;
+        return c.kind === "early" ? `    ${call}` : `    if (this.${f} !== undefined) ${call}`;
+      }),
+    );
+    r.eq(`${c.name} TS call lines`, wantLines, tsMethods.map((m) => m.lines)); // (oracle-derived, emitted)
+    // review N2: each field's TS constructor (and late `is_active` guard) rebuilt from the oracle's `Self { .. }`
+    const wantNew = fields.map((_, i) => {
+      let ctor = txt(ctorToks[i]!).replaceAll(" ", "");
+      if (c.kind === "early") return `      ${oracleCtorTs(ctor)},`;
+      // `is_active(&<T>::lint_vec()).then(||CTOR)`
+      const m = /^is_active\(&<(.+)>::lint_vec\(\)\)\.then\(\|\|(.*)\)$/.exec(ctor);
+      if (m === null) return `<unexpected late field ${ctor}>`;
+      ctor = m[2]!;
+      const guard = oracleCtorTs(m[1]!.replace(/<'\w+>$/, "")).replace(/^new (.*)\(\)$/, "$1"); // the type path, lifetimes erased
+      return `      is_active(${guard}.lint_vec()) ? ${oracleCtorTs(ctor)} : undefined,`;
+    });
+    const newAt = body.indexOf("  static new(");
+    const newBody = body.slice(body.indexOf("\n", body.indexOf(`return new ${c.name}(`, newAt)) + 1, body.indexOf("\n    );", newAt)).split("\n");
+    r.eq(`${c.name} TS new`, wantNew, newBody); // (oracle-derived, emitted)
     out.push(`${c.name} ${fields.length} fields, ${methods.length} methods`);
   }
   return out.join("; ");
@@ -469,6 +562,7 @@ function checkSym(r: Report, expanded: string, g: GenerateResult): string {
     eg.eat(",");
   }
   r.eq("EXTRA_SYMBOLS", values, g.sym.map((e) => e.value));
+  ORACLE.symValues = values;
   const consts: [string, string][] = [];
   for (let i = 0; i < toks.length; i++) {
     if (toks[i]!.text === "const" && txt(toks.slice(i + 2, i + 8)).replaceAll(" ", "") === ":rustc_span::Symbol=") {
@@ -476,6 +570,7 @@ function checkSym(r: Report, expanded: string, g: GenerateResult): string {
       consts.push([toks[i + 1]!.text, txt(toks.slice(i + 8, end)).replaceAll(" ", "")]);
     }
   }
+  ORACLE.symConsts = consts;
   r.eq("sym consts", consts, g.sym.map((e, i) => [e.name, `rustc_span::Symbol::new(PREDEFINED_SYMBOLS_COUNT+${i})`]));
   return `${values.length} extra symbols`;
 }
@@ -489,6 +584,7 @@ function checkMsrvs(r: Report, expanded: string, g: GenerateResult): string {
       out.push([toks[i + 1]!.text, txt(toks.slice(i + 5, end)).replaceAll(" ", "").replace(",}", "}")]);
     }
   }
+  ORACLE.msrvs = out;
   r.eq("msrv aliases", out, g.msrvs.map((a) => [a.name, `RustcVersion{major:${a.version[0]},minor:${a.version[1]},patch:${a.version[2]}}`]));
   return `${out.length} msrv aliases`;
 }
@@ -570,16 +666,87 @@ function checkWHelp(r: Report, g: GenerateResult): string {
     if (m === null) r.errors.push(`-W help: unparsed group row ${JSON.stringify(lines[i])}`);
     else groups.push([m[1]!, m[2]!.split(", ")]);
   }
+  ORACLE.groups = groups;
   const wantGroups = g.tables.groups.map(([n, ms]): [string, string[]] => [n, ms.map((x) => x.replaceAll("_", "-"))]).sort((a, b) => (a[0] < b[0] ? -1 : 1));
   r.eq("-W help groups", groups, wantGroups);
   return `${lintRows.size} lints, ${groups.length} groups`;
 }
 
-// ---- 3. type-check the pending lib.gen.ts against stub hand modules ---------------------------------------------
+// ---- 3. the emitted files, against what 1 and 2 read from the oracle (review N3) ---------------------------------
+
+async function checkEmitted(r: Report, g: GenerateResult): Promise<string> {
+  const ts = (v: unknown): string => (v === undefined ? "undefined" : JSON.stringify(v));
+  const id = (l: { name: string }): string => l.name.slice("clippy::".length);
+  type Any = Record<string, any>; // PORT: the emitted modules' exports, read generically
+  let nLints = 0;
+  let nPasses = 0;
+  for (const m of g.mods) {
+    const mod = (await import(join(REPO, m.out))) as Any;
+    for (const l of m.lints) {
+      nLints++;
+      const name = l.decl.name;
+      const obj = mod[name] as Any | undefined;
+      const o = ORACLE.lints.get(name);
+      if (obj === undefined || o === undefined) {
+        r.errors.push(`emitted ${m.out}: ${name} missing (or not in the oracle)`);
+        continue;
+      }
+      // explicit fields as the oracle expanded them; the others as `default_fields_for_macro`
+      r.eq(`emitted ${name}`, Object.fromEntries(Object.keys(obj).sort().map((f) => [f, ts(obj[f])])), Object.fromEntries(Object.keys(obj).sort().map((f) => [f, o.get(f) ?? lintDefault(f)])));
+      r.eq(`emitted ${name} field set`, [...o.keys()].every((f) => Object.hasOwn(obj, f)), true);
+      const info = mod[`${name}_INFO`] as Any | undefined;
+      r.eq(
+        `emitted ${name}_INFO`,
+        info === undefined ? undefined : { lint: info.lint === obj ? JSON.stringify(name) : "<another object>", category: ts(info.category), explanation: ts(info.explanation), location: ts(info.location), version: ts(info.version) },
+        ORACLE.infos.has(`${name}_INFO`) ? Object.fromEntries(ORACLE.infos.get(`${name}_INFO`)!) : undefined,
+      );
+    }
+    for (const p of m.passes) {
+      nPasses++;
+      const o = ORACLE.passes.get(`${m.path}#${p.name}`);
+      const imp = mod[`${p.name}_impl_lint_pass`] as Any | undefined;
+      const cls = mod[p.name] as (new () => Any) & Any;
+      const got =
+        imp !== undefined
+          ? { kind: "impl", name: imp.name(), lints: imp.get_lints().map(id), lint_vec: imp.lint_vec().map(id) }
+          : typeof cls === "function"
+            ? { kind: "declare", name: new cls().name(), lints: new cls().get_lints().map(id), lint_vec: cls.lint_vec().map(id) }
+            : undefined;
+      r.eq(`emitted pass ${m.path}#${p.name}`, got, o === undefined ? undefined : { kind: o.kind, name: p.name, lints: o.lints, lint_vec: o.lint_vec });
+    }
+  }
+  // sym.gen.ts
+  const sym = (await import(join(REPO, "src/clippy_utils/sym.gen.ts"))) as Any;
+  const { PREDEFINED_SYMBOLS_COUNT } = await import("../../src/rustc_span/symbol.gen.ts");
+  r.eq("emitted EXTRA_SYMBOLS", sym.EXTRA_SYMBOLS, ORACLE.symValues);
+  r.eq(
+    "emitted sym consts",
+    ORACLE.symConsts.map(([n]) => [n, (sym[n] as number) - PREDEFINED_SYMBOLS_COUNT, sym.sym[n] === sym[n]]),
+    ORACLE.symConsts.map(([n, v]) => [n, Number(/PREDEFINED_SYMBOLS_COUNT\+(\d+)\)$/.exec(v)![1]), true]),
+  );
+  // msrvs.gen.ts
+  const msrvs = (await import(join(REPO, "src/clippy_utils/msrvs.gen.ts"))) as Any;
+  r.eq("emitted msrvs", ORACLE.msrvs.map(([n]) => [n, msrvs[n] === undefined ? "missing" : `RustcVersion{major:${msrvs[n].major},minor:${msrvs[n].minor},patch:${msrvs[n].patch}}`]), ORACLE.msrvs);
+  // lint_tables.gen.ts as written
+  const tables = (await import(join(REPO, "src/clippy_lints/lint_tables.gen.ts"))) as Any;
+  const groups = [...(tables.LINT_GROUPS as Map<string, string[]>)].map(([n, ms]): [string, string[]] => [n, ms.map((x) => x.replaceAll("_", "-"))]).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  r.eq("emitted LINT_GROUPS vs -W help", groups, ORACLE.groups);
+  const rows = tables.SUB_PASSES as { kind: string; field: string; ty: string; declared_in: string; lints: string[] }[];
+  for (const kind of ["early", "late"]) {
+    const strip = (t: string): string => t.replace(/<[^<>]*>$/, "");
+    r.eq(`emitted SUB_PASSES ${kind}`, rows.filter((x) => x.kind === kind).map((x) => [x.field, x.ty]), ORACLE.combined.get(kind)!.map(([f, t]) => [f, strip(t)]));
+  }
+  for (const x of rows) {
+    const o = ORACLE.passes.get(`${x.declared_in}#${x.ty.split("::").pop()}`);
+    r.eq(`emitted SUB_PASSES ${x.kind} ${x.field} lints`, x.lints, o === undefined ? undefined : o.lints.map((l) => `clippy::${l.toLowerCase()}`));
+  }
+  return `${nLints} lint statics, ${nPasses} lint passes, ${ORACLE.symValues.length} symbols, ${ORACLE.msrvs.length} msrvs, ${rows.length} sub-pass rows, ${groups.length} groups`;
+}
+
+// ---- 4. type-check the pending lib.gen.ts against stub hand modules ---------------------------------------------
 
 function checkPendingTsc(r: Report, g: GenerateResult): string {
   const root = join(WORK, "tsc");
-  rmSync(root, { recursive: true, force: true });
   const lib = g.outputs.find((o) => o.path.endsWith("clippy_lints/lib.gen.ts"))!;
   const missing = lib.needs.filter((n) => !existsSync(join(REPO, n)));
   // src/: the repo's crates symlinked, the clippy crates as real directories with the generated files linked in
@@ -634,6 +801,16 @@ function checkPendingTsc(r: Report, g: GenerateResult): string {
 
 async function main(): Promise<void> {
   requireUpstream();
+  const wi = process.argv.indexOf("--work");
+  if (wi >= 0) {
+    WORK = process.argv[wi + 1] ?? die("--work needs a directory");
+    if (existsSync(WORK) && readdirSync(WORK).length > 0) die(`--work ${WORK} is not empty; give a new or empty directory (nothing is deleted)`);
+    mkdirSync(WORK, { recursive: true });
+  } else {
+    mkdirSync(join(DATA, "tmp"), { recursive: true });
+    WORK = mkdtempSync(join(DATA, "tmp", "codegen-clippy-oracle-"));
+  }
+  SCRATCH = join(WORK, "s");
   const read: Read = (p) => readFileSync(join(UPSTREAM, p), "utf8");
   const { PREFILL } = await import("../../src/rustc_span/symbol.gen.ts");
   const g: GenerateResult = generateAll(read, lintFilesOf(), PREFILL);
@@ -641,20 +818,21 @@ async function main(): Promise<void> {
   const files = new Set(lintFilesOf());
   const lines: string[] = [];
   let bad = 0;
-  const run = (what: string, f: (r: Report) => string): void => {
+  const run = async (what: string, f: (r: Report) => string | Promise<string>): Promise<void> => {
     const r = new Report();
-    const summary = f(r);
+    const summary = await f(r);
     writeFileSync(join(WORK, `${what}.errors.txt`), r.errors.join("\n") + "\n");
     if (r.errors.length) bad++;
     lines.push(`${r.errors.length ? "ERROR: " : "ok "}${what}: ${summary}; ${r.checked} comparisons, ${r.errors.length} mismatches${r.errors.length ? ` (first: ${r.errors[0]!.slice(0, 200)})` : ""}`);
   };
-  run("expanded-lints", (r) => checkLints(r, x.lints, g, files));
-  run("expanded-combined", (r) => checkCombined(r, x.lints, g, read));
-  run("expanded-sym", (r) => checkSym(r, x.sym, g));
-  run("expanded-msrvs", (r) => checkMsrvs(r, x.msrvs, g));
-  run("expanded-conf", (r) => checkConf(r, x.conf, g));
-  run("w-help", (r) => checkWHelp(r, g));
-  run("tsc-pending", (r) => checkPendingTsc(r, g));
+  await run("expanded-lints", (r) => checkLints(r, x.lints, g, files));
+  await run("expanded-combined", (r) => checkCombined(r, x.lints, g, read));
+  await run("expanded-sym", (r) => checkSym(r, x.sym, g));
+  await run("expanded-msrvs", (r) => checkMsrvs(r, x.msrvs, g));
+  await run("expanded-conf", (r) => checkConf(r, x.conf, g));
+  await run("w-help", (r) => checkWHelp(r, g));
+  await run("emitted", (r) => checkEmitted(r, g));
+  await run("tsc-pending", (r) => checkPendingTsc(r, g));
   for (const l of lines) console.log(l);
   console.log(`details: ${WORK}`);
   if (bad) process.exit(1);

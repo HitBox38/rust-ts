@@ -765,8 +765,10 @@ const lower = (l: ClippyLint | undefined, name: string): string => {
  * The files implementing each pass: the file of its lint-pass macro and, when that file is a directory module
  * (`d/mod.rs`, or `d.rs` with a `d/` directory), every file under `d/` except subtrees owned by another pass (a file or
  * directory module with a lint-pass macro of its own). Shared files of a directory with several passes go to each of
- * them. PORT: this follows the module tree, not calls: a pass that calls into another module's functions (other than
- * clippy_utils) counts only its own tree; such helper modules are listed in `unowned_files`.
+ * them. `buildTables` then adds files holding an `impl` of the pass type and, transitively, every file a pass file names
+ * (`modulePaths`). PORT: this follows paths, not calls, at file granularity (a named file counts whole, and so do the
+ * files it names); clippy_utils files are not listed (root decision "codegen-clippy-macros N4": clippy-ui-lane counts only
+ * after every clippy_utils lane has landed).
  */
 function subPassFiles(declaredIn: string, allFiles: readonly string[], passFiles: ReadonlySet<string>): string[] {
   const out = [declaredIn];
@@ -785,11 +787,27 @@ function subPassFiles(declaredIn: string, allFiles: readonly string[], passFiles
   return out;
 }
 
-/** The `crate::..` paths a file names (in `use` trees and expressions), as segment lists. */
-export function cratePaths(path: string, src: string): string[][] {
+/** The module path of a clippy_lints file (`methods/foo.rs` -> [methods, foo], `methods/mod.rs` -> [methods], lib.rs -> []). */
+export function moduleOf(path: string): string[] {
+  if (!path.startsWith(`${LINTS_SRC}/`)) throw new GenError(`ERROR: ${path}: not a clippy_lints file`);
+  const segs = path.slice(LINTS_SRC.length + 1).replace(/\.rs$/, "").split("/");
+  if (segs[segs.length - 1] === "mod" || (segs.length === 1 && segs[0] === "lib")) segs.pop();
+  return segs;
+}
+
+/**
+ * The paths into clippy_lints a file names, in `use` trees (re-exports included) and expressions, as absolute module
+ * segment lists: `crate::a::b`, `super::a` (repeatable; from a top-level file it is the crate root), `self::a`, and paths
+ * starting with a child module the file declares (`mod a;` then `a::f()` or `pub use a::X`). Globs (`use super::*`) name
+ * the module itself.
+ */
+export function modulePaths(path: string, src: string): string[][] {
   const toks = lex(src).filter((t) => !isComment(t));
+  const here = moduleOf(path);
+  const children = new Set<string>();
+  for (let i = 0; i + 2 < toks.length; i++) if (toks[i]!.text === "mod" && toks[i + 1]!.kind.$ === "Ident" && toks[i + 2]!.text === ";") children.add(toks[i + 1]!.text);
   const out: string[][] = [];
-  // use-tree after `crate ::`: `a::b::c` | `a::{tree, ..}` | `{tree, ..}` | `*`
+  // use-tree after `<root> ::`: `a::b::c` | `a::{tree, ..}` | `{tree, ..}` | `*` | `self`
   const tree = (i: number, prefix: string[]): number => {
     const t = toks[i];
     if (t === undefined) return i;
@@ -811,20 +829,36 @@ export function cratePaths(path: string, src: string): string[][] {
       }
       return j + 1;
     }
-    if (t.kind.$ !== "Ident") {
-      if (prefix.length) out.push(prefix);
-      return t.text === "*" ? i + 1 : i;
+    if (t.kind.$ !== "Ident" || t.text === "self") {
+      out.push(prefix);
+      return t.text === "*" || t.text === "self" ? i + 1 : i;
     }
     const segs = [...prefix, t.text];
     if (toks[i + 1]?.text === ":" && toks[i + 2]?.text === ":") return tree(i + 3, segs);
     out.push(segs);
     return i + 1;
   };
+  const pathStart = (i: number): boolean => {
+    // not a later segment of another path (`a::crate` cannot occur; `x::child` is not a child path), not `$crate`
+    const p = toks[i - 1]?.text;
+    return p !== ":" && p !== "$" && p !== ".";
+  };
   for (let i = 0; i + 2 < toks.length; i++) {
-    if (toks[i]!.text === "crate" && toks[i + 1]!.text === ":" && toks[i + 2]!.text === ":" && toks[i - 1]?.text !== "$" && toks[i - 1]?.text !== "pub" && toks[i - 1]?.text !== "(") tree(i + 3, []);
+    const t = toks[i]!;
+    if (!(toks[i + 1]!.text === ":" && toks[i + 2]!.text === ":") || !pathStart(i)) continue;
+    if (t.text === "crate") tree(i + 3, []);
+    else if (t.text === "self") tree(i + 3, here);
+    else if (t.text === "super") {
+      let base = here.slice(0, -1);
+      let j = i + 3;
+      while (toks[j]?.text === "super" && toks[j + 1]?.text === ":" && toks[j + 2]?.text === ":") {
+        base = base.slice(0, -1);
+        j += 3;
+      }
+      tree(j, base);
+    } else if (children.has(t.text)) tree(i, here);
   }
-  void path;
-  return out;
+  return out.filter((segs) => segs.length > 0); // the crate root (lib.rs) is excluded
 }
 
 /** Self-type names of the `impl` blocks of a file (`impl<'tcx> Foo<'tcx>`, `impl LateLintPass<'_> for Foo`). */
@@ -889,13 +923,13 @@ export function buildTables(
       files: subPassFiles(file, allFiles, passFiles),
     });
   };
-  // `crate::a::b..` references: the longest prefix that is a module file (clippy_lints's own items; lib.rs excluded).
+  // `crate::`/`super::`/`self::`/child-module references: the longest prefix that is a module file (lib.rs excluded).
   const refsOf = new Map<string, string[]>();
   const refs = (f: string): string[] => {
     let r = refsOf.get(f);
     if (r === undefined) {
       const set = new Set<string>();
-      for (const segs of cratePaths(f, read(f))) {
+      for (const segs of modulePaths(f, read(f))) {
         for (let k = segs.length; k >= 1; k--) {
           const base = `${LINTS_SRC}/${segs.slice(0, k).join("/")}`;
           const hit = fileSet.has(`${base}.rs`) ? `${base}.rs` : fileSet.has(`${base}/mod.rs`) ? `${base}/mod.rs` : undefined;
@@ -925,7 +959,7 @@ export function buildTables(
     for (const n of new Set(implSelfTypes(read(f)))) {
       for (const r of rowsByTy.get(n) ?? []) {
         // a same-named type in another module is a different type unless the file names this pass's module
-        if (rowsByTy.get(n)!.length > 1 && !cratePaths(f, read(f)).some((segs) => segs.join("::") === r.ty)) continue;
+        if (rowsByTy.get(n)!.length > 1 && !modulePaths(f, read(f)).some((segs) => segs.join("::") === r.ty)) continue;
         if (!r.files.includes(f)) r.files.push(f);
       }
     }
@@ -1036,8 +1070,11 @@ export function emitTables(t: Tables): string {
   L.push(`// GENERATED by tools/codegen/clippy.ts from ${LINTS_LIB_PATH}, ${DECLARED_LINTS_PATH}, the lint-pass macros and ${DCL_PATH} @ ${PIN.commit.slice(0, 12)}. Do not edit.`);
   L.push("// plan-m8 §2d's tables for the clippy-ui-lane harness: sub-pass <-> lints <-> implementing files, and lint group <-> members.");
   L.push("// Not a port of an upstream file. Lints are `clippy::<name>` in lower case; files are upstream paths (`coverage.ts --missing`).");
-  L.push("// `files`: the pass's own module tree (tools/codegen/clippy.ts `subPassFiles`); `UNOWNED_FILES`: clippy_lints files in no");
-  L.push("// pass's tree (helpers a pass may call; not counted in any pass).");
+  L.push("// `files`: the pass's own module tree, files with an `impl` of the pass type, and transitively every clippy_lints file");
+  L.push("// they name by path (`crate::`, `super::`, `self::`, child modules, re-exports; tools/codegen/clippy.ts `subPassFiles`,");
+  L.push("// `modulePaths`), whole files: it may over-include; it misses only code reached without a path (a trait impl in a file the");
+  L.push("// pass never names). No clippy_utils files (root decision");
+  L.push("// \"codegen-clippy-macros N4\"). A lint can be in several passes (`arithmetic_side_effects`). `UNOWNED_FILES`: in no pass.");
   L.push("");
   L.push("export interface ClippySubPass {");
   L.push('  readonly kind: "pre-expansion" | "early" | "late";');

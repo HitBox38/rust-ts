@@ -14,13 +14,13 @@ import {
   LINTS_SRC,
   SYM_PATH,
   clippyCtx,
-  cratePaths,
   emitConf,
   emitModule,
   emitSym,
   generateAll,
   implSelfTypes,
   lintFilesOf,
+  modulePaths,
   parseConf,
   parseModule,
   parseMsrvs,
@@ -84,7 +84,21 @@ test.skipIf(SKIP)("implementing files: module tree, impls of the pass type elsew
   expect(row("ClonedRefToSliceRefs").files).toContain(`${LINTS_SRC}/matches/manual_filter.rs`);
   // naming only another module's lint static does not tie the files (question_mark.rs: `use crate::question_mark_used::QUESTION_MARK_USED`)
   expect(row("QuestionMark").files).not.toContain(`${LINTS_SRC}/question_mark_used.rs`);
-  expect(cratePaths("x.rs", "use crate::{a::{b, c as d}, e::*};\nfn f() { crate::g::h(); }")).toEqual([["a", "b"], ["a", "c"], ["e"], ["g", "h"]]);
+  // super:: paths (review N1): needless_pass_by_ref_mut.rs `use super::needless_pass_by_value::requires_exact_signature`
+  expect(row("NeedlessPassByRefMut").files).toEqual([`${LINTS_SRC}/needless_pass_by_ref_mut.rs`, `${LINTS_SRC}/needless_pass_by_value.rs`]);
+  // matches/manual_filter.rs (pulled in from methods/mod.rs) `use super::manual_utils::{SomeExpr, check_with}`
+  expect(row("Methods").files).toContain(`${LINTS_SRC}/matches/manual_utils.rs`);
+  expect(row("ClonedRefToSliceRefs").files).toContain(`${LINTS_SRC}/matches/manual_utils.rs`);
+  // a file named from outside its tree counts whole, with the child modules it calls (methods/mod.rs -> methods/*)
+  expect(row("ClonedRefToSliceRefs").files).toContain(`${LINTS_SRC}/methods/bind_instead_of_map.rs`);
+  const p = (file: string, src: string): string[] => modulePaths(`${LINTS_SRC}/${file}`, src).map((x) => x.join("::"));
+  expect(p("x.rs", "use crate::{a::{b, c as d}, e::*};\nfn f() { crate::g::h(); }")).toEqual(["a::b", "a::c", "e", "g::h"]);
+  expect(p("d/x.rs", "use super::y::f;\nuse super::*;\nuse self::z::W;\nfn g() { super::super::top::h(); }")).toEqual(["d::y::f", "d", "d::x::z::W", "top::h"]);
+  // from a top-level file, `super` is the crate root: `super::LINT` is an item of lib.rs (no module file, so no file is
+  // added) and a bare `super::*` is lib.rs itself (excluded)
+  expect(p("x.rs", "use super::LINT;\nuse super::m::f;\nuse super::*;")).toEqual(["LINT", "m::f"]);
+  // child modules: `mod c;` then `c::f()` and `pub use c::X` (a re-export); not `other::c::f` or `$crate::c`
+  expect(p("d/mod.rs", "mod c;\npub use c::X;\nfn g() { c::f(); other::c::f(); x.c::<u8>(); }")).toEqual(["d::c::X", "d::c::f"]);
   expect(implSelfTypes("impl<'tcx> LateLintPass<'tcx> for Foo<'_> {}\nimpl Bar { }\nimpl<T: X<Y>> Baz<T> where T: Z {}")).toEqual(["Foo", "Bar", "Baz"]);
 });
 

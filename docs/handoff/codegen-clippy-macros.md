@@ -13,16 +13,30 @@ Two parts are not emitted yet:
   the 360 hand modules that the contract lanes create, so it is written once they exist. It type-checks against stubs.
 - **`define_Conf!`:** only its dispatch-free half is generated (below).
 
+**Review fixes (`docs/reviews/codegen-clippy-macros.md`, PASS WITH NOTES).** These are in the second commit; details in each
+section below.
+- **N1:** the file table follows every path form, not only `crate::`. Three passes gained files; see "§2d's tables".
+- **N2:** the oracle check now rebuilds every line of the combined passes' TS from the expansion and compares it exactly: each
+  constructor, the `is_active` guards, each call's trait method, the `!== undefined` guards and the arguments. The reviewer's
+  mutation (late `check_item` calling `check_item_post`) is now caught.
+- **N3:** a new `emitted` check imports the written files and compares their values with what was read from the oracle.
+- **N7:** each oracle run gets its own new scratch directory, or `--work <dir>`, which must be new or empty. Nothing is deleted.
+- **Root's decisions on N4, N5 and N6:** recorded in `docs/state/history.jsonl` and not changed here. The table's header
+  comment now cites N4 (no clippy_utils files) and N6 (a lint can be in several passes).
+
 ## Files touched
 
 Generator (all new, except `lints.ts`):
 - `tools/codegen/clippy.ts`: the generator. `bun tools/codegen/clippy.ts` writes, `--check` reports stale files, and
   `--pending-out <dir>` also writes the pending files elsewhere. Every macro_rules body it implements is fingerprinted (18 of
   them, as `lints.ts` does), so an upstream change stops it with an `ERROR:`.
-- `tools/codegen/clippy-oracle.ts`: the oracle check, about 10 s and run by hand (not a unit test; it runs the oracle rustc
-  and clippy-driver). One summary line per check; details under `$RUST_TS_DATA/tmp/codegen-clippy-macros/` (11 MB).
+- `tools/codegen/clippy-oracle.ts`: the oracle check, about 15 s and run by hand (not a unit test; it runs the oracle rustc
+  and clippy-driver). One summary line per check; details go to a new `$RUST_TS_DATA/tmp/codegen-clippy-oracle-XXXXXX/` per run
+  (about 15 MB; delete it when done), or to `--work <dir>`, which must not exist or be empty. It never deletes anything (N7).
 - `tools/codegen/clippy.test.ts`: unit tests, 8 tests in 0.67 s (D13: ≤ 10 s). They cover:
   - the committed outputs are up to date, and pending ones are absent;
+  - the file-table rows the review named, and `modulePaths` on `crate::`, `super::` (with `super::super::`), `self::`,
+    globs and child-module paths (N1);
   - the plan's counts;
   - the table rules;
   - synthetic invocations, both expanded and rejected;
@@ -75,19 +89,44 @@ harness-m8d to know. A pass's files are:
    module (when one `mod.rs` declares several passes, its shared files go to each of them);
 3. any file with an `impl` of the pass type (`manual_let_else.rs` holds `impl QuestionMark`; a same-named type in another
    module counts only if the file names the pass's path);
-4. transitively, every clippy_lints file a pass file names through `crate::…`. Naming only another module's lint static does
-   not count: that static is generated, so nothing there needs porting.
+4. transitively, every clippy_lints file a pass file names by path (`modulePaths`, review N1), in `use` trees, re-exports and
+   expressions. The forms are:
+   - `crate::…`;
+   - `super::…` (repeatable; from a top-level file it is the crate root, and lib.rs is excluded);
+   - `self::…`;
+   - globs (`use super::*` names the module);
+   - paths that start with a child module the file declares (`mod c;` then `c::f()` or `pub use c::X`).
 
-This follows modules and `crate::` paths, not calls, so it can over-include (a file that only names a type). Over-including
-delays a case's eligibility; it never makes a case eligible early. `super::super::` paths out of a pass's tree are not
-followed (clippy_lints has no `super::super::` path). Seven passes pull in files from outside their own tree:
+   The longest prefix that is a module file counts. Naming only another module's lint static does not count: that static is
+   generated, so nothing there needs porting.
+
+This works at file granularity: a named file counts whole, and so do the files it names. It can over-include, which only delays
+a case's eligibility. It misses only code reached without a path, such as a trait impl in a file the pass never names; I know of
+no such case. clippy_utils files are not listed; root's N4 decision makes `clippy-ui-lane` count only after every clippy_utils
+lane has landed.
+
+**Passes whose file sets changed with N1:**
+
+| Pass (late) | Files | Added | Why |
+|---|---|---|---|
+| `NeedlessPassByRefMut` | 1 → 2 | `needless_pass_by_value.rs` | `needless_pass_by_ref_mut.rs:1` `use super::needless_pass_by_value::requires_exact_signature` |
+| `Methods` | 163 → 164 | `matches/manual_utils.rs` | `matches/manual_filter.rs:14` `use super::manual_utils::{SomeExpr, check_with}` |
+| `ClonedRefToSliceRefs` | 3 → 165 | `matches/manual_utils.rs`, and the 161 child files of `methods/` | the `super::` path above, and `methods/mod.rs` (named for `is_clone_like`) calls its child modules by path (`bind_instead_of_map::check(..)`); at file granularity that is the whole `methods/` tree |
+
+No other row changed, `UNOWNED_FILES` is unchanged, and no row lost a file. `ClonedRefToSliceRefs` now becomes eligible only with
+the whole `methods/` tree, as `Methods` does. That over-includes: `is_clone_like` itself calls none of those children. But only
+call-level reachability could exclude them, and §8 already orders the methods lanes together. clippy_lints still has no
+`super::super::` path.
+
+Passes that pull in files from outside their own tree (now eight, with `NeedlessPassByRefMut`):
+- NeedlessPassByRefMut: `needless_pass_by_value.rs`
 - AwaitHolding: `disallowed_types.rs`
 - Matches: `collapsible_if.rs`
-- Methods: `matches/manual_filter.rs`
+- Methods: `matches/manual_filter.rs`, `matches/manual_utils.rs`
 - QuestionMark: `manual_let_else.rs`
 - Unwrap: `methods/obfuscated_if_else.rs`
 - DisallowedMacros: `utils/attr_collector.rs`
-- ClonedRefToSliceRefs: `methods/mod.rs` and `matches/manual_filter.rs`
+- ClonedRefToSliceRefs: `methods/mod.rs` and its child modules, `matches/manual_filter.rs`, `matches/manual_utils.rs`
 
 ## Oracle checks (`bun tools/codegen/clippy-oracle.ts`)
 
@@ -112,7 +151,8 @@ dependencies; the blanked expansion needs no dependency.
 | lint statics: every explicit field (`name`, `default_level`, `desc`, `report_in_external_macro`, `is_externally_loaded`, `crate_level_only`, `edition_lint_opts`, `future_incompatible`, `eval_always`); the rest is `default_fields_for_macro` on both sides | 835/835 equal |
 | `_INFO` statics (`lint`, `category`, `explanation`, `location`, `version`) | 835/835 equal |
 | lint passes: kind, `get_lints` list and `lint_vec` list, per module and type | 365/365 equal |
-| combined passes: fields and types in order; `new`'s parameters and every ctor (with `is_active(&<T>::lint_vec()).then(..)` for late); `get_lints`; every `check_*` method's name and parameters and the field calls in order. The generated TS's methods are compared with the oracle's too | 0 mismatches (12 comparisons over 367 fields and 63 methods) |
+| combined passes, Rust side: fields and types in order; `new`'s parameters and every ctor (with `is_active(&<T>::lint_vec()).then(..)` for late); `get_lints`; every `check_*` method's name and parameters and the field calls in order | 0 mismatches |
+| combined passes, TS side (review N2): every `static new` line, so each ctor's form (`new T()`, `T.default()`, `T.new(args)` with its arguments in order) and each late field's `is_active(<T>.lint_vec()) ? … : undefined` guard; and every `check_*` call line, so the trait method called, the field, the late `!== undefined` guard and the arguments. Each expected line is rebuilt from the expansion by `oracleCtorTs`, a translation written separately from the generator's `ctorTs`/`modNs` so that a slip in those is caught | 0 mismatches (16 comparisons over 367 fields and 63 methods) |
 | `EXTRA_SYMBOLS` and the 619 `Symbol::new(PREDEFINED_SYMBOLS_COUNT + i)` | equal |
 | 146 msrv aliases | equal |
 | `ConfField` variants, `NAMES`, `FIELDS`, `SUGG_NAMES`, `parse` arms (and the same tables in `conf.gen.ts`) | equal |
@@ -121,11 +161,37 @@ dependencies; the blanked expansion needs no dependency.
 checked against the pin. All 835 lints' name, default level and description are equal. All 10 groups' members are equal, in
 order.
 
-**3. Type-check of the pending `lib.gen.ts`**: the scratch `src/` links the repo's crates, and generated stubs stand in for the
+**3. The emitted files (review N3), 3,245 comparisons, 0 mismatches.** Every written `.lints.gen.ts`, `sym.gen.ts`, `msrvs.gen.ts`
+and `lint_tables.gen.ts` is imported, and its values are compared with what checks 1 and 2 read from the oracle, not with the
+generator's model:
+- each `Lint` object, field by field: the expansion's explicit fields, and `default_fields_for_macro` for the rest;
+- each `_INFO` object, including that `lint` is the same object;
+- each pass's `name()`, `get_lints()` and `lint_vec()`, for a class or for `<T>_impl_lint_pass`;
+- `EXTRA_SYMBOLS`, and each symbol const as `PREDEFINED_SYMBOLS_COUNT + i` (plus its `sym` table entry);
+- each `RustcVersion`'s three numbers;
+- `SUB_PASSES`' early and late rows (field and type, in order), and every row's lints against the oracle's lint-pass impls;
+- `LINT_GROUPS` against `-W help`.
+
+`conf.gen.ts`'s tables were already compared as emitted text.
+
+**4. Type-check of the pending `lib.gen.ts`**: the scratch `src/` links the repo's crates, and generated stubs stand in for the
 360 hand modules. Result: no errors in the clippy files.
 
-**Mutation check:** an off-by-one `line!()` and two swapped late fields, injected into the model, gave 835 and 5 mismatches;
-reverted.
+**Mutation checks.** In the first round, an off-by-one `line!()` and two swapped late fields, injected into the model, gave 835
+and 5 mismatches. For the review, each mutation below was put into the generator alone, the files were regenerated, the check
+was run, and the generator was restored (`--check` up to date afterwards). The clean run fails no check. Each mutation fails
+exactly one:
+
+| Mutation | Failing check (mismatches) |
+|---|---|
+| late `check_item` calls `LateLintPass_provided.check_item_post` (the reviewer's, N2) | `expanded-combined` (1: `CombinedLateLintPass TS call lines`) |
+| one late field's `!== undefined` guard dropped (`Author`) | `expanded-combined` (2) |
+| `DumpHir` built with `.default()` instead of `new DumpHir()` | `expanded-combined` (1: `TS new`) |
+| one late field's `is_active` guard naming the next field's type | `expanded-combined` (1: `TS new`) |
+| one symbol's index + 1 in `sym.gen.ts` | `emitted` (1) |
+| `LET_CHAINS`'s minor and patch swapped in `msrvs.gen.ts` | `emitted` (1) |
+| `NEEDLESS_RETURN`'s `desc` changed in its `.lints.gen.ts` text only | `emitted` (1) |
+| one lint dropped from the `Casts` row of `lint_tables.gen.ts` | `emitted` (1) |
 
 ## Pending: `src/clippy_lints/lib.gen.ts` (decision for root to record)
 
@@ -206,4 +272,4 @@ No `unported(...)` calls were added (generated code only).
 - **Environment.** The worktree had no `.env.local` and no `node_modules`; I copied the former and symlinked the latter from
   the main checkout. Both are gitignored. `bunx tsc --noEmit -p .` passes.
 - **Disk.** The generated files total 3.2 MB, mostly the lint docs, which are kept both as `///` comments (PORTING §2) and as
-  the `explanation` string. Scratch under `$RUST_TS_DATA/tmp/codegen-clippy-macros/` is 11 MB and can be deleted.
+  the `explanation` string. I deleted my oracle runs' scratch directories; none is left.
