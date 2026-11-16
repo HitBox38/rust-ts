@@ -1,0 +1,77 @@
+warning: redundant field names in struct initialization
+  --> case.rs:27:17
+   |
+27 |     let s = S { x: x };
+   |                 ^^^^ help: replace it with: `x`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#redundant_field_names
+   = note: `#[warn(clippy::redundant_field_names)]` on by default
+
+warning: this looks like you are trying to use `.. -= ..`, but you really are doing `.. = (- ..)`
+  --> case.rs:29:6
+   |
+29 |     a =- 1;
+   |      ^^^^
+   |
+   = note: to remove this lint, use either `-=` or `= -`
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#suspicious_assignment_formatting
+   = note: `#[warn(clippy::suspicious_assignment_formatting)]` on by default
+
+warning: re-implementing `PartialEq::ne` is unnecessary
+  --> case.rs:13:5
+   |
+13 |     fn ne(&self, _: &P) -> bool {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#partialeq_ne_impl
+   = note: `#[warn(clippy::partialeq_ne_impl)]` on by default
+
+warning: field assignment outside of initializer for an instance created with Default::default()
+  --> case.rs:33:5
+   |
+33 |     d.a = 1;
+   |     ^^^^^^^^
+   |
+note: consider initializing the variable with `D { a: 1, ..Default::default() }` and removing relevant reassignments
+  --> case.rs:32:5
+   |
+32 |     let mut d = D::default();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#field_reassign_with_default
+   = note: `#[warn(clippy::field_reassign_with_default)]` on by default
+
+error: approximate value of `f{32, 64}::consts::PI` found
+  --> case.rs:25:14
+   |
+25 |     let pi = 3.14159;
+   |              ^^^^^^^
+   |
+   = help: consider using the constant directly
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#approx_constant
+   = note: `#[deny(clippy::approx_constant)]` on by default
+
+warning: redundant redefinition of a binding `y`
+  --> case.rs:31:5
+   |
+31 |     let y = y;
+   |     ^^^^^^^^^^
+   |
+help: `y` is initially defined here
+  --> case.rs:30:9
+   |
+30 |     let y = 1;
+   |         ^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#redundant_locals
+   = note: `#[warn(clippy::redundant_locals)]` on by default
+
+warning: assignment to temporary
+  --> case.rs:34:5
+   |
+34 |     (0, 1).0 = 2;
+   |     ^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#temporary_assignment
+   = note: `#[warn(clippy::temporary_assignment)]` on by default
+
+error: aborting due to 1 previous error; 6 warnings emitted
+

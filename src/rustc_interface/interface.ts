@@ -8,6 +8,7 @@ import { type Input, LinkerJobs, type OutFileName, Options_impl, UnstableOptions
 import { type Options, str_cmp } from "../rustc_session/options.ts";
 import { EarlyDiagCtxt, type EarlySession, type Session, build_early_session, build_session } from "../rustc_session/session.ts";
 import * as rustc_lint from "../rustc_lint/lib.ts";
+import type { LintStore } from "../rustc_lint/lib.ts";
 import { drop_compiler_dcx } from "../rust_ts/driver.ts";
 import { ast, token } from "../rustc_ast/lib.ts";
 import { meta_list_item_to_string } from "../rustc_ast_pretty/pprust/mod.ts";
@@ -332,14 +333,14 @@ export interface Config {
   /// This is a callback to track otherwise untracked state used by the caller.
   ///
   /// You can write to `sess.env_depinfo` and `sess.file_depinfo` to track env vars and files.
-  track_state: undefined;
+  track_state: ((sess: Session) => void) | undefined;
 
   /// This is a callback from the driver that is called when we're registering lints;
   /// it is called during lint loading when we have the LintStore in a non-shared state.
   ///
   /// Note that if you find a Some here you probably want to call that function in the new
   /// function being registered.
-  register_lints: undefined;
+  register_lints: ((sess: Session, lint_store: LintStore) => void) | undefined;
 
   /// This is a callback from the driver that is called just after we have populated
   /// the list of queries.
@@ -362,9 +363,9 @@ export interface Config {
   /// internal features are wontfix, and they are usually the cause of the ICEs.
   using_internal_features: { value: boolean };
 }
-// PORT: the `Some` arms of `psess_created`, `track_state` and `register_lints` are not ported (the driver passes
-// `None`). `file_loader`, `override_queries` and `make_codegen_backend` are ported (Miri's driver sets the last one,
-// bin/miri.rs:129).
+// PORT: the `Some` arm of `psess_created` is not ported (no driver sets it; the field is typed `undefined`).
+// `track_state` and `register_lints` are ported (clippy-driver sets both, src/tools/clippy/src/driver.rs). `file_loader`,
+// `override_queries` and `make_codegen_backend` are ported (Miri's driver sets the last one, bin/miri.rs:129).
 
 /** Whether `e` is an unwind payload (`Panic`/`FatalErrorMarker`), i.e. what `catch_unwind` catches. */
 function is_unwind(e: unknown): boolean {
@@ -475,13 +476,21 @@ export function run_compiler<R>(config: Config, f: (compiler: Compiler) => R): R
 
         sess.check_config = parse_check_cfg(sess, config.crate_check_cfg);
 
-        // `psess_created` / `track_state` are `None` (driver).
+        // `if let Some(psess_created) = config.psess_created`: always `None` (see `Config`).
+
+        if (config.track_state !== undefined) {
+          const track_state = config.track_state;
+          track_state(sess);
+        }
 
         // Even though the session holds the lint store, we can't build the
         // lint store until after the session exists. And we wait until now
         // so that `register_lints` sees the fully initialized session.
         const lint_store = rustc_lint.new_lint_store(sess.enable_internal_lints());
-        // `if let Some(register_lints) = config.register_lints` (always `None` for the driver, see `Config`)
+        if (config.register_lints !== undefined) {
+          const register_lints = config.register_lints;
+          register_lints(sess, lint_store);
+        }
         sess.lint_store = lint_store;
 
         util.check_abi_required_features(sess);
