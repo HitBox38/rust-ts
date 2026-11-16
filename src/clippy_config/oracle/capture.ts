@@ -7,7 +7,7 @@
 //   (`ConfField::SUGG_NAMES`), `SourceItemOrderingModuleItemKind`'s 17 names and `InherentImplLintScope`'s 3;
 // - `suggestions`: the "did you mean" of an unknown field name or a bad enum value (`find_closest_match`), or null;
 // - `explain`: `cargo-clippy --explain <lint>` stdout (`sanitize_explanation` and `ConfMetadata`'s `Display`).
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, die } from "../../../scripts/lib/common.ts";
 
@@ -26,7 +26,9 @@ function clippyBin(name: string): string {
 const env0 = { ...process.env, RUSTUP_AUTO_INSTALL: "0" };
 const sysroot = Bun.spawnSync(["rustc", `+${PIN.toolchain}`, "--print", "sysroot"], { env: env0 }).stdout.toString().trim();
 const env = { ...env0, DYLD_LIBRARY_PATH: join(sysroot, "lib") };
+// a new scratch directory per run, removed at the end (also on an error: `die` exits, so `process.on("exit")`)
 const work = mkdtempSync(join(DATA, "tmp", "clippy-config-oracle-"));
+process.on("exit", () => rmSync(work, { recursive: true, force: true }));
 writeFileSync(join(work, "a.rs"), "fn main() {}\n");
 
 interface JsonDiag {
@@ -145,4 +147,4 @@ for (const lint of EXPLAIN) {
 
 const out = join(import.meta.dir, "de.oracle.json");
 writeFileSync(out, JSON.stringify({ commit: PIN.commit, value_lists, suggestions, explain }, null, 1) + "\n");
-console.log(`wrote ${out}: ${value_lists.length} value lists, ${suggestions.length} suggestions, ${explain.length} explanations (scratch: ${work})`);
+console.log(`wrote ${out}: ${value_lists.length} value lists, ${suggestions.length} suggestions, ${explain.length} explanations`);

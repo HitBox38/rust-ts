@@ -16,7 +16,7 @@ import { os_string_into_string, var_, var_os } from "../std/env.ts";
 import { canonicalize, metadata } from "../std/fs.ts";
 import { IoError_kind, display_IoError } from "../std/io.ts";
 import { path_join, path_parent } from "../std/path.ts";
-import { unported } from "../std/panic.ts";
+import { panic, unported } from "../std/panic.ts";
 import { str_lines } from "../std/str.ts";
 
 // #[rustfmt::skip]
@@ -71,15 +71,25 @@ export const DEFAULT_IGNORE_INTERIOR_MUTABILITY: readonly string[] = ["bytes::By
 // as an object literal). codegen-clippy-conf declares its fields in conf.gen.ts by augmenting this interface
 // (`declare module "./conf.ts" { interface Conf { .. } }`); `msrv` (conf.rs:731, `Option<RustcVersion>`) is declared
 // here too because `load_inner` below reads and writes it. Its associated fns live on the companion const: `load` and
-// `load_inner` are ported here; `default` (`impl Default for Conf`), `get_metadata` and `deserialize` come from the
+// `load_inner` are ported in this file; `default` (`impl Default for Conf`), `get_metadata` and `deserialize` come from the
 // macro and are assigned by conf.gen.ts when codegen-clippy-conf writes them (lib.ts imports conf.gen.ts after this
 // module), so until then they stop.
 export interface Conf {
   msrv: RustcVersion | undefined;
 }
 
-let CONF: Conf | undefined;
+/** The associated fns of `Conf`, on its companion const. */
+interface ConfFns {
+  default(): Conf;
+  get_metadata(): ConfMetadata[];
+  deserialize(dcx: DiagCtxt, table: DeTable): Conf;
+  load(sess: Session): Conf;
+  load_inner(sess: Session): Conf;
+}
 
+// PORT: `impl Conf { load, load_inner }` (conf.rs:934) follows `sanitize_explanation` and `load_conf_file` upstream, so
+// those two fns are assigned to the companion at that place below (as conf.gen.ts assigns the macro's fns); the
+// companion is complete once this module has run, before any caller can reach it.
 export const Conf = {
   /** `<Conf as Default>::default` (conf.rs:122, define_Conf!) */
   default: (): Conf => unported("codegen-clippy-conf: <Conf as Default>::default (define_Conf!)"),
@@ -87,54 +97,7 @@ export const Conf = {
   get_metadata: (): ConfMetadata[] => unported("codegen-clippy-conf: Conf::get_metadata (define_Conf!)"),
   /** `Conf::deserialize` (conf.rs:146, define_Conf!) */
   deserialize: (_dcx: DiagCtxt, _table: DeTable): Conf => unported("codegen-clippy-conf: Conf::deserialize (define_Conf!)"),
-
-  // rustc: src/tools/clippy/clippy_config/src/conf.rs:935 load
-  load(sess: Session): Conf {
-    // static CONF: OnceLock<Conf> = OnceLock::new();
-    if (CONF === undefined) CONF = Conf.load_inner(sess);
-    return CONF;
-  },
-
-  // rustc: src/tools/clippy/clippy_config/src/conf.rs:940 load_inner
-  load_inner(sess: Session): Conf {
-    let conf: Conf;
-    const src_ = load_conf_file(sess);
-    if (src_ !== undefined) {
-      const dcx = DiagCtxt.new(sess, BytePos.to_usize(src_.start_pos));
-      const src = src_.src!;
-
-      const [toml, errs] = DeTable_.parse_recoverable(src.toString());
-      for (const e of errs) {
-        const sp = e.span();
-        if (sp !== undefined) {
-          dcx.span_err(sp, e.message());
-        } else {
-          dcx.inner.struct_err(`error parsing \`clippy.toml\`: ${e.message()}`).emit();
-        }
-      }
-      conf = Conf.deserialize(dcx, toml.get_ref());
-    } else {
-      conf = Conf.default();
-    }
-
-    const v = var_("CARGO_PKG_RUST_VERSION");
-    const cargo_msrv = v.$ === "Ok" ? parse_version(Symbol.intern(v._0)) : undefined;
-    if (conf.msrv === undefined && cargo_msrv !== undefined) {
-      conf.msrv = cargo_msrv;
-    } else if (conf.msrv !== undefined && cargo_msrv !== undefined) {
-      const clippy_msrv = conf.msrv;
-      if (!RustcVersion_eq(clippy_msrv, cargo_msrv)) {
-        sess
-          .dcx()
-          .warn(`the MSRV in \`clippy.toml\` and \`Cargo.toml\` differ; using \`${display_RustcVersion(clippy_msrv)}\` from \`clippy.toml\``);
-      }
-    } else {
-      // (_, None) => {}
-    }
-
-    return conf;
-  },
-};
+} as ConfFns;
 
 // Remove code tags and code behind '# 's, as they are not needed for the lint docs and --explain
 // rustc: src/tools/clippy/clippy_config/src/conf.rs:836 sanitize_explanation
@@ -249,5 +212,59 @@ function load_conf_file(sess: Session): SourceFile | undefined {
     current = parent;
   }
 }
+
+// impl Conf {
+let CONF: Conf | undefined;
+
+// rustc: src/tools/clippy/clippy_config/src/conf.rs:935 load
+Conf.load = function (sess: Session): Conf {
+  // static CONF: OnceLock<Conf> = OnceLock::new();
+  if (CONF === undefined) CONF = Conf.load_inner(sess);
+  return CONF;
+};
+
+// rustc: src/tools/clippy/clippy_config/src/conf.rs:940 load_inner
+Conf.load_inner = function (sess: Session): Conf {
+  let conf: Conf;
+  const src_ = load_conf_file(sess);
+  if (src_ !== undefined) {
+    const dcx = DiagCtxt.new(sess, BytePos.to_usize(src_.start_pos));
+    // `src.src.as_ref().unwrap()`
+    const src = src_.src;
+    if (src === undefined) panic("called `Option::unwrap()` on a `None` value");
+
+    const [toml, errs] = DeTable_.parse_recoverable(src);
+    for (const e of errs) {
+      const sp = e.span();
+      if (sp !== undefined) {
+        dcx.span_err(sp, e.message());
+      } else {
+        dcx.inner.struct_err(`error parsing \`clippy.toml\`: ${e.message()}`).emit();
+      }
+    }
+    conf = Conf.deserialize(dcx, toml.get_ref());
+  } else {
+    conf = Conf.default();
+  }
+
+  const v = var_("CARGO_PKG_RUST_VERSION");
+  const cargo_msrv = v.$ === "Ok" ? parse_version(Symbol.intern(v._0)) : undefined;
+  if (conf.msrv === undefined && cargo_msrv !== undefined) {
+    conf.msrv = cargo_msrv;
+  } else if (conf.msrv !== undefined && cargo_msrv !== undefined) {
+    const clippy_msrv = conf.msrv;
+    if (!RustcVersion_eq(clippy_msrv, cargo_msrv)) {
+      sess
+        .dcx()
+        .warn(`the MSRV in \`clippy.toml\` and \`Cargo.toml\` differ; using \`${display_RustcVersion(clippy_msrv)}\` from \`clippy.toml\``);
+    }
+  } else {
+    // (_, None) => {}
+  }
+
+  return conf;
+};
+
+// }
 
 // rustc-skip: src/tools/clippy/clippy_config/src/conf.rs:988 configs_are_tested #[cfg(test)]: parses every tests/**/clippy.toml through toml's DeTable::parse and walkdir, so it waits for vendor-toml (wave 42); conf.test.ts has the TOML-free checks

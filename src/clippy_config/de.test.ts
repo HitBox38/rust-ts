@@ -73,6 +73,15 @@ test("create_value_list_msg edge cases", () => {
   expect(create_value_list_msg({ width: 40, render_pretty: true }, ["ab", "cd"])).toBe("possible values: `ab`, `cd`");
   expect(create_value_list_msg({ width: 35, render_pretty: true }, ["ab", "cd"])).toBe("possible values:\nab\ncd");
   expect(create_value_list_msg({ width: 35, render_pretty: false }, ["ab", "cd"])).toBe("possible values:\nab\ncd");
+  // the one-line form takes at most 8 values (`values.len() <= 8`): 28 + 8 * (1 + 2 + 2) = 68 fits a width of 68
+  const eight = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  expect(create_value_list_msg({ width: 68, render_pretty: true }, eight)).toBe(
+    "possible values: `a`, `b`, `c`, `d`, `e`, `f`, `g`, `h`",
+  );
+  expect(create_value_list_msg({ width: 67, render_pretty: false }, eight)).toBe("possible values:\na\nb\nc\nd\ne\nf\ng\nh");
+  expect(create_value_list_msg({ width: 500, render_pretty: false }, [...eight, "i"])).toBe(
+    "possible values:\na\nb\nc\nd\ne\nf\ng\nh\ni",
+  );
   // nine short values: a third column would save only 2 rows (`needed_rows + 3 <= row_count` fails), so two columns;
   // no trailing spaces on the right edge
   const nine = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];

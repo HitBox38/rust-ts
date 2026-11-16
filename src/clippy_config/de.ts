@@ -21,7 +21,8 @@ import { Symbol } from "../rustc_span/symbol.ts";
 import { debug_str } from "../std/fmt.ts";
 import { u16_from_str, u32_from_str, u64_from_str, u8_from_str } from "../std/num.ts";
 import { unported } from "../std/panic.ts";
-import { utf8_len } from "../std/str.ts";
+import { type Result } from "../std/result.ts";
+import { type Str, utf8_len } from "../std/str.ts";
 
 // ---- toml 1.1.0 (vendor-toml, plan-m8 §8 wave 42) ------------------------------------------------------------------
 // PORT: vendor-toml is not ported yet, and this lane may not create it. These are the items of `toml 1.1.0+spec-1.1.0`
@@ -29,8 +30,14 @@ import { utf8_len } from "../std/str.ts";
 // them: structs are objects with their methods (`Spanned::{get_ref, span, as_ref}`, `DeInteger::{as_str, radix}`,
 // `DeFloat::as_str`, toml's `Map::{iter, get_key_value}`, `de::Error::{span, message}`), `DeArray`'s `Deref<Target =
 // [Spanned<DeValue>]>` is its `items` field, and the `DeValue` enum is a `$`-tagged union whose methods live on its
-// companion const. The companion's methods and `DeTable::parse_recoverable` call `unported` until vendor-toml lands; then
-// this block becomes imports from src/vendor/toml/ (D4). Nothing here parses TOML. `Range<usize>` is `{ start, end }`.
+// companion const. The companion's methods and `DeTable::{parse, parse_recoverable}` call `unported` until vendor-toml
+// lands; then this block becomes imports from src/vendor/toml/ (D4). Nothing here parses TOML. `Range<usize>` is
+// `{ start, end }`.
+// PORT: the parsers' input is the document's source text, and every `span()` is a UTF-8 byte range into it that
+// `DiagCtxt::make_sp` adds to the `SourceFile`'s `start_pos`, so the input is the project's `Str` (PORTING §5:
+// byte-offset-indexed source text), not a decoded `string`. Keys and string values (`DeString`) are not indexed, so they
+// are `string`. Iterating `&DeTable` (`IntoIterator for &Map`, as `configs_are_tested` does with `for (key, _) in
+// toml.as_ref()`) is `iter()`.
 
 export interface Range {
   start: number;
@@ -69,6 +76,7 @@ export interface DeArray {
 
 /** `toml::de::DeTable<'i>` = `Map<Spanned<DeString<'i>>, Spanned<DeValue<'i>>>` (`preserve_order`: file order). */
 export interface DeTable {
+  /// `Map::iter`, also `impl IntoIterator for &Map`
   iter(): Iterable<readonly [TomlSpanned<DeString>, TomlValue]>;
   /// `get_key_value::<str>`, through `impl Borrow<str> for Spanned<Cow<'_, str>>`
   get_key_value(key: string): readonly [TomlSpanned<DeString>, TomlValue] | undefined;
@@ -110,8 +118,12 @@ export const DeValue = {
   },
 };
 export const DeTable = {
+  /// Parse a TOML document
+  parse(_input: Str): Result<TomlSpanned<DeTable>, TomlDeError> {
+    return unported("vendor-toml: toml::de::DeTable::parse");
+  },
   /// Parse a TOML document, with recovery
-  parse_recoverable(_input: string): [TomlSpanned<DeTable>, TomlDeError[]] {
+  parse_recoverable(_input: Str): [TomlSpanned<DeTable>, TomlDeError[]] {
     return unported("vendor-toml: toml::de::DeTable::parse_recoverable");
   },
 };

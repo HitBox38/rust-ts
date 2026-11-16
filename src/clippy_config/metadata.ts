@@ -5,6 +5,17 @@
 
 import { str_lines } from "../std/str.ts";
 
+// PORT: `struct ConfMetadata` (metadata.rs:4) and `impl ConfMetadata` (:22) are one class, so the `Display` impl (:12),
+// which upstream puts between them, comes just before the class.
+// rustc: src/tools/clippy/clippy_config/src/metadata.rs:13 fmt
+export function display_ConfMetadata(self: ConfMetadata): string {
+  let f = `- \`${self.name}\`: ${self.doc}`;
+  if (self.default.length !== 0) {
+    f += `\n\n   (default: \`${self.default}\`)`;
+  }
+  return f;
+}
+
 export class ConfMetadata {
   name: string;
   default: string;
@@ -41,13 +52,4 @@ export class ConfMetadata {
       `[\`${self.name}\`]: https://doc.rust-lang.org/clippy/lint_configuration.html#${self.name}`;
     return fmt(this);
   }
-}
-
-// rustc: src/tools/clippy/clippy_config/src/metadata.rs:13 fmt
-export function display_ConfMetadata(self: ConfMetadata): string {
-  let f = `- \`${self.name}\`: ${self.doc}`;
-  if (self.default.length !== 0) {
-    f += `\n\n   (default: \`${self.default}\`)`;
-  }
-  return f;
 }

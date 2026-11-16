@@ -1,5 +1,16 @@
 # Handoff: clippy-contract-b1 (M8 wave 41, step 4; the first of the chained lanes of `clippy-contract-b`)
 
+**Review** (`docs/reviews/clippy-contract-b1.md` on `t3/review-clippy-contract-b1`): PASS WITH NOTES. Fixed on this branch
+in a second commit:
+- **N1:** the toml surface's parsers take `Str`, and conf.ts passes the `SourceFile`'s `Str` unchanged;
+  `DeTable.parse` was added and table iteration noted (PORT 2);
+- **N2:** the four fns are back in upstream order, or carry a `PORT:` note;
+- **N5:** a test now pins the `<= 8` one-line threshold;
+- **N7:** `capture.ts` removes its scratch directory;
+- **N4:** the two overstated claims are corrected below.
+
+N3, N4a's required switch and N6 are for root's briefs; see "For root".
+
 Plan: `docs/plan-m8.md` §2c, D4, D5, D6, D13, D14. Root's decisions "codegen-clippy-macros (D5)" and "codegen-fmt-serde
 PORT #2". Base: main at `6dad6108`.
 
@@ -19,8 +30,8 @@ All files are new and under `src/clippy_config/`. No other file was edited.
 | `types.ts` | types.rs: `conf_enum!` and its 7 enums, `Rename`, `DisallowedPath`, `create_disallowed_map`, `BraceKind`/`MacroMatcher`, the source-ordering types |
 | `metadata.ts` | metadata.rs: `ConfMetadata`, its `Display` and the two markdown displays |
 | `conf.ts` | conf.rs's hand part: the `DEFAULT_*` statics (exported for the generated code), `Conf` (interface plus companion), `sanitize_explanation`, `load_conf_file`, `Conf::{load, load_inner}` |
-| `de.test.ts`, `conf.test.ts` | unit tests, 15 tests in about 0.7 s (D13: ≤ 10 s) |
-| `oracle/capture.ts`, `oracle/de.oracle.json` | the oracle fixture and the script that writes it (run by hand, about 3 s) |
+| `de.test.ts`, `conf.test.ts` | unit tests, 15 tests (185 expects) in about 0.7 s (D13: ≤ 10 s) |
+| `oracle/capture.ts`, `oracle/de.oracle.json` | the oracle fixture and the script that writes it (run by hand, about 3 s; it removes its scratch directory under `$RUST_TS_DATA/tmp`, also on an error) |
 
 ## Coverage (`bun scripts/coverage.ts --missing <file>`)
 
@@ -44,8 +55,9 @@ and walkdir, so it waits for vendor-toml. Port it with that lane.
   - The book is `book/src/lint_configuration.md`: 97 paragraphs, every `default` a `FromDefault::display_default` output.
   - The changelog is `CHANGELOG.md`'s block of configuration links.
   - `Conf::get_metadata` is still a macro fn, so `conf.test.ts`'s `metadata()` builds the same list. It uses
-    `parseConf` and calls, per field, the impl the macro resolves to. That dispatch is the one codegen-clippy-conf must
-    emit, so it is tested already.
+    `parseConf` and picks, per field, the impl the macro resolves to by matching the type string in the test. This tests
+    the impls' outputs and the names table below. It does not test the dispatch codegen-clippy-conf will emit: that is
+    tested only once `metadata()` calls the generated `Conf.get_metadata` (review N4a; see "For root").
 - **The oracle `cargo-clippy --explain <lint>`, 26 lints.** These were chosen for `no_run`, `rust,no_run`, `toml` and
   `text` fences, hidden `# ` lines, and lints with 1 to 6 configs. Each output equals `sanitize_explanation` of the generated
   `explanation`, then each config's `ConfMetadata` `Display`.
@@ -59,8 +71,12 @@ and walkdir, so it waits for vendor-toml. Port it with that lane.
   - `strip_prefix(" ")` dropped;
   - `min_by_key` keeping the last of equal minima instead of the first;
   - `DisplayStr` as `JSON.stringify`;
-  - `_`→`-` dropped.
-  The last three were caught only after I added targeted cases.
+  - `_`→`-` dropped;
+  - `values.len() <= 8` changed to `< 8` (after the review, N5).
+  The last four were caught only after I added targeted cases.
+- **What is not tested yet (review N3):** no `Deserialize` logic runs in a test (about 30 fns: de.rs 288–537 and
+  types.rs's `deserialize` impls, `deserialize_table`, `deserialize_array`), because every `DeValue` accessor stops.
+  Their error texts, their order and the fallbacks are unverified until vendor-toml lands.
 - **TOML-free unit checks:**
   - the `conf_enum!` tables (`NAMES`, `COUNT`, `name`, `from_str`);
   - every `FromDefault` impl;
@@ -76,7 +92,7 @@ and walkdir, so it waits for vendor-toml. Port it with that lane.
 
 | Where | Message | Unblocked by |
 |---|---|---|
-| `de.ts` `DeValue.{as_integer, as_float, as_bool, as_str, as_array, as_table}`, `DeTable.parse_recoverable` | `vendor-toml: toml::de::…` | vendor-toml (wave 42) |
+| `de.ts` `DeValue.{as_integer, as_float, as_bool, as_str, as_array, as_table}`, `DeTable.{parse, parse_recoverable}` | `vendor-toml: toml::de::…` | vendor-toml (wave 42) |
 | `de.ts` `Deserialize_for_{i8,i16,i32,i64,i128,u128}`; any radix other than 10 for `u8`/`u16`/`u32`/`u64` | `std: <ty>::from_str_radix…` | `src/std/num.ts` gaining `from_str_radix` (root: only `u8..u64` radix 10 exist). No `define_Conf!` field needs these: the fields are `u32`, `u64` and `Option<u64>`. A hex or octal TOML integer such as `0x10` would stop |
 | `de.ts` `Deserialize_for_{f32,f64}`; `FromDefault_for_{f32,f64}.display_default` | `std: <f64 as FromStr>…`, `clippy_config: <f64 as Display>…` | float `FromStr`/`Display` in src/std. No field is a float |
 | `types.ts` local `lookup_path`, `find_crates` | `clippy_utils::paths::… (clippy-utils-a)` | clippy-utils-a: then replace the local block with `import { PathNS, find_crates, lookup_path } from "../clippy_utils/paths.ts"` |
@@ -96,7 +112,17 @@ and walkdir, so it waits for vendor-toml. Port it with that lane.
    - structs are objects with methods: `TomlSpanned.{span, get_ref, as_ref}`, `DeInteger.{as_str, radix}`,
      `DeFloat.as_str`, `DeTable.{iter, get_key_value(&str)}`, `TomlDeError.{span, message}`;
    - `DeArray`'s `Deref` target is its `items` field;
-   - `DeValue` is a `$`-union whose methods are on its companion, and they stop.
+   - `DeValue` is a `$`-union whose methods are on its companion, and they stop;
+   - `DeTable.parse(input: Str): Result<TomlSpanned<DeTable>, TomlDeError>` and
+     `DeTable.parse_recoverable(input: Str): [TomlSpanned<DeTable>, TomlDeError[]]` take the project's `Str` (review N1).
+     Every `span()` is a UTF-8 byte range into that input, which `DiagCtxt.make_sp` adds to the `SourceFile`'s
+     `start_pos`, so the input is byte-offset-indexed source text (PORTING §5). `load_inner` passes `SourceFile.src` (a
+     `Str`) unchanged; it panics as `unwrap()` does if `src` is `None`. Keys and string values stay `string`;
+   - iterating `&DeTable` (`IntoIterator for &Map`, as `configs_are_tested` does with `for (key, _) in toml.as_ref()`) is
+     `DeTable.iter()`. With `parse` added, the surface covers everything `configs_are_tested` needs from toml.
+
+   These are the `toml` crate's own types (`toml::de`, from its `de::parser` module), not `toml_parser`'s, which is the
+   lexer and parser beneath.
 
    **vendor-toml must match these shapes, or root changes de.ts's block to its real API in one place.** Nothing in
    clippy_config parses TOML.
@@ -114,6 +140,14 @@ and walkdir, so it waits for vendor-toml. Port it with that lane.
 7. **`Deserialize for [T; N]` keeps the literal `{N}`**: upstream passes a plain `&str`, not `format!`, to `span_err`.
 8. **`create_value_list_msg` takes `{ width, render_pretty }`**, the only `DiagCtxt` fields it reads, so that tests need no
    `Session`. A `DiagCtxt` satisfies it.
+9. **Fn order (review N2).** Three `Debug`/`Display` impls sit between a struct and its inherent impl upstream. The struct
+   and the impl are one TS class, so the impl comes just before the class, with a `PORT:` note:
+   - `Debug for SourceItemOrderingModuleItemGroupings` (types.rs:503);
+   - `Debug for SourceItemOrderingTraitAssocItemKinds` (types.rs:738);
+   - `Display for ConfMetadata` (metadata.rs:12).
+
+   `Conf::{load, load_inner}` (conf.rs:934) are assigned to the companion after `load_conf_file`, in upstream order. The
+   companion is typed by a local `ConfFns` interface and is complete once conf.ts has run.
 
 ## For codegen-clippy-conf: the TS names for each field type
 
@@ -205,8 +239,8 @@ The other impls, for completeness:
   `SourceItemOrderingModuleItemKind`, `SourceItemOrderingTraitAssocItemKind`, `TraitImplItemOrder`;
 - `FromDefault_unit_for_TraitImplItemOrder`.
 
-Once `Conf.get_metadata` is generated, conf.test.ts's `metadata()` can call it instead of rebuilding the list. The book
-and `--explain` checks then test the generated code directly.
+**Required (review N4a):** once `Conf.get_metadata` is generated, conf.test.ts's `metadata()` must call it instead of
+rebuilding the list. Only then do the book and `--explain` checks test the generated dispatch itself.
 
 ## For clippy-contract-b2 (`clippy_utils/src/{diagnostics.rs, sym.rs, msrvs.rs}`)
 
@@ -217,14 +251,22 @@ None of the three files imports `clippy_config` at the pin, so b2 needs nothing 
 
 - **src/std** (not this lane's): `<int>::from_str_radix` for every integer type and radix 2/8/10/16, float `FromStr`, and
   float `Display`. These unblock the rows above, though `define_Conf!` needs none of them except hex and octal `u64`s.
-- **vendor-toml's brief:** match de.ts's toml surface (PORT 2), then replace de.ts's block with imports. Port
-  `conf.rs:988 configs_are_tested` (needs walkdir over `tests/`).
+- **vendor-toml's brief:**
+  - match de.ts's toml surface (PORT 2), including `Str` input with UTF-8 byte spans, `DeTable.parse` and
+    `DeTable.iter()`, then replace de.ts's block with imports;
+  - port `conf.rs:988 configs_are_tested` (needs walkdir over `tests/`);
+  - add oracle tests of clippy.toml diagnostics through `Conf::load_inner` (review N3): bad types, unknown keys in inline
+    tables, a duplicate `..`, missing `path`/`rename`/`name`/`brace`, and the source-ordering errors. Upstream's
+    `tests/ui-toml/**` has ready cases. codegen-clippy-conf's brief could take this instead.
+- **codegen-clippy-conf's brief:** switch conf.test.ts's `metadata()` to `Conf.get_metadata` (review N4a, required).
 - **clippy-utils-a's brief:** `types.ts` has a local `PathNS` union and two stopping fns to swap for
-  `clippy_utils/paths.ts`'s.
+  `clippy_utils/paths.ts`'s. Check that no consumer imports `PathNS` from `clippy_config/types.ts` before the swap
+  (review N6).
 - The tests read upstream (`book/`, `CHANGELOG.md`, conf.rs) from `$RUST_TS_DATA/rust`, and import
-  `tools/codegen/clippy.ts`'s `parseConf` and `scripts/lib/common.ts`. src tests already import `scripts/` (e.g.
-  `rustc_resolve/contract.test.ts`), but none imported `tools/` before.
+  `tools/codegen/clippy.ts`'s `parseConf` and `scripts/lib/common.ts`. Both have precedent: src tests import `scripts/`
+  (e.g. `rustc_resolve/contract.test.ts`), and four already import `tools/` (e.g. `rustc_driver_impl/print.oracle.test.ts`;
+  review N4b corrected my earlier "none").
 - **Environment:** the worktree had no `.env.local` or `node_modules`. I copied the first and symlinked the second from
   the main checkout; both are gitignored. `bun scripts/crate-src.ts` fetched `toml-1.1.0+spec-1.1.0` and
-  `serde_spanned-1.1.0` into the cargo registry, read only. The oracle capture's scratch directory under
-  `$RUST_TS_DATA/tmp` was deleted.
+  `serde_spanned-1.1.0` into the cargo registry, read only. `capture.ts` now deletes its own scratch directory; a re-run
+  after the fixes gave a byte-identical `de.oracle.json` and left nothing under `$RUST_TS_DATA/tmp`.

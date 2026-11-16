@@ -581,6 +581,21 @@ export const FromDefault_for_SourceItemOrderingModuleItemKind = SourceItemOrderi
 export const Deserialize_for_SourceItemOrderingModuleItemKind = SourceItemOrderingModuleItemKind_.deserialize;
 export const debug_SourceItemOrderingModuleItemKind: Debug<SourceItemOrderingModuleItemKind> = (v) => v;
 
+// PORT: `struct SourceItemOrderingModuleItemGroupings` (types.rs:497) and its inherent impl (:509) are one class, so
+// its `Debug` impl (:503), which upstream puts between them, comes just before the class.
+const debug_vec_ModuleItemKind = (v: readonly SourceItemOrderingModuleItemKind[], f: Fmt): string =>
+  debug_list(
+    f,
+    v.map((x) => debug_SourceItemOrderingModuleItemKind(x, f)),
+  );
+
+// rustc: src/tools/clippy/clippy_config/src/types.rs:504 fmt
+export const debug_SourceItemOrderingModuleItemGroupings: Debug<SourceItemOrderingModuleItemGroupings> = (self, f) =>
+  debug_list(
+    f,
+    self.groups.map(([name, items]) => debug_tuple(f, "", [debug_str(name), debug_vec_ModuleItemKind(items, f)])),
+  );
+
 /// Represents the configured ordering of items within a module.
 ///
 /// The [`Deserialize`] implementation checks that no item kinds have been
@@ -637,19 +652,6 @@ export class SourceItemOrderingModuleItemGroupings {
     return this.lut.get(item);
   }
 }
-
-const debug_vec_ModuleItemKind = (v: readonly SourceItemOrderingModuleItemKind[], f: Fmt): string =>
-  debug_list(
-    f,
-    v.map((x) => debug_SourceItemOrderingModuleItemKind(x, f)),
-  );
-
-// rustc: src/tools/clippy/clippy_config/src/types.rs:504 fmt
-export const debug_SourceItemOrderingModuleItemGroupings: Debug<SourceItemOrderingModuleItemGroupings> = (self, f) =>
-  debug_list(
-    f,
-    self.groups.map(([name, items]) => debug_tuple(f, "", [debug_str(name), debug_vec_ModuleItemKind(items, f)])),
-  );
 
 export const Deserialize_for_SourceItemOrderingModuleItemGroupings: Deserialize<SourceItemOrderingModuleItemGroupings> = {
   // rustc: src/tools/clippy/clippy_config/src/types.rs:552 deserialize
@@ -837,6 +839,12 @@ const debug_vec_TraitAssocItemKind = (v: readonly SourceItemOrderingTraitAssocIt
     v.map((x) => debug_SourceItemOrderingTraitAssocItemKind(x, f)),
   );
 
+// PORT: `struct SourceItemOrderingTraitAssocItemKinds` (types.rs:736) and its inherent impl (:744) are one class, so its
+// `Debug` impl (:738), which upstream puts between them, comes just before the class.
+// rustc: src/tools/clippy/clippy_config/src/types.rs:739 fmt
+export const debug_SourceItemOrderingTraitAssocItemKinds: Debug<SourceItemOrderingTraitAssocItemKinds> = (self, f) =>
+  debug_vec_TraitAssocItemKind(self._0, f);
+
 /// Represents the order in which associated trait items should be ordered.
 ///
 /// The reason to wrap a `Vec` in a newtype is to be able to implement
@@ -854,10 +862,6 @@ export class SourceItemOrderingTraitAssocItemKinds {
     return i < 0 ? undefined : i;
   }
 }
-
-// rustc: src/tools/clippy/clippy_config/src/types.rs:739 fmt
-export const debug_SourceItemOrderingTraitAssocItemKinds: Debug<SourceItemOrderingTraitAssocItemKinds> = (self, f) =>
-  debug_vec_TraitAssocItemKind(self._0, f);
 
 export const Deserialize_for_SourceItemOrderingTraitAssocItemKinds: Deserialize<SourceItemOrderingTraitAssocItemKinds> = {
   // rustc: src/tools/clippy/clippy_config/src/types.rs:751 deserialize
