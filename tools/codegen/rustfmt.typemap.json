@@ -1,0 +1,24 @@
+{
+  "comment": "Set-specific type map of tools/codegen/rustfmt.json (typemap_extra): the global entries plus the `default` rules derive(Default) of IgnoreList needs (PathBuf::new(), HashSet::default()).",
+  "types": [
+    {
+      "paths": ["std::path::PathBuf", "PathBuf"],
+      "ts": "string",
+      "debug": "debug_str($v)",
+      "clone": "copy",
+      "default": "\"\"",
+      "note": "PORT: PathBuf as a UTF-8 string (typemap.hir.json); default = PathBuf::new(), the empty path"
+    },
+    {
+      "paths": ["rustc_data_structures::fx::FxHashSet", "std::collections::HashSet"],
+      "ts": "Set<$0>",
+      "import": "src/rust_ts/hash_map.ts",
+      "values": ["debug_HashSet"],
+      "debug": "debug_HashSet($v, $f, $d0)",
+      "clone_values": ["clone_HashSet"],
+      "clone": "clone_HashSet($v, $c0)",
+      "default": "new Set()",
+      "note": "typemap.errors.json's entry plus default = HashSet::default(), an empty set"
+    }
+  ]
+}

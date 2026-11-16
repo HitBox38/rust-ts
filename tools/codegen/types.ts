@@ -555,9 +555,11 @@ interface ItemRef {
 }
 
 function fileModule(upstream: string): { crate: string; mod: string[]; rel: string } {
-  // Miri's library crate (plan-m6 D2): `src/tools/miri/src/<path>.rs` is crate `miri` -> `<out>/miri/<path>.gen.ts`.
-  const m = /^compiler\/([^/]+)\/src\/(.+)\.rs$/.exec(upstream) ?? /^src\/tools\/(miri)\/src\/(.+)\.rs$/.exec(upstream);
-  if (!m) throw new Error(`not a compiler/<crate>/src/*.rs (or src/tools/miri/src/*.rs) path: ${upstream}`);
+  // Miri's library crate (plan-m6 D2): `src/tools/miri/src/<path>.rs` is crate `miri` -> `<out>/miri/<path>.gen.ts`;
+  // rustfmt's (plan-m8 D4): `src/tools/rustfmt/src/<path>.rs` is crate `rustfmt` -> `<out>/rustfmt/<path>.gen.ts`.
+  const m =
+    /^compiler\/([^/]+)\/src\/(.+)\.rs$/.exec(upstream) ?? /^src\/tools\/(miri)\/src\/(.+)\.rs$/.exec(upstream) ?? /^src\/tools\/(rustfmt)\/src\/(.+)\.rs$/.exec(upstream);
+  if (!m) throw new Error(`not a compiler/<crate>/src/*.rs (or src/tools/{miri,rustfmt}/src/*.rs) path: ${upstream}`);
   const crate = m[1]!;
   const rel = m[2]!;
   const segs = rel.split("/");
@@ -629,6 +631,43 @@ export interface GenOptions {
   pin?: string;
   /** upstream checkout root (macro bodies of `newtype_index!` / `bitflags!` are read from it) */
   upstream?: string;
+  /** per-item additions of a caller-side generator (tools/codegen/rustfmt.ts: serde derives, `#[config_type]`) */
+  hooks?: ItemHooks;
+}
+
+/**
+ * Extension points for generators that drive `generate` with derives of their own (tools/codegen/rustfmt.ts: serde_derive's
+ * `Serialize`/`Deserialize` and rustfmt's `#[config_type]`), so their logic lives in their own modules.
+ */
+export interface ItemHooks {
+  /** lines emitted after an item's own derives (struct or enum, not `hand` items) */
+  itemLines?(c: ItemHookCtx): string[];
+  /** members appended to an enum's companion const (fieldless enums, and data enums with unit variants) */
+  companionMembers?(c: ItemHookCtx): string[];
+  /** lines appended to a generated file, given its body (module-local helpers the body uses) */
+  fileTrailer?(file: string, body: string): string[];
+}
+export interface ItemHookCtx {
+  item: PItem;
+  /** the item's key (`rustfmt::config::options::WidthHeuristics`) */
+  key: string;
+  /** `upstream path:line` of the item */
+  at: string;
+  error(m: string): void;
+  /** imports `name` from a src-relative module (`std/result.ts`) and returns the local name */
+  use(module: string, name: string, kind?: "types" | "values"): string;
+  tsType(ty: PType, at: string): string;
+  /** the item's TS name in this file */
+  name: string;
+  isClass: boolean;
+  fieldName(f: PField): string;
+  /** the item a type names (`k: "item"`), or the keys of an external type */
+  resolveType(ty: PType): { k: "item"; key: string; name: string; item: PItem; sameFile: boolean } | { k: "ext"; keys: string[] } | { k: "other" };
+  /**
+   * `name` (`deserialize_X`) of item `key` as seen from this file: `generated` fns of this file are local, others come from the
+   * item's hand module (which re-exports its `.gen.ts`); a manual impl (`generated` false) is always the hand module's.
+   */
+  itemFn(key: string, name: string, generated: boolean): string;
 }
 
 export interface GenResult {
@@ -3001,6 +3040,45 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     /** emitted after every item of the file (data that reads companions of later items at module init) */
     const trailer: string[] = [];
 
+    // ---- caller hooks (GenOptions.hooks) ----
+    const hookCtx = (r: ItemRef): ItemHookCtx => {
+      const sc = itemScope(r);
+      const at = `${r.mf.file.path}:${r.item.line}`;
+      return {
+        item: r.item,
+        key: r.key,
+        at,
+        error: (m) => report.errors.push(m),
+        use: (module, name, kind = "values") => {
+          imp(`src:${module}`, kind, name, name);
+          return name;
+        },
+        tsType: (ty, tat) => tsType(ty, sc, tat),
+        name: refName(r),
+        isClass: isClass(r),
+        fieldName,
+        resolveType: (ty) => {
+          if (ty.kind !== "path" || ty.qself) return { k: "other" };
+          const res = resolvePath(ty.path!, sc);
+          if (res.k === "item") return { k: "item", key: res.ref.key, name: res.ref.item.name, item: res.ref.item, sameFile: res.ref.mf === mf };
+          if (res.k === "ext") return { k: "ext", keys: res.keys };
+          return { k: "other" };
+        },
+        itemFn: (key, name, generated) => {
+          const ref = items.get(key);
+          if (!ref) {
+            report.errors.push(`${at}: hook asked for ${name} of unknown item ${key}`);
+            return name;
+          }
+          if (generated && ref.mf === mf) return name;
+          imp(generated ? viaHand(ref) : `src:${ref.mf.hand}`, "values", name, name);
+          return name;
+        },
+      };
+    };
+    const hookLines = (r: ItemRef): string[] => (opts.hooks?.itemLines && !matches(set.hand, r) ? opts.hooks.itemLines(hookCtx(r)) : []);
+    const hookCompanion = (r: ItemRef): string[] => (opts.hooks?.companionMembers ? opts.hooks.companionMembers(hookCtx(r)) : []);
+
     // ---- derive(PrintAttribute) (rustc_macros/src/print_attribute.rs) ----
     /** The `PrintAttribute<T>` table expression of a type. */
     const paFn = (ty: PType, sc: Scope, at: string): string => {
@@ -3604,6 +3682,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           body.push("}");
         }
         body.push(...serLines(r));
+        body.push(...hookLines(r));
         body.push(...tfLines(r));
         emitDiag(r, sc, selfType, "struct");
         emitPrint(r, sc, selfType);
@@ -3624,7 +3703,9 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
               body.push(`  | "${unraw(v.name)}"${i === variants.length - 1 ? ";" : ""}`);
             });
           }
-          body.push(`export const ${name} = { ${variants.map((v) => `${unraw(v.name)}: "${unraw(v.name)}"`).join(", ")} } as const;`);
+          const members = hookCompanion(r);
+          if (members.length) body.push(`export const ${name} = {`, ...variants.map((v) => `  ${unraw(v.name)}: "${unraw(v.name)}",`), ...members, "} as const;");
+          else body.push(`export const ${name} = { ${variants.map((v) => `${unraw(v.name)}: "${unraw(v.name)}"`).join(", ")} } as const;`);
           // `<Enum>_discriminant` (`as isize`): explicit discriminants, the set's list, or a derived
           // `PartialOrd`/`Ord` (which compares fieldless variants by discriminant)
           if (variants.some((v) => v.discriminant !== null) || matches(set.discriminant, r) || deriveOrd.has(r.key)) {
@@ -3662,6 +3743,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           else body.push(`export function default_${name}(): ${name} {\n  return ${JSON.stringify(unraw(dv[0]!.name))};\n}`);
         }
         body.push(...serLines(r));
+        body.push(...hookLines(r));
         body.push(...tfLines(r));
         emitDiag(r, sc, selfType, "fieldless");
         emitPrint(r, sc, selfType);
@@ -3682,6 +3764,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
           body.push(`/** Unit variants of \`${name}\`, shared frozen singletons. */`);
           body.push(`export const ${name} = {`);
           for (const v of units) body.push(`  ${unraw(v.name)}: Object.freeze({ $: "${unraw(v.name)}" as const }),`);
+          body.push(...hookCompanion(r));
           body.push("};");
         }
       }
@@ -3740,6 +3823,7 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
         else body.push(`export function default_${name}(): ${name} {\n  return ${name}.${unraw(dv[0]!.name)};\n}`);
       }
       body.push(...serLines(r));
+      body.push(...hookLines(r));
       body.push(...tfLines(r));
       emitDiag(r, sc, selfType, "data");
       emitPrint(r, sc, selfType);
@@ -3749,6 +3833,10 @@ export function generate(probe: ProbeJson, set: SetConfig, tm: TypeMap, opts: Ge
     if (sh) body.push(...shBody());
     if (ser) body.push(...serBody());
     body.push(...trailer);
+    if (opts.hooks?.fileTrailer && !walk && !sh && !ser) {
+      const extra = opts.hooks.fileTrailer(mf.file.path, body.join("\n"));
+      if (extra.length) body.push("", ...extra);
+    }
 
     // helpers used by the body
     const text = body.join("\n");
