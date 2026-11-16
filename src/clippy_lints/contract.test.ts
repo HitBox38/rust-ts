@@ -5,9 +5,8 @@
 //   both; every `// stub: <path>:<line> <name> (lane <group>)` names an upstream fn;
 // - every sub-pass of lib.rs (lint_tables.gen.ts `SUB_PASSES`) is exported by its hand module with the generated `lint_vec`;
 // - every method or constructor carrying a `// stub:` marker (and every `#[derive(Default)]` stub) stops `unported`; a dual
-//   early/late pass's method is called with the context of the side the marker is on;
-// - contract.d.ts's ambient blocks name modules that do not exist yet, and every import of a declared specifier resolves to that
-//   module from the importing file, so no block hides a wrong path.
+//   early/late pass's method is called with the context of the side the marker is on.
+// (contract.d.ts and its check were removed at integ-w66, when clippy_config/lib.ts and lib.gen.ts landed.)
 import { expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -218,40 +217,4 @@ test("every method or constructor carrying a stub marker stops unported", async 
     }
   }
   expect(checked).toBeGreaterThan(0);
-});
-
-const CONTRACT = join(SRC, "clippy_lints/contract.d.ts");
-/** Each ambient block's specifier and the module it stands for. */
-const BLOCKS: Record<string, string> = {
-  "../clippy_config/lib.ts": "clippy_config/lib.ts",
-  "../../clippy_config/lib.ts": "clippy_config/lib.ts",
-  "./lib.gen.ts": "clippy_lints/lib.gen.ts",
-};
-
-test("contract.d.ts names missing modules, and no block hides a wrong path", () => {
-  const blocks = [...readFileSync(CONTRACT, "utf8").matchAll(/^declare module "(.+)\*" \{/gm)].map((m) => m[1]!);
-  expect(blocks.sort()).toEqual(Object.keys(BLOCKS).sort());
-  for (const target of new Set(Object.values(BLOCKS))) expect([target, existsSync(join(SRC, target))]).toEqual([target, false]);
-  const all: string[] = [];
-  const walk_all = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) walk_all(p);
-      else if (e.name.endsWith(".ts")) all.push(p);
-    }
-  };
-  walk_all(SRC);
-  let uses = 0;
-  for (const f of all) {
-    if (f === CONTRACT || f === import.meta.path) continue;
-    const text = readFileSync(f, "utf8");
-    for (const [spec, target] of Object.entries(BLOCKS)) {
-      if (!text.includes(`"${spec}"`)) continue;
-      // a specifier that resolves to an existing file never reaches the block
-      if (existsSync(resolve(dirname(f), spec))) continue;
-      expect([relative(REPO, f), spec, resolve(dirname(f), spec)]).toEqual([relative(REPO, f), spec, join(SRC, target)]);
-      uses++;
-    }
-  }
-  expect(uses).toBeGreaterThan(100);
 });
