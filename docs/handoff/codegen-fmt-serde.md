@@ -200,3 +200,13 @@ N5 (PORT #2 stands as a deduplication of generated output) and N6 (root runs `ru
 Checks after the fixes: `bunx tsc --noEmit -p .` clean; `bun scripts/coverage.ts --check` markers ok; `bun tools/codegen/rustfmt.ts
 --check` clean; `bun test tools/codegen` 72 pass, 0 fail; `bun tools/codegen/rustfmt_oracle.ts check` ok. Generated output changed
 only in the import specifiers of missing modules (`./config_type.ts` → `../../rustfmt/config/config_type.ts`) and the contract file.
+
+## Integration fix: two-argument `unwrap_result`
+
+The integration unit step failed `src/std/result.test.ts` ("non-test code never reaches the one-argument unwrap_result"): `print_docs`'s
+271 `unwrap_result(out.write_fmt(..))` calls. They now pass the error type's Debug: `out` is `&mut dyn std::io::Write` (the macro's
+`use std::io::Write;`), so `writeln!` returns `io::Result<()>` and the Debug is `debug_IoError` (src/std/io.ts), not `fmt::Error`'s
+(src/std has none, and it is not the type here). The generator's local `unwrap_result` is renamed `unwrapResult` (the scanner flags the
+bare identifier). The three `expect_result` calls (`override_value`) already passed the Debug of each `FromStr::Err`. Checks:
+`bun test src/std/result.test.ts` 3 pass; `bun test tools/codegen` 72 pass; `rustfmt.ts --check` clean; `rustfmt_oracle.ts check` ok;
+`bunx tsc` clean.
