@@ -755,7 +755,7 @@ M7 is done (gate-20261115-141315-root-qswd; milestone recorded; PLAN.md updated)
 | lane | scope | status |
 |---|---|---|
 | tools-prep-m8 | D3 sources (sparse clippy/rustfmt, cargo tarball, `CARGO_HOME`, root-lock `tools-deps`), D4 coverage crates, `scope.json` | **merged** (b75df78c; review PASS WITH NOTES; root fixed N1 header, N3 timeout) |
-| harness-m8a-gate | D2 tool oracles and guard, D19 `neverProtect`/ENV + accept checks, D20 gate headroom logic (fake host readers) | review PASS WITH NOTES (3c2407af); lane fixing N1, N4-N6 |
+| harness-m8a-gate | D2 tool oracles and guard, D19 `neverProtect`/ENV + accept checks, D20 gate headroom logic (fake host readers) | **merged** (integ-w62; review PASS WITH NOTES, N1 N4-N6 fixed in 275e065d) |
 | cargo-fix-a | aarch64 intrinsic signatures `crc32b`, `crypto.sha1h`, `crypto.sha256h`; proved on `crc32fast`, `sha1`, `sha2` alone (D22) | **merged** (b75df78c; 22 signatures; review PASS WITH NOTES); crc32fast byte-identical, sha1/sha2 differ only by pm-self F1 |
 | codegen-clippy-macros, codegen-fmt-serde | D5, D6 (after tools-prep-m8) | started |
 | clippy-contract-a, clippy-contract-b, rustfmt-contract | contracts (after steps 1-2) | queued |
