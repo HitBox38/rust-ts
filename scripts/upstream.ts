@@ -2,7 +2,7 @@
 //   bun scripts/upstream.ts fetch    blobless sparse clone at the pin into $RUST_TS_DATA/rust, plus UPSTREAM.json's
 //                                    submodules (shallow, at their recorded commits)
 //   bun scripts/upstream.ts status   pin vs checkout vs oracle toolchain; each sparse path checked out; UPSTREAM.json `cargo`'s
-//                                    commit vs the checkout's `src/tools/cargo` gitlink (plan-m8 D3; its source: scripts/cargo-src.ts)
+//                                    commit vs the checkout's `src/tools/cargo` gitlink (plan-m8 D3; its source: scripts/tools-src.ts)
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, PIN, REPO, UPSTREAM, die, ensureDir, run } from "./lib/common.ts";

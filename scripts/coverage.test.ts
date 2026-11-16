@@ -57,7 +57,7 @@ describe("M8's tool crates (harness/scope.json tools, plan-m8 D4)", () => {
   test("--crate: each tool crate's denominator at the pin (plan-m8 section 1c)", () => {
     const totals: Record<string, number> = { clippy_lints: 3295, clippy_utils: 982, clippy_config: 108, clippy: 24, declare_clippy_lint: 4, rustc_tools_util: 11, rustfmt: 1595 };
     for (const [c, n] of Object.entries(totals)) expect(cov("--crate", c).at(-1)).toMatch(new RegExp(`^TOTAL \\d+/${n} fns ported \\(\\d+\\.\\d\\d%\\) in ${c}$`));
-  });
+  }, 60_000); // seven coverage.ts runs; Bun's 5 s default times out under load (review tools-prep-m8 N3)
   test("--crate rustfmt counts its bins and src/test, and no tree outside src/", () => {
     const files = cov("--crate", "rustfmt").slice(0, -1).map((l) => l.trim().split(/\s+/)[1]!);
     expect(files).toContain("src/tools/rustfmt/src/bin/main.rs");
