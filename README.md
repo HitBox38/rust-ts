@@ -73,6 +73,9 @@ bun scripts/probes.ts build
 # M6 Miri oracle: Miri + rust-src in a separate RUSTUP_HOME under $RUST_TS_DATA (never on the oracle toolchain),
 # plus the Miri sysroot for x86_64-unknown-linux-gnu; idempotent, `bun scripts/miri.ts status` checks it
 bun scripts/miri.ts setup
+# M8: cargo's pinned source (UPSTREAM.json cargo) with its crates, and the root-lock crates of clippy_config and rustfmt
+# (plan-m8 D3); `bun scripts/tools-src.ts status` checks them
+bun scripts/tools-src.ts setup
 ```
 
 ## Everyday commands

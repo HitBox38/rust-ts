@@ -16,7 +16,8 @@
 // - **Signatures** (`SIGNATURES`) are written from Intrinsics.td at the pin (`llvm/include/llvm/IR/Intrinsics.td`, cited per
 //   entry) for the intrinsics rustc_codegen_llvm's scalar half names: intrinsic.rs:1-2046 and builder.rs's `call_intrinsic`
 //   uses that are not vector-only, from IntrinsicsX86.td for the x86 intrinsics run-pass programs reach (lane ir-fix-a), and from
-//   IntrinsicsAArch64.td for the aarch64 ones the native suites reach (lane ir-fix-b).
+//   IntrinsicsAArch64.td for the aarch64 ones the native suites reach (lane ir-fix-b) and for the CRC32, SHA-1, SHA-256 and SHA-512 families
+//   that `crc32fast`, `sha1` and `sha2` reach in cargo's build (lane cargo-fix-a, plan-m8 §4b).
 //   `LLVMGetIntrinsicDeclaration` of any other intrinsic stops. intrinsics.oracle.test.ts checks
 //   every signature against libLLVM.dylib's declaration (name and function type) for concrete overload types.
 // - PORT: `Intrinsic::getAttributes` is not applied to a new declaration (llir-core-a PORT decision 5, ir.ts `Function`): the
@@ -302,7 +303,7 @@ const bstrToDisplay = (s: string): string => JSON.stringify(s);
 // ---- signatures (Intrinsics.td) ----------------------------------------------------------------------------------------
 
 /** An Intrinsics.td type: `llvm_any*_ty` (an overload slot, numbered in order of appearance, return types first), `LLVMMatchType<n>`,
- *  a fixed type, `LLVMScalarOrSameVectorWidth<n, elt>`, `LLVMVectorElementType<n>` (`IIT_VEC_ELEMENT`), or
+ *  a fixed type (a fixed vector `llvm_v<n><elt>_ty` among them, `IIT_V<n>` then its element), `LLVMScalarOrSameVectorWidth<n, elt>`, `LLVMVectorElementType<n>` (`IIT_VEC_ELEMENT`), or
  *  `LLVMVectorOfAnyPointersToElt<n>` (`IIT_VEC_OF_ANYPTRS_TO_ELT`, a partially dependent type: it takes an overload slot of its own,
  *  Intrinsics.td:476-487, and decodes as that slot's type, Intrinsics.cpp:590). */
 type OverloadClass = "any" | "int" | "float" | "ptr" | "vecint" | "vec" | "vecfloat" | "vecptr";
@@ -314,6 +315,7 @@ type TdType =
   | { readonly k: "int"; readonly bits: number }
   | { readonly k: "ptr" }
   | { readonly k: "metadata" }
+  | { readonly k: "vec"; readonly n: number; readonly elt: TdType }
   | { readonly k: "sameVecWidth"; readonly n: number; readonly elt: TdType };
 
 interface Signature {
@@ -340,6 +342,10 @@ const i32: TdType = { k: "int", bits: 32 };
 const i64: TdType = { k: "int", bits: 64 };
 const ptr: TdType = { k: "ptr" };
 const metadata: TdType = { k: "metadata" };
+/** `llvm_v4i32_ty` (Intrinsics.td:675) (lane cargo-fix-a). */
+const v4i32: TdType = { k: "vec", n: 4, elt: i32 };
+/** `llvm_v2i64_ty` (Intrinsics.td:688) (lane cargo-fix-a). */
+const v2i64: TdType = { k: "vec", n: 2, elt: i64 };
 const unaryFloat = (td: number): Signature => ({ td, ret: [anyfloat], params: [m(0)] });
 const binaryFloat = (td: number): Signature => ({ td, ret: [anyfloat], params: [m(0), m(0)] });
 const binaryInt = (td: number): Signature => ({ td, ret: [anyint], params: [m(0), m(0)] });
@@ -439,6 +445,32 @@ const SIGNATURES: ReadonlyMap<string, Signature> = new Map<string, Signature>([
   ["llvm.x86.sse2.pause", { td: 461, file: "IntrinsicsX86.td", ret: [], params: [] }],
   // lane ir-fix-b: core::arch's `__isb(SY)` (std's `spin_loop` on aarch64), `Intrinsic<[], [llvm_i32_ty], [IntrNoFree, IntrWillReturn]>`.
   ["llvm.aarch64.isb", { td: 100, file: "IntrinsicsAArch64.td", ret: [], params: [i32] }],
+  // lane cargo-fix-a (plan-m8 §4b): core::arch's aarch64 CRC32 and SHA intrinsics, which `crc32fast`, `sha1` and `sha2` reach in
+  // cargo's build. The SHA-1, SHA-256 and SHA-512 families are `Crypto_SHA_*_Intrinsic` and `Crypto_SHA512_*_Intrinsic` classes
+  // (IntrinsicsAArch64.td:771-801), all `DefaultAttrsIntrinsic<..., [IntrNoMem]>`; the CRC32 family is `DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty or
+  // llvm_i64_ty], [IntrNoMem]>` (IntrinsicsAArch64.td:882-897).
+  ["llvm.aarch64.crypto.sha1c", { td: 838, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha1p", { td: 839, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha1m", { td: 840, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha1h", { td: 841, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32] }],
+  ["llvm.aarch64.crypto.sha1su0", { td: 843, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, v4i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha1su1", { td: 844, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha256h", { td: 847, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, v4i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha256h2", { td: 848, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, v4i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha256su0", { td: 849, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha256su1", { td: 850, file: "IntrinsicsAArch64.td", ret: [v4i32], params: [v4i32, v4i32, v4i32] }],
+  ["llvm.aarch64.crypto.sha512h", { td: 861, file: "IntrinsicsAArch64.td", ret: [v2i64], params: [v2i64, v2i64, v2i64] }],
+  ["llvm.aarch64.crypto.sha512h2", { td: 862, file: "IntrinsicsAArch64.td", ret: [v2i64], params: [v2i64, v2i64, v2i64] }],
+  ["llvm.aarch64.crypto.sha512su0", { td: 863, file: "IntrinsicsAArch64.td", ret: [v2i64], params: [v2i64, v2i64] }],
+  ["llvm.aarch64.crypto.sha512su1", { td: 864, file: "IntrinsicsAArch64.td", ret: [v2i64], params: [v2i64, v2i64, v2i64] }],
+  ["llvm.aarch64.crc32b", { td: 882, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i32] }],
+  ["llvm.aarch64.crc32cb", { td: 884, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i32] }],
+  ["llvm.aarch64.crc32h", { td: 886, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i32] }],
+  ["llvm.aarch64.crc32ch", { td: 888, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i32] }],
+  ["llvm.aarch64.crc32w", { td: 890, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i32] }],
+  ["llvm.aarch64.crc32cw", { td: 892, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i32] }],
+  ["llvm.aarch64.crc32x", { td: 894, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i64] }],
+  ["llvm.aarch64.crc32cx", { td: 896, file: "IntrinsicsAArch64.td", ret: [i32], params: [i32, i64] }],
 ]);
 
 /** The names `SIGNATURES` covers, and each one's overload slots by class, in order (for tests). */
@@ -491,6 +523,9 @@ function decodeFixedType(d: Desc, overloadTys: readonly Type[], m: Module): Type
         return ctx.getPointerType(0);
       case "metadata":
         return ctx.getMetadataType();
+      // `IITDescriptor::Vector`: `VectorType::get(DecodeFixedType(...), D.VectorWidth)`, a fixed width (Intrinsics.cpp:576).
+      case "vec":
+        return ctx.getVectorType(fixed(t.elt), t.n, false);
       default:
         throw new Error(`llir: a nested ${t.k} type in an intrinsic signature`);
     }

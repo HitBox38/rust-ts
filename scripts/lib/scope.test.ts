@@ -1,12 +1,12 @@
 // Unit tests of the per-path scope (scripts/lib/scope.ts; lane scope-m7): exclusions of files and directories, partial files,
 // the refusal of entries that name nothing, on a fixture tree; then harness/scope.json against the pinned checkout
-// (`rustc_codegen_llvm`'s denominator, plan-m7 D4).
+// (`rustc_codegen_llvm`'s denominator, plan-m7 D4). M8's tool crates (`tools`, plan-m8 D4; lane tools-prep-m8) likewise.
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { rustFns } from "./rust-fns.ts";
-import { type PathScope, type ScopeJson, cratePathScope, cratesEntryErrors, miriPathScope, pathExcluded, scopeErrors, scopeFiles, scopeFns, scopeOfPath, upstreamPathExcluded } from "./scope.ts";
+import { type PathScope, type ScopeJson, cratePathScope, cratesEntryErrors, miriPathScope, pathExcluded, scopeErrors, scopeFiles, scopeFns, scopeOfPath, toolMarkerError, toolPathScopes, toolsEntryErrors, upstreamPathExcluded } from "./scope.ts";
 import { REPO_ROOT, upstreamRoot } from "./upstream-root.ts";
 
 // Not common.ts: see scripts/lib/upstream-root.ts.
@@ -28,6 +28,10 @@ put("compiler/c/src/cov/deep/x.rs", "fn x() {}\n");
 put("compiler/c/src/covered.rs", "fn y() {}\n");
 put("compiler/c/src/part.rs", "fn keep() {}\nfn drop1() {}\nfn drop2() {}\n");
 put("compiler/c/src/notes.txt", "not rust\n");
+put("src/tools/t/a/src/lib.rs", "fn a() {}\n");
+put("src/tools/t/b/src/lib.rs", "fn b() {}\n");
+put("src/tools/t/dev/src/main.rs", "fn main() {}\n");
+put("src/tools/miri/src/lib.rs", "fn m() {}\n");
 const fnsOf = (p: string) => upstreamFns(p, ROOT);
 const S: PathScope = {
   root: "compiler/c",
@@ -92,6 +96,66 @@ describe("entries that name nothing are refused", () => {
   });
 });
 
+describe("tool crates (plan-m8 D4)", () => {
+  const T: ScopeJson = {
+    excluded: {},
+    miri: { root: "src/tools/miri/src", excluded: {}, partial: {} },
+    tools: {
+      crates: { comment: "c", ta: { root: "src/tools/t/a/src" }, tb: { root: "src/tools/t/b/src", excluded: {}, partial: {} } },
+      excluded: { "src/tools/t/dev": "a developer tool" },
+    },
+  };
+  const present = () => true;
+  test("toolPathScopes: one PathScope per entry but `comment`, missing parts empty", () => {
+    expect(toolPathScopes(T)).toEqual([
+      { crate: "ta", s: { root: "src/tools/t/a/src", excluded: {}, partial: {} } },
+      { crate: "tb", s: { root: "src/tools/t/b/src", excluded: {}, partial: {} } },
+    ]);
+    expect(toolPathScopes({ excluded: {} })).toEqual([]);
+  });
+  test("the fixture's tools entries are clean", () => expect(toolsEntryErrors(T, ROOT, ["c"])).toEqual([]));
+  test("toolMarkerError: under a root, under Miri's, outside src/tools: nothing to say", () => {
+    expect(toolMarkerError(T, "src/tools/t/a/src/lib.rs", present)).toBeUndefined();
+    expect(toolMarkerError(T, "src/tools/miri/src/lib.rs", () => false)).toBeUndefined();
+    expect(toolMarkerError(T, "compiler/c/src/lib.rs", present)).toBeUndefined();
+  });
+  test("toolMarkerError: an excluded tree, a tree under no root, a root the checkout lacks", () => {
+    expect(toolMarkerError(T, "src/tools/t/dev/src/main.rs", present)).toBe("is out of scope (harness/scope.json tools.excluded src/tools/t/dev: a developer tool)");
+    expect(toolMarkerError(T, "src/tools/t/tests/ui/x.rs", present)).toBe("is under no tool crate's root (harness/scope.json tools.crates) nor Miri's");
+    expect(toolMarkerError(T, "src/tools/t/a/src/lib.rs", () => false)).toContain("whose root src/tools/t/a/src is not in the upstream checkout");
+    // A name that a root prefixes is not under it.
+    expect(toolMarkerError(T, "src/tools/t/a/srcx/lib.rs", present)).toContain("under no tool crate's root");
+  });
+  test("scopeOfPath: a tool crate's label", () => {
+    expect(scopeOfPath(T, "src/tools/t/b/src/lib.rs")?.label).toBe("tools.crates.tb");
+    expect(scopeOfPath(T, "src/tools/t/dev/src/main.rs")).toBeUndefined();
+  });
+  const errs = (tools: ScopeJson["tools"]) => toolsEntryErrors({ ...T, tools }, ROOT, ["c"]);
+  test("a root not under src/tools/<tool>/, a root that does not exist, a name taken by Miri or a compiler crate", () => {
+    expect(errs({ crates: { x: { root: "compiler/c/src" } } })).toEqual(['ERROR: harness/scope.json tools.crates.x: root "compiler/c/src" is not a path under src/tools/<tool>/']);
+    expect(errs({ crates: { x: {} } })).toEqual(["ERROR: harness/scope.json tools.crates.x: root undefined is not a path under src/tools/<tool>/"]);
+    expect(errs({ crates: { x: { root: "src/tools/t/typo/src" } } })).toEqual(["ERROR: harness/scope.json tools.crates.x: root src/tools/t/typo/src: no such directory"]);
+    expect(errs({ crates: { c: { root: "src/tools/t/a/src" }, miri: { root: "src/tools/t/b/src" } } })).toEqual([
+      "ERROR: harness/scope.json tools.crates.c: the name is Miri's or a compiler crate's",
+      "ERROR: harness/scope.json tools.crates.miri: the name is Miri's or a compiler crate's",
+    ]);
+  });
+  test("nested roots, and a root over Miri's", () => {
+    expect(errs({ crates: { x: { root: "src/tools/t/a" }, y: { root: "src/tools/t/a/src" } } })).toEqual(["ERROR: harness/scope.json tools.crates.y: root src/tools/t/a/src is inside tools.crates.x's src/tools/t/a"]);
+    expect(errs({ crates: { x: { root: "src/tools/miri/src" } } })).toEqual(["ERROR: harness/scope.json tools.crates.x: root src/tools/miri/src overlaps Miri's src/tools/miri/src"]);
+  });
+  test("an excluded tree that does not exist, has no reason, is not clean, or overlaps a root", () => {
+    const c = { ta: { root: "src/tools/t/a/src" } };
+    expect(errs({ crates: c, excluded: { "src/tools/t/typo": "r" } })).toEqual(["ERROR: harness/scope.json tools.excluded src/tools/t/typo: no such file or directory"]);
+    expect(errs({ crates: c, excluded: { "src/tools/t/dev": "" } })).toEqual(["ERROR: harness/scope.json tools.excluded src/tools/t/dev: no reason"]);
+    expect(errs({ crates: c, excluded: { "src/tools/t/dev/": "r" } })[0]).toContain("not a relative path");
+    expect(errs({ crates: c, excluded: { "src/tools/t/a": "r" } })).toEqual(["ERROR: harness/scope.json tools.excluded src/tools/t/a: overlaps tools.crates.ta's root src/tools/t/a/src"]);
+  });
+  test("a tool the checkout does not have: no existence errors (the sparse checkout before it was added)", () => {
+    expect(errs({ crates: { x: { root: "src/tools/absent/src" } }, excluded: { "src/tools/absent/dev": "r" } })).toEqual([]);
+  });
+});
+
 describe("harness/scope.json at the pin", () => {
   const scope = readScopeJson();
   const llvm = cratePathScope(scope, "rustc_codegen_llvm");
@@ -119,5 +183,20 @@ describe("harness/scope.json at the pin", () => {
     expect(plain.label).toBe("crates.rustc_span");
     expect(plain.s.excluded).toEqual({});
     expect(scopeOfPath(scope, "library/core/src/lib.rs")).toBeUndefined();
+  });
+  test("M8's tool crates (plan-m8 D4): the crates, the trees out, and every entry names something in the checkout", () => {
+    expect(toolPathScopes(scope).map((t) => `${t.crate} ${t.s.root}`)).toEqual([
+      "clippy_lints src/tools/clippy/clippy_lints/src",
+      "clippy_utils src/tools/clippy/clippy_utils/src",
+      "clippy_config src/tools/clippy/clippy_config/src",
+      "clippy src/tools/clippy/src",
+      "declare_clippy_lint src/tools/clippy/declare_clippy_lint/src",
+      "rustc_tools_util src/tools/clippy/rustc_tools_util/src",
+      "rustfmt src/tools/rustfmt/src",
+    ]);
+    for (const x of ["clippy_dev", "lintcheck", "clippy_lints_internal", "clippy_dummy"]) expect(toolMarkerError(scope, `src/tools/clippy/${x}/src/lib.rs`, () => true)).toContain(`tools.excluded src/tools/clippy/${x}:`);
+    expect(toolMarkerError(scope, "src/tools/rustfmt/check_diff/src/main.rs", () => true)).toContain("tools.excluded src/tools/rustfmt/check_diff:");
+    expect(toolsEntryErrors(scope, UPSTREAM, readdirSync(join(UPSTREAM, "compiler")))).toEqual([]);
+    for (const t of toolPathScopes(scope)) expect(scopeErrors(t.s, UPSTREAM, `tools.crates.${t.crate}`, (p) => upstreamFns(p))).toEqual([]);
   });
 });

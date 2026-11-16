@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
 
-test("M7d's suites: report only, their commands, the corpus and the queries", () => {
+test("M7d's suites: which are protected, their commands, the corpus and the queries", () => {
   const code = `
 const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
 const g = await import(${JSON.stringify(join(REPO, "scripts/gate.ts"))});
@@ -50,8 +50,9 @@ console.log(JSON.stringify({
     // The repository's directory, whatever this checkout is called.
     "std-self": ["single", null, true, expect.any(String), null, null],
   });
-  // Report only: none has a baseline, so none is in the gate's defaults.
-  for (const n of j.names) expect(existsSync(join(REPO, "harness/baseline", `${n}.txt`))).toBe(false);
+  // gate-20261115-141315-root-qswd's accept protected rg-build, rg-behaviour(-rgtest) and pm-self (M7d); std-self stays report
+  // only, with no baseline, so it is not in the gate's defaults (w40t-audit N5).
+  for (const n of j.names) expect(existsSync(join(REPO, "harness/baseline", `${n}.txt`))).toBe(n !== "std-self");
   // rg-build: one case, the wrapper's two sides differing only in --side and the compiler after `--`.
   expect(j.build.cases).toEqual([{ id: "ripgrep-15.2.0", file: "ripgrep-15.2.0/Cargo.lock", args: ["release", "-j1"] }]);
   expect(j.build.oracle[0]).toEndWith("scripts/rg-build.ts");

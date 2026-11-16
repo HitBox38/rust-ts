@@ -1,5 +1,6 @@
 // Port coverage: every upstream `fn` in in-scope crates vs `// rustc: <path>:<line> <name>`
-// markers in src/ (the compiler crates, plus Miri as crate `miri`: `harness/scope.json` `miri`, plan-m6 D2), and every
+// markers in src/ (the compiler crates, plus Miri as crate `miri`: `harness/scope.json` `miri`, plan-m6 D2, plus M8's tools as
+// crates `clippy_lints`, `clippy_utils`, `clippy_config`, `clippy`, `rustfmt`, ...: `harness/scope.json` `tools`, plan-m8 D4), and every
 // `fn` in the vendored external crates (`harness/scope.json` `vendor`,
 // sources from scripts/crate-src.ts) vs `// crate: <crate>-<ver>/<path>:<line> <name>` markers.
 // Functions are found with our own rustc_lexer port, so `fn` inside comments/strings is never
@@ -12,14 +13,17 @@
 // Per-path scope (scripts/lib/scope.ts; lane scope-m7, plan-m7 D4): Miri (`harness/scope.json` `miri`) and the compiler crates
 // of `harness/scope.json` `crates` (`rustc_codegen_llvm`) leave `excluded` paths and the unlisted fns of `partial` files out of
 // their row; their markers are still checked. The full run and `--check` refuse a scope entry that names nothing.
+// M8's tools (plan-m8 D4; lane tools-prep-m8) are crates like Miri, one row per `harness/scope.json` `tools.crates` entry, in the TOTAL
+// as Miri is. `--check` refuses a `// rustc:` marker under `src/tools/` that falls under no tool crate's root nor Miri's (a tree out of
+// scope, `tools.excluded`, or one the checkout lacks: plan-m8 D21).
 // C++ markers (scripts/lib/llvm-src.ts): `// rustc: compiler/rustc_llvm/llvm-wrapper/<file>:<line> <name>` (rustc's wrappers;
 // `rustc_llvm` stays excluded, so they make a separate WRAPPER figure) and `// llvm: <path>:<line> <name>` (the LLVM sources of
 // harness/llvm-manifest.json, fetched by scripts/llvm-src.ts; not counted) are checked by `--check` against C++ definitions.
 //
 //   bun scripts/coverage.ts                 per-crate table, compiler then vendor (+ writes $RUST_TS_DATA/coverage.json)
-//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, `miri`, vendor `<crate>` / `<crate>-<ver>`,
+//   bun scripts/coverage.ts --crate C       per-file table for one crate (compiler crate, `miri`, a tool crate, vendor `<crate>` / `<crate>-<ver>`,
 //                                           `library/<crate>`: its files with std markers, or `llvm-wrapper`)
-//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...`, `src/tools/miri/src/...`,
+//   bun scripts/coverage.ts --missing PATH  unported functions in one upstream file (`compiler/...`, `src/tools/miri/src/...`, `src/tools/clippy/...`,
 //                                           `library/...`, `<crate>-<ver>/<path>` or `compiler/rustc_llvm/llvm-wrapper/<file>`)
 //   bun scripts/coverage.ts --check         ERROR on markers that point at no upstream / crate / library / C++ fn, on stale
 //                                           `// rustc-call:` anchors and `// rustc-const:` markers (scripts/lib/marker-check.ts),
@@ -38,7 +42,7 @@ import { DATA, REPO, UPSTREAM, die, parseArgs, requireUpstream } from "./lib/com
 import { LLVM_MANIFEST, type LlvmManifest, WRAPPER_EXCLUDED, WRAPPER_ROOT, isWrapperPath, wrapperExcludedErrors, llvmMarkerErrors, llvmMarkersOf, llvmSrcDir, readManifest, wrapperFiles, wrapperFns, wrapperMarkerErrors } from "./lib/llvm-src.ts";
 import { anchorErrors, orderErrors, orderRows } from "./lib/marker-check.ts";
 import { type UpstreamFn, rustFns } from "./lib/rust-fns.ts";
-import { type PathScope, type ScopeJson, cratePathScope, cratesEntryErrors, miriPathScope, pathPartial, scopeErrors, scopeOfPath, scopeFiles, scopeFns, scopedCrates, upstreamPathExcluded } from "./lib/scope.ts";
+import { type PathScope, type ScopeJson, cratePathScope, cratesEntryErrors, miriPathScope, pathPartial, scopeErrors, scopeOfPath, scopeFiles, scopeFns, scopedCrates, toolMarkerError, toolPathScopes, toolsEntryErrors, upstreamPathExcluded } from "./lib/scope.ts";
 
 export type { UpstreamFn } from "./lib/rust-fns.ts";
 
@@ -209,12 +213,15 @@ if (import.meta.main) {
   if (typeof a.missing === "string") {
     const ve = vendorOf(a.missing);
     const v = ve ? await resolveVendor(ve, { offline }) : undefined;
-    // Miri's or a compiler crate's per-path scope (`harness/scope.json` `miri`, `crates`).
+    // Miri's, a tool crate's or a compiler crate's per-path scope (`harness/scope.json` `miri`, `tools`, `crates`).
     const ps = v ? undefined : scopeOfPath(scope, a.missing);
     const x = ps && upstreamPathExcluded(ps.s, a.missing);
     if (ps && x !== undefined) console.log(`note: ${a.missing} is out of scope (harness/scope.json ${ps.label}.excluded ${x}: ${ps.s.excluded[x]})`);
     const part = ps && pathPartial(ps.s, a.missing);
     if (part) console.log(`note: only ${part.fns.join(", ")} of ${a.missing} are in scope (harness/scope.json ${ps.label}.partial: ${part.reason})`);
+    // A tool tree out of scope, or one under no tool crate's root (harness/scope.json `tools`, plan-m8 D4).
+    const tx = v || ps ? undefined : toolMarkerError(scope, a.missing, () => true);
+    if (tx !== undefined) console.log(`note: ${a.missing} ${tx}`);
     const wx = WRAPPER_EXCLUDED[a.missing];
     if (wx !== undefined) console.log(`note: ${a.missing} is out of the WRAPPER figure (scripts/lib/llvm-src.ts WRAPPER_EXCLUDED: ${wx})`);
     const fns: UpstreamFn[] = v ? upstreamFns(a.missing, dirname(v.dir)) : isWrapperPath(a.missing) ? wrapperFns(UPSTREAM, a.missing) : ps ? scopeFns(ps.s, a.missing, (p) => upstreamFns(p)) : upstreamFns(a.missing);
@@ -271,7 +278,8 @@ if (import.meta.main) {
   const vsel: VendorCrate[] = [];
   for (const v of vneeded) vsel.push(await resolveVendor(v, { offline }));
   const WRAPPER_CRATE = "llvm-wrapper";
-  const crates = typeof a.crate === "string" ? (vsel.length || a.crate === MIRI_CRATE || a.crate === WRAPPER_CRATE ? [] : [a.crate]) : inScopeCrates();
+  const tools = toolPathScopes(scope);
+  const crates = typeof a.crate === "string" ? (vsel.length || a.crate === MIRI_CRATE || a.crate === WRAPPER_CRATE || tools.some((t) => t.crate === a.crate) ? [] : [a.crate]) : inScopeCrates();
   const all = new Map<string, UpstreamFn>();
   const rows: { crate: string; total: number; ported: number; files: { path: string; total: number; ported: number }[] }[] = [];
   // A compiler crate's row is over its in-scope files and fns (`harness/scope.json` `crates`, scripts/lib/scope.ts); `--check`
@@ -311,6 +319,29 @@ if (import.meta.main) {
       rows.push(row);
     }
   }
+  // M8's tools (plan-m8 D4): one crate row each over its in-scope files and fns, as Miri's. `--check` validates their markers against
+  // every fn under their root. A root the checkout lacks gives a note, and `--check` refuses markers into it (`toolMarkerError`).
+  const toolPresent = new Map<string, boolean>();
+  for (const t of tools) {
+    if (typeof a.crate === "string" && a.crate !== t.crate) continue;
+    const tf = scopeFiles(t.s, UPSTREAM);
+    toolPresent.set(t.s.root, tf.all.length > 0);
+    if (tf.all.length === 0) {
+      console.log(`note: no ${t.crate} sources in the upstream checkout (${t.s.root}); run: bun scripts/upstream.ts fetch`);
+      continue;
+    }
+    pathScopes.push({ s: t.s, label: `tools.crates.${t.crate}` });
+    const row = { crate: t.crate, total: 0, ported: 0, files: [] as { path: string; total: number; ported: number }[] };
+    for (const f of tf.all) for (const fn of upstreamFns(f)) all.set(key(fn.path, fn.line), fn);
+    for (const f of tf.files) {
+      const fns = scopeFns(t.s, f, (p) => upstreamFns(p));
+      const ported = fns.filter((fn) => marked.has(key(fn.path, fn.line))).length;
+      row.total += fns.length;
+      row.ported += ported;
+      row.files.push({ path: f, total: fns.length, ported });
+    }
+    rows.push(row);
+  }
   // `harness/scope.json` entries that name nothing in the checkout (a typo would silently change a denominator): the full
   // table and `--check` refuse them.
   const scopeErrs =
@@ -318,6 +349,7 @@ if (import.meta.main) {
       ? []
       : [
           ...cratesEntryErrors(scope, readdirSync(join(UPSTREAM, "compiler"))),
+          ...toolsEntryErrors(scope, UPSTREAM, readdirSync(join(UPSTREAM, "compiler"))),
           ...wrapperExcludedErrors(wrapperFiles(UPSTREAM)),
           ...pathScopes.flatMap((p) => scopeErrors(p.s, UPSTREAM, p.label, (f) => upstreamFns(f))),
         ];
@@ -356,10 +388,17 @@ if (import.meta.main) {
   if (a.check) {
     const bad = ms.filter((m) => {
       const fn = all.get(key(m.path, m.line));
-      const checked = (m.path.startsWith("compiler/") && crates.some((c) => m.path.startsWith(`compiler/${c}/`))) || (ms_ !== undefined && miri !== undefined && miri.all.length > 0 && m.path.startsWith(`${ms_.root}/`));
+      const checked =
+        (m.path.startsWith("compiler/") && crates.some((c) => m.path.startsWith(`compiler/${c}/`))) ||
+        (ms_ !== undefined && miri !== undefined && miri.all.length > 0 && m.path.startsWith(`${ms_.root}/`)) ||
+        tools.some((t) => toolPresent.get(t.s.root) === true && m.path.startsWith(`${t.s.root}/`));
       return checked && (!fn || fn.name !== m.name);
     });
     for (const m of bad) console.log(`ERROR: ${m.file}: marker ${m.path}:${m.line} ${m.name} matches no upstream fn`);
+    // Markers under src/tools/ outside Miri's root and every tool crate's root, or into a root the checkout lacks (plan-m8 D21). With
+    // `--crate`, only that crate's markers.
+    const tbad = typeof a.crate === "string" ? [] : ms.map((m) => ({ m, why: toolMarkerError(scope, m.path, (r) => toolPresent.get(r) === true) })).filter((x) => x.why !== undefined);
+    for (const { m, why } of tbad) console.log(`ERROR: ${m.file}: marker ${m.path}:${m.line} ${m.name} ${why}`);
     // Vendor markers: the crate must be a scope.json vendor entry at that exact version, and the
     // marker must name a fn of that name at that line of that file of the crate source.
     const vbad = vms.filter((m) => {
@@ -403,7 +442,7 @@ if (import.meta.main) {
     if (manifest) lbad.push(...llvmMarkerErrors(lms, manifest, llvmSrcDir(DATA, manifest)));
     for (const e of lbad) console.log(`ERROR: ${e}`);
     for (const e of scopeErrs) console.log(e);
-    if (bad.length || vbad.length || anchors.length || wbad.length || lbad.length || scopeErrs.length || (STD_MARKERS_STRICT && sbad.length)) process.exit(1);
+    if (bad.length || tbad.length || vbad.length || anchors.length || wbad.length || lbad.length || scopeErrs.length || (STD_MARKERS_STRICT && sbad.length)) process.exit(1);
     const wms = ms.filter((m) => isWrapperPath(m.path)).length;
     console.log(`markers ok (${ms.length}, ${wms} of them in ${WRAPPER_ROOT}; vendor ${vms.length}; library ${sms.length}; llvm ${lms.length}${sbad.length ? `, ${sbad.length} invalid: warnings above` : ""})`);
     process.exit(0);
@@ -424,8 +463,8 @@ if (import.meta.main) {
     console.log(`TOTAL ${r.ported}/${r.total} fns ported (${r.total ? ((100 * r.ported) / r.total).toFixed(2) : "0.00"}%) in ${r.crate}`);
     process.exit(0);
   }
-  // Shown at 0 too: Miri and the crates with a `harness/scope.json` `crates` entry (their denominator is the point).
-  for (const r of rows.filter((r) => r.ported > 0 || r.crate === MIRI_CRATE || scopedCrates(scope).includes(r.crate)).sort((x, y) => y.ported - x.ported || (x.crate < y.crate ? -1 : 1))) {
+  // Shown at 0 too: Miri, the tool crates and the crates with a `harness/scope.json` `crates` entry (their denominator is the point).
+  for (const r of rows.filter((r) => r.ported > 0 || r.crate === MIRI_CRATE || tools.some((t) => t.crate === r.crate) || scopedCrates(scope).includes(r.crate)).sort((x, y) => y.ported - x.ported || (x.crate < y.crate ? -1 : 1))) {
     console.log(`${r.crate.padEnd(28)} ${String(r.ported).padStart(6)}/${String(r.total).padEnd(6)} ${((100 * r.ported) / r.total).toFixed(1)}%`);
   }
   console.log(`TOTAL ${ported}/${total} fns ported (${((100 * ported) / total).toFixed(2)}%) across ${rows.length} crates`);
