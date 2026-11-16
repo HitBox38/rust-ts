@@ -11,6 +11,13 @@ in a second commit:
 
 N3, N4a's required switch and N6 are for root's briefs; see "For root".
 
+**Review of clippy-contract-a, F1:** `lib.ts` now re-exports `display_ConfMetadata` beside `ConfMetadata` (upstream's `pub
+use metadata::ConfMetadata` carries its `impl Display`, which in TS is that function). I checked it in a scratch worktree at
+clippy-contract-a's `962d03eb`, with this branch's `src/clippy_config/` laid over it, `contract.d.ts` deleted and `lib.gen.ts`
+written by `bun tools/codegen/clippy.ts`: `tsc` is clean. Every name `contract.d.ts` expects from `clippy_config` resolves to
+the real modules: `Conf.load`, `Conf.get_metadata`, the `Conf` type through both specifiers, `sanitize_explanation`,
+`ConfMetadata`'s five fields and `display_ConfMetadata`. Without the re-export, the same run gives the review's TS2305 error.
+
 Plan: `docs/plan-m8.md` §2c, D4, D5, D6, D13, D14. Root's decisions "codegen-clippy-macros (D5)" and "codegen-fmt-serde
 PORT #2". Base: main at `6dad6108`.
 

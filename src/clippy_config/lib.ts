@@ -15,7 +15,9 @@
 export * as types from "./types.ts";
 
 export { Conf, sanitize_explanation } from "./conf.ts";
-export { ConfMetadata } from "./metadata.ts";
+// PORT: `pub use metadata::ConfMetadata` carries its `impl Display`; in TS that impl is the function
+// `display_ConfMetadata`, so it is re-exported beside the type.
+export { ConfMetadata, display_ConfMetadata } from "./metadata.ts";
 
 // PORT: conf.gen.ts is the expansion of conf.rs's `define_Conf!`; it is imported after conf.ts so that, once
 // codegen-clippy-conf writes them, its assignments of `Conf.default`, `Conf.get_metadata` and `Conf.deserialize` run
