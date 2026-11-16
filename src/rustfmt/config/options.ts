@@ -5,7 +5,7 @@
 // (`Object.assign` / `declare module` + prototype), `Display` (`display_<T>`), the manual serde impls of `IgnoreList`, and
 // `CliOptions`.
 import * as gen from "./options.gen.ts";
-import { IgnoreList, WidthHeuristics, debug_WidthHeuristics } from "./options.gen.ts";
+import { type EmitMode, type Heuristics, IgnoreList, type Version, WidthHeuristics, debug_WidthHeuristics } from "./options.gen.ts";
 import type { ListTactic } from "./lists.ts";
 import type { Config } from "./create_config.gen.ts";
 import { type Edition as rustc_span_Edition, Edition_discriminant as rustc_span_Edition_discriminant } from "../../rustc_span/edition.ts";
@@ -19,11 +19,6 @@ export * from "./options.gen.ts";
 
 /** `Option<std::cmp::Ordering>`: `-1` Less, `0` Equal, `1` Greater, `undefined` None. */
 export type PartialOrdering = -1 | 0 | 1 | undefined;
-
-/// Heuristic settings that can be used to simply
-/// the configuration of the granular width configurations
-/// like `struct_lit_width`, `array_width`, etc.
-export type Heuristics = gen.Heuristics;
 
 /// Configuration for doc comments
 /// from the top-level configuration.
@@ -165,8 +160,6 @@ Object.assign(WidthHeuristics, {
   },
 });
 
-export type EmitMode = gen.EmitMode;
-
 // `impl Default for EmitMode`
 // rustc: src/tools/rustfmt/src/config/options.rs:360 default
 export function default_EmitMode(): EmitMode {
@@ -297,8 +290,6 @@ export interface CliOptions {
   // rustc: src/tools/rustfmt/src/config/options.rs:470 version
   version(): Version | undefined;
 }
-
-export type Version = gen.Version;
 
 /// The edition of the syntax and semantics of code (RFC 2052).
 export type Edition = gen.Edition;
