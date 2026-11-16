@@ -113,9 +113,10 @@ test("ir-hello is protected since wave 40q's accept, with both its cases", () =>
   expect(baseline).toEqual(["hello -Copt-level=0", "hello -O"]);
 });
 
-test("the sparse list adds exactly the two directories root approved", () => {
+// plan-m8 D3 (lane tools-prep-m8) added src/tools/clippy and src/tools/rustfmt.
+test("the sparse list adds exactly the directories root approved", () => {
   const pin = JSON.parse(readFileSync(join(REPO, "UPSTREAM.json"), "utf8")).rust as { sparse: string[] };
-  expect(pin.sparse).toEqual(["compiler", "library", "tests/ui", "tests/auxiliary", "tests/codegen-llvm", "tests/mir-opt", "src/tools/compiletest", "src/tools/miri/src", "src/tools/miri/tests"]);
+  expect(pin.sparse).toEqual(["compiler", "library", "tests/ui", "tests/auxiliary", "tests/codegen-llvm", "tests/mir-opt", "src/tools/compiletest", "src/tools/miri/src", "src/tools/miri/tests", "src/tools/clippy", "src/tools/rustfmt"]);
 });
 
 test("a dump directory keeps a test's -Zdump-mir out of the cwd: the oracle, on dump_dataflow.rs's own flags", () => {
