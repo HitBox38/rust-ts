@@ -780,3 +780,10 @@ Plan §8 wave 42. Batch 1 (5-6 heavy lanes at a time): dispatch-a (doc, matches 
 | clippy-utils-a | `source`, `res`, `paths`, `attrs`, `numeric_literal` | started |
 | vendor-fmt-small | diff, unicode-segmentation, semver, bytecount, unicode-width 0.1, dirs | started |
 | harness-m8d | clippy-ui, clippy-ui-lane, clippy-ui-json, clippy-ui-toml, clippy subject entry | started |
+
+**Paused 2026-11-16 19:13 (weekly usage limit; resets 2026-11-18 00:00 Asia/Jerusalem).** Three delegated reviews failed on the limit and must be re-run (new delegate_task each, same briefs):
+1. `root-w68-check`: independent check of `integ-w68` (worktree `.data/integ-w68`, head `843e845e`; prepared by lane integ-w68-prep, branch `t3/prepare-wave42-clippy-vendor` @ `685f96de`) and the re-check of vendor-fmt-small's FAIL. The full unit step on integ-w68 already PASSED (8454 pass / 1 allowed skip, runner 683, tsc, markers, frozen lists). After the check passes: merge integ-w68 to main.
+2. `review-vendor-toml-a`: branch `t3/vendor-toml-parser-de` @ `f12ce655` (check it reads no sources from ~/.cargo).
+3. `review-dispatch-methods`: branch `t3/port-clippy-methods-dispatch-b` @ `a00af27e` (contains dispatch-methods-a).
+Ready, waiting to integrate after integ-w68: harness-m8d (`t3/add-clippy-ui-harness` @ `670415f4`, review PASS WITH NOTES + fixes; reviews `t3/review-clippy-harness`).
+Then: codegen-clippy-conf, vendor-toml-b, vendor-serde-de, clippy-early-a…e, clippy-utils-b…g, tools-vendor-scope-m8, harness-m8b, rustfmt fill lanes. The host still blocks cargo-build/m8-measure (D20).
