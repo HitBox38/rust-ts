@@ -1,0 +1,181 @@
+{
+ "commit": "6f5da406b56c2db6607202b63daee73aa8c61297",
+ "cases": [
+  {
+   "version": "1.16",
+   "attr_fires": false,
+   "attr_errors": [],
+   "env_fires": false
+  },
+  {
+   "version": "1.17",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "1.16.9",
+   "attr_fires": false,
+   "attr_errors": [],
+   "env_fires": false
+  },
+  {
+   "version": "1.17.0",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "1.17.1",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "1.18",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "2.0",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "1",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.16.0.0",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.16.0.0` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.17.0.0",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.17.0.0` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.17-nightly",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.17-nightly` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.17.0-nightly",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.17.0-nightly` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.16.0-beta",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.16.0-beta` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "abc",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `abc` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": " 1.17",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: ` 1.17` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.17 ",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.17 ` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "+1.16",
+   "attr_fires": false,
+   "attr_errors": [],
+   "env_fires": false
+  },
+  {
+   "version": "1.+16",
+   "attr_fires": false,
+   "attr_errors": [],
+   "env_fires": false
+  },
+  {
+   "version": "01.016",
+   "attr_fires": false,
+   "attr_errors": [],
+   "env_fires": false
+  },
+  {
+   "version": "1.65535",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "1.65536",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.65536` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "65535.0.0",
+   "attr_fires": true,
+   "attr_errors": [],
+   "env_fires": true
+  },
+  {
+   "version": "1..0",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1..0` is not a valid Rust version"
+   ],
+   "env_fires": true
+  },
+  {
+   "version": "1.16.",
+   "attr_fires": true,
+   "attr_errors": [
+    "error: `1.16.` is not a valid Rust version"
+   ],
+   "env_fires": true
+  }
+ ]
+}

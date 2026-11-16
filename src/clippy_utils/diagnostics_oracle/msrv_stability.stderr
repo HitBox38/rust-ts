@@ -1,0 +1,51 @@
+warning: current MSRV (Minimum Supported Rust Version) is `1.20.0` but this item is stable since `1.21.0`
+ --> msrv_stability.rs:9:18
+  |
+9 | fn f() -> bool { mem::needs_drop::<String>() }
+  |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#incompatible_msrv
+  = note: `#[warn(clippy::incompatible_msrv)]` on by default
+
+warning: current MSRV (Minimum Supported Rust Version) is `1.20.0` but this item is stable in a `const` context since `1.36.0`
+  --> msrv_stability.rs:10:17
+   |
+10 | const C: bool = mem::needs_drop::<String>();
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#incompatible_msrv
+
+warning: current MSRV (Minimum Supported Rust Version) is `1.20.0` but this item is stable in a `const` context since `1.85.0`
+  --> msrv_stability.rs:12:40
+   |
+12 | const fn h(a: &mut i32, b: &mut i32) { mem::swap(a, b) }
+   |                                        ^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#incompatible_msrv
+
+warning: current MSRV (Minimum Supported Rust Version) is `1.20.0` but this item is stable in a `const` context since `1.83.0`
+  --> msrv_stability.rs:13:34
+   |
+13 | const fn r(a: &mut i32) -> i32 { mem::replace(a, 1) }
+   |                                  ^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#incompatible_msrv
+
+warning: current MSRV (Minimum Supported Rust Version) is `1.20.0` but this item is stable since `1.21.0`
+  --> msrv_stability.rs:14:32
+   |
+14 | fn i(x: Option<i32>) { let _ = mem::discriminant(&x); }
+   |                                ^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#incompatible_msrv
+
+warning: current MSRV (Minimum Supported Rust Version) is `1.20.0` but this item is stable in a `const` context since `1.85.0`
+  --> msrv_stability.rs:15:18
+   |
+15 | const D: usize = mem::size_of_val(&1u8);
+   |                  ^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/main/index.html#incompatible_msrv
+
+warning: 6 warnings emitted
+

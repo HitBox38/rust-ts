@@ -1,0 +1,32 @@
+error: `abc` is not a valid Rust version
+ --> msrv_attrs.rs:5:1
+  |
+5 | #[clippy::msrv = "abc"]
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: bad clippy attribute
+ --> msrv_attrs.rs:8:1
+  |
+8 | #[clippy::msrv]
+  | ^^^^^^^^^^^^^^^
+
+error: `clippy::msrv` is defined multiple times
+  --> msrv_attrs.rs:13:1
+   |
+13 | #[clippy::msrv = "1.5"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: first definition found here
+  --> msrv_attrs.rs:11:1
+   |
+11 | #[clippy::msrv = "1.2.3"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `1.0-nightly` is not a valid Rust version
+  --> msrv_attrs.rs:16:1
+   |
+16 | #[clippy::msrv = "1.0-nightly"]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 4 previous errors
+
