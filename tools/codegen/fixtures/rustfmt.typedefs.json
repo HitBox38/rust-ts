@@ -1,0 +1,6046 @@
+{
+ "files": [
+  {
+   "attrs": [
+    {
+     "col": 0,
+     "inner": true,
+     "line": 1,
+     "path": "allow",
+     "text": "allow (unused_imports)",
+     "tokens": [
+      {
+       "col": 9,
+       "line": 1,
+       "t": "ident",
+       "v": "unused_imports"
+      }
+     ]
+    }
+   ],
+   "docs": [],
+   "impls": [
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 113,
+       "name": "to_heuristics"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 112,
+     "module": [],
+     "negative": false,
+     "self_name": "DocCodeHeuristics",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "DocCodeHeuristics"
+        }
+       ]
+      },
+      "text": "DocCodeHeuristics"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 124,
+       "name": "to_list_tactic"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 123,
+     "module": [],
+     "negative": false,
+     "self_name": "Density",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Density"
+        }
+       ]
+      },
+      "text": "Density"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 248,
+       "name": "use_colored_tty"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 246,
+     "module": [],
+     "negative": false,
+     "self_name": "Color",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Color"
+        }
+       ]
+      },
+      "text": "Color"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 295,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 294,
+     "module": [],
+     "negative": false,
+     "self_name": "WidthHeuristics",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "WidthHeuristics"
+        }
+       ]
+      },
+      "text": "WidthHeuristics"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 302,
+       "name": "null"
+      },
+      {
+       "line": 315,
+       "name": "set"
+      },
+      {
+       "line": 329,
+       "name": "scaled"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 300,
+     "module": [],
+     "negative": false,
+     "self_name": "WidthHeuristics",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "WidthHeuristics"
+        }
+       ]
+      },
+      "text": "WidthHeuristics"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 354,
+       "name": "from_str"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 351,
+     "module": [],
+     "negative": false,
+     "self_name": "WidthHeuristics",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "WidthHeuristics"
+        }
+       ]
+      },
+      "text": "WidthHeuristics"
+     },
+     "trait": "::std::str::FromStr"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 360,
+       "name": "default"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 359,
+     "module": [],
+     "negative": false,
+     "self_name": "EmitMode",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "EmitMode"
+        }
+       ]
+      },
+      "text": "EmitMode"
+     },
+     "trait": "Default"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 375,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 374,
+     "module": [],
+     "negative": false,
+     "self_name": "IgnoreList",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "IgnoreList"
+        }
+       ]
+      },
+      "text": "IgnoreList"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 390,
+       "name": "serialize"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 389,
+     "module": [],
+     "negative": false,
+     "self_name": "IgnoreList",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "IgnoreList"
+        }
+       ]
+      },
+      "text": "IgnoreList"
+     },
+     "trait": "Serialize"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 403,
+       "name": "deserialize"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "de"
+       }
+      ],
+      "where": []
+     },
+     "line": 402,
+     "module": [],
+     "negative": false,
+     "self_name": "IgnoreList",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "IgnoreList"
+        }
+       ]
+      },
+      "text": "IgnoreList"
+     },
+     "trait": "Deserialize"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 437,
+       "name": "into_iter"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "a"
+       }
+      ],
+      "where": []
+     },
+     "line": 433,
+     "module": [],
+     "negative": false,
+     "self_name": null,
+     "self_ty": {
+      "elem": {
+       "kind": "path",
+       "path": {
+        "global": false,
+        "segments": [
+         {
+          "args": [],
+          "name": "IgnoreList"
+         }
+        ]
+       },
+       "text": "IgnoreList"
+      },
+      "kind": "ref",
+      "lifetime": "a",
+      "mut": false,
+      "text": "& 'a IgnoreList"
+     },
+     "trait": "IntoIterator"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 443,
+       "name": "add_prefix"
+      },
+      {
+       "line": 447,
+       "name": "rustfmt_toml_path"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 442,
+     "module": [],
+     "negative": false,
+     "self_name": "IgnoreList",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "IgnoreList"
+        }
+       ]
+      },
+      "text": "IgnoreList"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 455,
+       "name": "from_str"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 452,
+     "module": [],
+     "negative": false,
+     "self_name": "IgnoreList",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "IgnoreList"
+        }
+       ]
+      },
+      "text": "IgnoreList"
+     },
+     "trait": "FromStr"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 495,
+       "name": "default"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 494,
+     "module": [],
+     "negative": false,
+     "self_name": "Edition",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Edition"
+        }
+       ]
+      },
+      "text": "Edition"
+     },
+     "trait": "Default"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 501,
+       "name": "from"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 500,
+     "module": [],
+     "negative": false,
+     "self_name": "Edition",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "rustc_span"
+        },
+        {
+         "args": [],
+         "name": "edition"
+        },
+        {
+         "args": [],
+         "name": "Edition"
+        }
+       ]
+      },
+      "text": "rustc_span :: edition :: Edition"
+     },
+     "trait": "From"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 512,
+       "name": "from"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 511,
+     "module": [],
+     "negative": false,
+     "self_name": "StyleEdition",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "StyleEdition"
+        }
+       ]
+      },
+      "text": "StyleEdition"
+     },
+     "trait": "From"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 523,
+       "name": "partial_cmp"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 522,
+     "module": [],
+     "negative": false,
+     "self_name": "Edition",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Edition"
+        }
+       ]
+      },
+      "text": "Edition"
+     },
+     "trait": "PartialOrd"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 570,
+       "name": "from"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 569,
+     "module": [],
+     "negative": false,
+     "self_name": "Edition",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "rustc_span"
+        },
+        {
+         "args": [],
+         "name": "edition"
+        },
+        {
+         "args": [],
+         "name": "Edition"
+        }
+       ]
+      },
+      "text": "rustc_span :: edition :: Edition"
+     },
+     "trait": "From"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 583,
+       "name": "partial_cmp"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 582,
+     "module": [],
+     "negative": false,
+     "self_name": "StyleEdition",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "StyleEdition"
+        }
+       ]
+      },
+      "text": "StyleEdition"
+     },
+     "trait": "PartialOrd"
+    }
+   ],
+   "items": [
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 19,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 20,
+     "module": [],
+     "name": "NewlineStyle",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Auto-detect based on the raw source input."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 22,
+       "name": "Auto"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Force CRLF (`\\r\\n`)."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 24,
+       "name": "Windows"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Force CR (`\\n`)."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 26,
+       "name": "Unix"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " `\\r\\n` in Windows, `\\n` on other platforms."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 28,
+       "name": "Native"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 31,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Where to put the opening brace of items (`fn`, `impl`, etc.)."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 33,
+     "module": [],
+     "name": "BraceStyle",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Put the opening brace on the next line."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 35,
+       "name": "AlwaysNextLine"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Put the opening brace on the same line, if possible."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 37,
+       "name": "PreferSameLine"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Prefer the same line except where there is a where-clause, in which",
+        " case force the brace to be put on the next line."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 40,
+       "name": "SameLineWhere"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 43,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Where to put the opening brace of conditional expressions (`if`, `match`, etc.)."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 45,
+     "module": [],
+     "name": "ControlBraceStyle",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " K&R style, Rust community default"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 47,
+       "name": "AlwaysSameLine"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Stroustrup style"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 49,
+       "name": "ClosingNextLine"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Allman style"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 51,
+       "name": "AlwaysNextLine"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 54,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " How to indent."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 56,
+     "module": [],
+     "name": "IndentStyle",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " First line on the same line as the opening brace, all lines aligned with",
+        " the first line."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 59,
+       "name": "Visual"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " First line is on a new line and all lines align with **block** indent."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 61,
+       "name": "Block"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 64,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " How to place a list-like items.",
+      " FIXME: Issue-3581: this should be renamed to ItemsLayout when publishing 2.0"
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 67,
+     "module": [],
+     "name": "Density",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Fit as much on one line as possible."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 69,
+       "name": "Compressed"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Items are placed horizontally if sufficient space, vertically otherwise."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 71,
+       "name": "Tall"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Place every item on a separate line."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 73,
+       "name": "Vertical"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 76,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Spacing around type combinators."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 78,
+     "module": [],
+     "name": "TypeDensity",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " No spaces around \"=\" and \"+\""
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 80,
+       "name": "Compressed"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Spaces around \" = \" and \" + \""
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 82,
+       "name": "Wide"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 85,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Heuristic settings that can be used to simply",
+      " the configuration of the granular width configurations",
+      " like `struct_lit_width`, `array_width`, etc."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 89,
+     "module": [],
+     "name": "Heuristics",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Turn off any heuristics"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 91,
+       "name": "Off"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Turn on max heuristics"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 93,
+       "name": "Max"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Use scaled values based on the value of `max_width`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 95,
+       "name": "Default"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 98,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Heuristic settings for doc comments. Same as `Heuristics`, but `Inherit` will inherit the value",
+      " from the top-level configuration."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 101,
+     "module": [],
+     "name": "DocCodeHeuristics",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Inherit from the top-level configuration"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 103,
+       "name": "Inherit"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Turn off any heuristics"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 105,
+       "name": "Off"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Turn on max heuristics"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 107,
+       "name": "Max"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Use scaled values based on the value of `max_width`"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 109,
+       "name": "Default"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 140,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Configuration for import groups, i.e. sets of imports separated by newlines."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 142,
+     "module": [],
+     "name": "GroupImportsTactic",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Keep groups as they are."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 144,
+       "name": "Preserve"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Discard existing groups, and create new groups for",
+        "  1. `std` / `core` / `alloc` imports",
+        "  2. other imports",
+        "  3. `self` / `crate` / `super` imports"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 149,
+       "name": "StdExternalCrate"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Discard existing groups, and create a single group for everything"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 151,
+       "name": "One"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 154,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " How to merge imports."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 156,
+     "module": [],
+     "name": "ImportGranularity",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Do not merge imports."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 158,
+       "name": "Preserve"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Use one `use` statement per crate."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 160,
+       "name": "Crate"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Use one `use` statement per module."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 162,
+       "name": "Module"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Use one `use` statement per imported item."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 164,
+       "name": "Item"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Use one `use` statement including all items."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 166,
+       "name": "One"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 170,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Controls how rustfmt should handle case in hexadecimal literals."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 171,
+     "module": [],
+     "name": "HexLiteralCase",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Leave the literal as-is"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 173,
+       "name": "Preserve"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Ensure all literals use uppercase lettering"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 175,
+       "name": "Upper"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Ensure all literals use lowercase lettering"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 177,
+       "name": "Lower"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 181,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " How to treat trailing zeros in floating-point literals."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 182,
+     "module": [],
+     "name": "FloatLiteralTrailingZero",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Leave the literal as-is."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 184,
+       "name": "Preserve"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Add a trailing zero to the literal."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 186,
+       "name": "Always"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Add a trailing zero by default. If the literal contains an exponent or a suffix, the zero",
+        " and the preceding period are removed."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 189,
+       "name": "IfNoPostfix"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Remove the trailing zero. If the literal contains an exponent or a suffix, the preceding",
+        " period is also removed."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 192,
+       "name": "Never"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 195,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 196,
+     "module": [],
+     "name": "ReportTactic",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 197,
+       "name": "Always"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 198,
+       "name": "Unnumbered"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 199,
+       "name": "Never"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 204,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " What Rustfmt should emit. Mostly corresponds to the `--emit` command line",
+      " option."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 205,
+     "module": [],
+     "name": "EmitMode",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Emits to files."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 207,
+       "name": "Files"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Writes the output to stdout."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 209,
+       "name": "Stdout"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Displays how much of the input file was processed"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 211,
+       "name": "Coverage"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Unfancy stdout"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 213,
+       "name": "Checkstyle"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Writes the resulting diffs in a JSON format. Returns an empty array",
+        " `[]` if there were no diffs."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 216,
+       "name": "Json"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Output the changed lines (for internal value only)"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 218,
+       "name": "ModifiedLines"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Checks if a diff can be generated. If so, rustfmt outputs a diff and",
+        " quits with exit code 1.",
+        " This option is designed to be run in CI where a non-zero exit signifies",
+        " non-standard code formatting. Used for `--check`."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 223,
+       "name": "Diff"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 227,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Client-preference for coloured output."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 228,
+     "module": [],
+     "name": "Color",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Always use color, whether it is a piped or terminal output"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 230,
+       "name": "Always"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Never use color"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 232,
+       "name": "Never"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Automatically use color, if supported by terminal"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 234,
+       "name": "Auto"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 237,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " rustfmt format style version."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 239,
+     "module": [],
+     "name": "Version",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " 1.x.y. When specified, rustfmt will format in the same style as 1.0.0."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 241,
+       "name": "One"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " 2.x.y. When specified, rustfmt will format in the latest style."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 243,
+       "name": "Two"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 257,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " How chatty should Rustfmt be?"
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 258,
+     "module": [],
+     "name": "Verbosity",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Emit more."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 260,
+       "name": "Verbose"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Default."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 262,
+       "name": "Normal"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Emit as little as possible."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 264,
+       "name": "Quiet"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Deserialize",
+        "Serialize",
+        "Clone",
+        "Debug",
+        "PartialEq"
+       ],
+       "line": 267,
+       "path": "derive",
+       "text": "derive (Deserialize , Serialize , Clone , Debug , PartialEq)"
+      }
+     ],
+     "docs": [],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 271,
+        "name": "fn_call_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 274,
+        "name": "attr_fn_like_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 2,
+        "line": 277,
+        "name": "struct_lit_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 3,
+        "line": 280,
+        "name": "struct_variant_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 4,
+        "line": 283,
+        "name": "array_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 5,
+        "line": 285,
+        "name": "chain_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 6,
+        "line": 288,
+        "name": "single_line_if_else_max_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 7,
+        "line": 291,
+        "name": "single_line_let_else_max_width",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 268,
+     "module": [],
+     "name": "WidthHeuristics",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Default",
+        "Clone",
+        "Debug",
+        "PartialEq"
+       ],
+       "line": 366,
+       "path": "derive",
+       "text": "derive (Default , Clone , Debug , PartialEq)"
+      }
+     ],
+     "docs": [
+      " A set of directories, files and modules that rustfmt should ignore."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [
+         " A set of path specified in rustfmt.toml."
+        ],
+        "index": 0,
+        "line": 369,
+        "name": "path_set",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "PathBuf"
+                 }
+                ]
+               },
+               "text": "PathBuf"
+              }
+             }
+            ],
+            "name": "HashSet"
+           }
+          ]
+         },
+         "text": "HashSet < PathBuf >"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [
+         " A path to rustfmt.toml."
+        ],
+        "index": 1,
+        "line": 371,
+        "name": "rustfmt_toml_path",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "PathBuf"
+           }
+          ]
+         },
+         "text": "PathBuf"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 367,
+     "module": [],
+     "name": "IgnoreList",
+     "vis": "pub"
+    },
+    {
+     "attrs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "trait",
+     "line": 462,
+     "module": [],
+     "name": "CliOptions",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 474,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " The edition of the syntax and semantics of code (RFC 2052)."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 475,
+     "module": [],
+     "name": "Edition",
+     "variants": [
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 476,
+         "path": "value",
+         "text": "value = \"2015\"",
+         "value": "2015"
+        },
+        {
+         "col": 4,
+         "line": 477,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2015\"",
+         "value": "2015"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " Edition 2015."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 479,
+       "name": "Edition2015"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 480,
+         "path": "value",
+         "text": "value = \"2018\"",
+         "value": "2018"
+        },
+        {
+         "col": 4,
+         "line": 481,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2018\"",
+         "value": "2018"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " Edition 2018."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 483,
+       "name": "Edition2018"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 484,
+         "path": "value",
+         "text": "value = \"2021\"",
+         "value": "2021"
+        },
+        {
+         "col": 4,
+         "line": 485,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2021\"",
+         "value": "2021"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " Edition 2021."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 487,
+       "name": "Edition2021"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 488,
+         "path": "value",
+         "text": "value = \"2024\"",
+         "value": "2024"
+        },
+        {
+         "col": 4,
+         "line": 489,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2024\"",
+         "value": "2024"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " Edition 2024."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 491,
+       "name": "Edition2024"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 529,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Controls how rustfmt should handle leading pipes on match arms."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 530,
+     "module": [],
+     "name": "MatchArmLeadingPipe",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Place leading pipes on all match arms"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 532,
+       "name": "Always"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Never emit leading pipes on match arms"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 534,
+       "name": "Never"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Preserve any existing leading pipes"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 536,
+       "name": "Preserve"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 544,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Defines the default values for each config according to the edition of the",
+      " [Style Guide] as per [RFC 3338]. Rustfmt output may differ between Style editions.",
+      "",
+      " [Style Guide]: https://doc.rust-lang.org/nightly/style-guide/",
+      " [RFC 3338]: https://rust-lang.github.io/rfcs/3338-style-evolution.html"
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 545,
+     "module": [],
+     "name": "StyleEdition",
+     "variants": [
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 546,
+         "path": "value",
+         "text": "value = \"2015\"",
+         "value": "2015"
+        },
+        {
+         "col": 4,
+         "line": 547,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2015\"",
+         "value": "2015"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " [Edition 2015]()"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 549,
+       "name": "Edition2015"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 550,
+         "path": "value",
+         "text": "value = \"2018\"",
+         "value": "2018"
+        },
+        {
+         "col": 4,
+         "line": 551,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2018\"",
+         "value": "2018"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " [Edition 2018]()"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 553,
+       "name": "Edition2018"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 554,
+         "path": "value",
+         "text": "value = \"2021\"",
+         "value": "2021"
+        },
+        {
+         "col": 4,
+         "line": 555,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2021\"",
+         "value": "2021"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " [Edition 2021]()"
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 557,
+       "name": "Edition2021"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 558,
+         "path": "value",
+         "text": "value = \"2024\"",
+         "value": "2024"
+        },
+        {
+         "col": 4,
+         "line": 559,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2024\"",
+         "value": "2024"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " [Edition 2024]()."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 561,
+       "name": "Edition2024"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 562,
+         "path": "value",
+         "text": "value = \"2027\"",
+         "value": "2027"
+        },
+        {
+         "col": 4,
+         "line": 563,
+         "path": "doc_hint",
+         "text": "doc_hint = \"2027\"",
+         "value": "2027"
+        },
+        {
+         "col": 4,
+         "line": 564,
+         "path": "unstable_variant",
+         "text": "unstable_variant"
+        }
+       ],
+       "discriminant": null,
+       "docs": [
+        " [Edition 2027]()."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 566,
+       "name": "Edition2027"
+      }
+     ],
+     "vis": "pub"
+    }
+   ],
+   "macros": [
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 598,
+       "path": "macro_export",
+       "text": "macro_export"
+      }
+     ],
+     "debug_formats": [],
+     "kind": "macro_rules",
+     "line": 599,
+     "macro": "macro_rules",
+     "module": [],
+     "name": "config_option_with_style_edition_default",
+     "types": []
+    },
+    {
+     "attrs": [],
+     "debug_formats": [],
+     "kind": "call",
+     "line": 630,
+     "macro": "config_option_with_style_edition_default",
+     "module": [],
+     "name": null,
+     "types": []
+    }
+   ],
+   "mods": [],
+   "path": "src/tools/rustfmt/src/config/options.rs",
+   "uses": [
+    {
+     "alias": "HashSet",
+     "glob": false,
+     "line": 3,
+     "module": [],
+     "path": [
+      "std",
+      "collections",
+      "HashSet"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "hash_set",
+     "glob": false,
+     "line": 3,
+     "module": [],
+     "path": [
+      "std",
+      "collections",
+      "hash_set"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "fmt",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "std",
+      "fmt"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Path",
+     "glob": false,
+     "line": 5,
+     "module": [],
+     "path": [
+      "std",
+      "path",
+      "Path"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "PathBuf",
+     "glob": false,
+     "line": 5,
+     "module": [],
+     "path": [
+      "std",
+      "path",
+      "PathBuf"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "FromStr",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "std",
+      "str",
+      "FromStr"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Itertools",
+     "glob": false,
+     "line": 8,
+     "module": [],
+     "path": [
+      "itertools",
+      "Itertools"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "config_type",
+     "glob": false,
+     "line": 9,
+     "module": [],
+     "path": [
+      "rustfmt_config_proc_macro",
+      "config_type"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "SeqAccess",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "de",
+      "SeqAccess"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Visitor",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "de",
+      "Visitor"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "SerializeSeq",
+     "glob": false,
+     "line": 11,
+     "module": [],
+     "path": [
+      "serde",
+      "ser",
+      "SerializeSeq"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Deserialize",
+     "glob": false,
+     "line": 12,
+     "module": [],
+     "path": [
+      "serde",
+      "Deserialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Deserializer",
+     "glob": false,
+     "line": 12,
+     "module": [],
+     "path": [
+      "serde",
+      "Deserializer"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Serialize",
+     "glob": false,
+     "line": 12,
+     "module": [],
+     "path": [
+      "serde",
+      "Serialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Serializer",
+     "glob": false,
+     "line": 12,
+     "module": [],
+     "path": [
+      "serde",
+      "Serializer"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Config",
+     "glob": false,
+     "line": 14,
+     "module": [],
+     "path": [
+      "crate",
+      "config",
+      "Config"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "FileLines",
+     "glob": false,
+     "line": 15,
+     "module": [],
+     "path": [
+      "crate",
+      "config",
+      "file_lines",
+      "FileLines"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": null,
+     "glob": true,
+     "line": 16,
+     "module": [],
+     "path": [
+      "crate",
+      "config",
+      "lists"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "MacroSelectors",
+     "glob": false,
+     "line": 17,
+     "module": [],
+     "path": [
+      "crate",
+      "config",
+      "macro_names",
+      "MacroSelectors"
+     ],
+     "vis": ""
+    }
+   ]
+  },
+  {
+   "attrs": [],
+   "docs": [
+    " Configuration options related to rewriting a list."
+   ],
+   "impls": [
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 18,
+       "name": "ends_with_newline"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 17,
+     "module": [],
+     "negative": false,
+     "self_name": "DefinitiveListTactic",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "DefinitiveListTactic"
+        }
+       ]
+      },
+      "text": "DefinitiveListTactic"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 51,
+       "name": "from_bool"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 50,
+     "module": [],
+     "negative": false,
+     "self_name": "SeparatorTactic",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "SeparatorTactic"
+        }
+       ]
+      },
+      "text": "SeparatorTactic"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 68,
+       "name": "is_front"
+      },
+      {
+       "line": 72,
+       "name": "is_back"
+      },
+      {
+       "line": 76,
+       "name": "from_tactic"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 67,
+     "module": [],
+     "negative": false,
+     "self_name": "SeparatorPlace",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "SeparatorPlace"
+        }
+       ]
+      },
+      "text": "SeparatorPlace"
+     },
+     "trait": null
+    }
+   ],
+   "items": [
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Eq",
+        "PartialEq",
+        "Debug",
+        "Copy",
+        "Clone"
+       ],
+       "line": 8,
+       "path": "derive",
+       "text": "derive (Eq , PartialEq , Debug , Copy , Clone)"
+      }
+     ],
+     "docs": [
+      " The definitive formatting tactic for lists."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 9,
+     "module": [],
+     "name": "DefinitiveListTactic",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 10,
+       "name": "Vertical"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 11,
+       "name": "Horizontal"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 12,
+       "name": "Mixed"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Special case tactic for `format!()`, `write!()` style macros."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 14,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "usize"
+             }
+            ]
+           },
+           "text": "usize"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 14,
+       "name": "SpecialMacro"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 29,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Formatting tactic for lists. This will be cast down to a",
+      " `DefinitiveListTactic` depending on the number and length of the items and",
+      " their comments."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 30,
+     "module": [],
+     "name": "ListTactic",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " One item per row."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 32,
+       "name": "Vertical"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " All items on one row."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 34,
+       "name": "Horizontal"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Try Horizontal layout, if that fails then vertical."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 36,
+       "name": "HorizontalVertical"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " HorizontalVertical with a soft limit of n characters."
+       ],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 38,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "usize"
+             }
+            ]
+           },
+           "text": "usize"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 38,
+       "name": "LimitedHorizontalVertical"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [
+        " Pack as many items as possible per row over (possibly) many rows."
+       ],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 40,
+       "name": "Mixed"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 43,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 44,
+     "module": [],
+     "name": "SeparatorTactic",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 45,
+       "name": "Always"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 46,
+       "name": "Never"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 47,
+       "name": "Vertical"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "line": 61,
+       "path": "config_type",
+       "text": "config_type"
+      }
+     ],
+     "docs": [
+      " Where to put separator."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 62,
+     "module": [],
+     "name": "SeparatorPlace",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 63,
+       "name": "Front"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 64,
+       "name": "Back"
+      }
+     ],
+     "vis": "pub"
+    }
+   ],
+   "macros": [],
+   "mods": [],
+   "path": "src/tools/rustfmt/src/config/lists.rs",
+   "uses": [
+    {
+     "alias": "config_type",
+     "glob": false,
+     "line": 3,
+     "module": [],
+     "path": [
+      "rustfmt_config_proc_macro",
+      "config_type"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "IndentStyle",
+     "glob": false,
+     "line": 5,
+     "module": [],
+     "path": [
+      "crate",
+      "config",
+      "IndentStyle"
+     ],
+     "vis": ""
+    }
+   ]
+  },
+  {
+   "attrs": [],
+   "docs": [
+    " This module contains types and functions to support formatting specific line ranges."
+   ],
+   "impls": [
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 29,
+       "name": "from"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 28,
+     "module": [],
+     "negative": false,
+     "self_name": "FileName",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileName"
+        }
+       ]
+      },
+      "text": "FileName"
+     },
+     "trait": "From"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 47,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 46,
+     "module": [],
+     "negative": false,
+     "self_name": "FileName",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileName"
+        }
+       ]
+      },
+      "text": "FileName"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 56,
+       "name": "deserialize"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "de"
+       }
+      ],
+      "where": []
+     },
+     "line": 55,
+     "module": [],
+     "negative": false,
+     "self_name": "FileName",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileName"
+        }
+       ]
+      },
+      "text": "FileName"
+     },
+     "trait": "Deserialize"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 70,
+       "name": "serialize"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 69,
+     "module": [],
+     "negative": false,
+     "self_name": "FileName",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileName"
+        }
+       ]
+      },
+      "text": "FileName"
+     },
+     "trait": "Serialize"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 86,
+       "name": "file_name"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 85,
+     "module": [],
+     "negative": false,
+     "self_name": "LineRange",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "LineRange"
+        }
+       ]
+      },
+      "text": "LineRange"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 99,
+       "name": "from"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "a"
+       }
+      ],
+      "where": []
+     },
+     "line": 98,
+     "module": [],
+     "negative": false,
+     "self_name": "Range",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Range"
+        }
+       ]
+      },
+      "text": "Range"
+     },
+     "trait": "From"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 105,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 104,
+     "module": [],
+     "negative": false,
+     "self_name": "Range",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Range"
+        }
+       ]
+      },
+      "text": "Range"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 111,
+       "name": "new"
+      },
+      {
+       "line": 115,
+       "name": "is_empty"
+      },
+      {
+       "line": 120,
+       "name": "contains"
+      },
+      {
+       "line": 128,
+       "name": "intersects"
+      },
+      {
+       "line": 137,
+       "name": "adjacent_to"
+      },
+      {
+       "line": 147,
+       "name": "merge"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 110,
+     "module": [],
+     "negative": false,
+     "self_name": "Range",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "Range"
+        }
+       ]
+      },
+      "text": "Range"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 168,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 167,
+     "module": [],
+     "negative": false,
+     "self_name": "FileLines",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileLines"
+        }
+       ]
+      },
+      "text": "FileLines"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 207,
+       "name": "all"
+      },
+      {
+       "line": 212,
+       "name": "is_all"
+      },
+      {
+       "line": 216,
+       "name": "from_ranges"
+      },
+      {
+       "line": 222,
+       "name": "files"
+      },
+      {
+       "line": 227,
+       "name": "to_json_spans"
+      },
+      {
+       "line": 243,
+       "name": "file_range_matches"
+      },
+      {
+       "line": 261,
+       "name": "contains"
+      },
+      {
+       "line": 266,
+       "name": "intersects"
+      },
+      {
+       "line": 271,
+       "name": "contains_line"
+      },
+      {
+       "line": 276,
+       "name": "contains_range"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 205,
+     "module": [],
+     "negative": false,
+     "self_name": "FileLines",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileLines"
+        }
+       ]
+      },
+      "text": "FileLines"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 287,
+       "name": "next"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "a"
+       }
+      ],
+      "where": []
+     },
+     "line": 284,
+     "module": [],
+     "negative": false,
+     "self_name": "Files",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [
+          {
+           "kind": "lifetime",
+           "name": "a"
+          }
+         ],
+         "name": "Files"
+        }
+       ]
+      },
+      "text": "Files < 'a >"
+     },
+     "trait": "iter::Iterator"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 311,
+       "name": "from_str"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 308,
+     "module": [],
+     "negative": false,
+     "self_name": "FileLines",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileLines"
+        }
+       ]
+      },
+      "text": "FileLines"
+     },
+     "trait": "str::FromStr"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 330,
+       "name": "into_tuple"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 329,
+     "module": [],
+     "negative": false,
+     "self_name": "JsonSpan",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "JsonSpan"
+        }
+       ]
+      },
+      "text": "JsonSpan"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 341,
+       "name": "deserialize"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "de"
+       }
+      ],
+      "where": []
+     },
+     "line": 340,
+     "module": [],
+     "negative": false,
+     "self_name": "FileLines",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileLines"
+        }
+       ]
+      },
+      "text": "FileLines"
+     },
+     "trait": "::serde::de::Deserialize"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 355,
+       "name": "serialize"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 354,
+     "module": [],
+     "negative": false,
+     "self_name": "FileLines",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "FileLines"
+        }
+       ]
+      },
+      "text": "FileLines"
+     },
+     "trait": "::serde::ser::Serialize"
+    }
+   ],
+   "items": [
+    {
+     "attrs": [],
+     "docs": [
+      " A range of lines in a file, inclusive of both ends."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 16,
+        "name": "file",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "SourceFile"
+                 }
+                ]
+               },
+               "text": "SourceFile"
+              }
+             }
+            ],
+            "name": "Arc"
+           }
+          ]
+         },
+         "text": "Arc < SourceFile >"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 17,
+        "name": "lo",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 2,
+        "line": 18,
+        "name": "hi",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": "pub(crate)"
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 15,
+     "module": [],
+     "name": "LineRange",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "Debug",
+        "Eq",
+        "PartialEq",
+        "Hash",
+        "Ord",
+        "PartialOrd"
+       ],
+       "line": 22,
+       "path": "derive",
+       "text": "derive (Clone , Debug , Eq , PartialEq , Hash , Ord , PartialOrd)"
+      }
+     ],
+     "docs": [
+      " Defines the name of an input - either a file or stdin."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 23,
+     "module": [],
+     "name": "FileName",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 24,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "PathBuf"
+             }
+            ]
+           },
+           "text": "PathBuf"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 24,
+       "name": "Real"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 25,
+       "name": "Stdin"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "Copy",
+        "Debug",
+        "Eq",
+        "PartialEq",
+        "PartialOrd",
+        "Ord",
+        "Deserialize"
+       ],
+       "line": 92,
+       "path": "derive",
+       "text": "derive (Clone , Copy , Debug , Eq , PartialEq , PartialOrd , Ord , Deserialize)"
+      }
+     ],
+     "docs": [
+      " A range that is inclusive of both ends."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 94,
+        "name": "lo",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 95,
+        "name": "hi",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "usize"
+           }
+          ]
+         },
+         "text": "usize"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 93,
+     "module": [],
+     "name": "Range",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "Debug",
+        "Default",
+        "PartialEq"
+       ],
+       "line": 164,
+       "path": "derive",
+       "text": "derive (Clone , Debug , Default , PartialEq)"
+      }
+     ],
+     "docs": [
+      " A set of lines in files.",
+      "",
+      " It is represented as a multimap keyed on file names, with values a collection of",
+      " non-overlapping ranges sorted by their start point. An inner `None` is interpreted to mean all",
+      " lines in all files."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 165,
+        "name": null,
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [
+                   {
+                    "kind": "type",
+                    "ty": {
+                     "kind": "path",
+                     "path": {
+                      "global": false,
+                      "segments": [
+                       {
+                        "args": [],
+                        "name": "FileName"
+                       }
+                      ]
+                     },
+                     "text": "FileName"
+                    }
+                   },
+                   {
+                    "kind": "type",
+                    "ty": {
+                     "kind": "path",
+                     "path": {
+                      "global": false,
+                      "segments": [
+                       {
+                        "args": [
+                         {
+                          "kind": "type",
+                          "ty": {
+                           "kind": "path",
+                           "path": {
+                            "global": false,
+                            "segments": [
+                             {
+                              "args": [],
+                              "name": "Range"
+                             }
+                            ]
+                           },
+                           "text": "Range"
+                          }
+                         }
+                        ],
+                        "name": "Vec"
+                       }
+                      ]
+                     },
+                     "text": "Vec < Range >"
+                    }
+                   }
+                  ],
+                  "name": "HashMap"
+                 }
+                ]
+               },
+               "text": "HashMap < FileName , Vec < Range > >"
+              }
+             }
+            ],
+            "name": "Option"
+           }
+          ]
+         },
+         "text": "Option < HashMap < FileName , Vec < Range > > >"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "unnamed"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 165,
+     "module": [],
+     "name": "FileLines",
+     "vis": "pub"
+    },
+    {
+     "attrs": [],
+     "docs": [
+      " `FileLines` files iterator."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 282,
+        "name": null,
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": true,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "std"
+                 },
+                 {
+                  "args": [],
+                  "name": "collections"
+                 },
+                 {
+                  "args": [],
+                  "name": "hash_map"
+                 },
+                 {
+                  "args": [
+                   {
+                    "kind": "lifetime",
+                    "name": "a"
+                   },
+                   {
+                    "kind": "type",
+                    "ty": {
+                     "kind": "path",
+                     "path": {
+                      "global": false,
+                      "segments": [
+                       {
+                        "args": [],
+                        "name": "FileName"
+                       }
+                      ]
+                     },
+                     "text": "FileName"
+                    }
+                   },
+                   {
+                    "kind": "type",
+                    "ty": {
+                     "kind": "path",
+                     "path": {
+                      "global": false,
+                      "segments": [
+                       {
+                        "args": [
+                         {
+                          "kind": "type",
+                          "ty": {
+                           "kind": "path",
+                           "path": {
+                            "global": false,
+                            "segments": [
+                             {
+                              "args": [],
+                              "name": "Range"
+                             }
+                            ]
+                           },
+                           "text": "Range"
+                          }
+                         }
+                        ],
+                        "name": "Vec"
+                       }
+                      ]
+                     },
+                     "text": "Vec < Range >"
+                    }
+                   }
+                  ],
+                  "name": "Keys"
+                 }
+                ]
+               },
+               "text": ":: std :: collections :: hash_map :: Keys < 'a , FileName , Vec < Range > >"
+              }
+             }
+            ],
+            "name": "Option"
+           }
+          ]
+         },
+         "text": "Option < :: std :: collections :: hash_map :: Keys < 'a , FileName , Vec < Range > > >"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "unnamed"
+     },
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "a"
+       }
+      ],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 282,
+     "module": [],
+     "name": "Files",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Error",
+        "Debug"
+       ],
+       "line": 299,
+       "path": "derive",
+       "text": "derive (Error , Debug)"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 300,
+     "module": [],
+     "name": "FileLinesError",
+     "variants": [
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 301,
+         "path": "error",
+         "text": "error (\"{0}\")",
+         "tokens": [
+          {
+           "col": 12,
+           "line": 301,
+           "str": "{0}",
+           "suffix": "",
+           "t": "lit",
+           "v": "\"{0}\""
+          }
+         ]
+        }
+       ],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 302,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "json"
+             },
+             {
+              "args": [],
+              "name": "Error"
+             }
+            ]
+           },
+           "text": "json :: Error"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 302,
+       "name": "Json"
+      },
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 303,
+         "path": "error",
+         "text": "error (\"Can't canonicalize {0}\")",
+         "tokens": [
+          {
+           "col": 12,
+           "line": 303,
+           "str": "Can't canonicalize {0}",
+           "suffix": "",
+           "t": "lit",
+           "v": "\"Can't canonicalize {0}\""
+          }
+         ]
+        }
+       ],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 304,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "FileName"
+             }
+            ]
+           },
+           "text": "FileName"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 304,
+       "name": "CannotCanonicalize"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "PartialEq",
+        "Eq",
+        "PartialOrd",
+        "Ord",
+        "Debug",
+        "Deserialize",
+        "Serialize"
+       ],
+       "line": 323,
+       "path": "derive",
+       "text": "derive (Clone , PartialEq , Eq , PartialOrd , Ord , Debug , Deserialize , Serialize)"
+      }
+     ],
+     "docs": [],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 325,
+        "name": "file",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "FileName"
+           }
+          ]
+         },
+         "text": "FileName"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 326,
+        "name": "range",
+        "ty": {
+         "elems": [
+          {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "usize"
+             }
+            ]
+           },
+           "text": "usize"
+          },
+          {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "usize"
+             }
+            ]
+           },
+           "text": "usize"
+          }
+         ],
+         "kind": "tuple",
+         "text": "(usize , usize)"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 324,
+     "module": [],
+     "name": "JsonSpan",
+     "vis": "pub"
+    }
+   ],
+   "macros": [],
+   "mods": [
+    {
+     "attrs": [
+      {
+       "cfg": {
+        "name": "test"
+       },
+       "col": 0,
+       "line": 363,
+       "path": "cfg",
+       "text": "cfg (test)"
+      }
+     ],
+     "inline": true,
+     "line": 364,
+     "module": [],
+     "name": "test",
+     "vis": ""
+    }
+   ],
+   "path": "src/tools/rustfmt/src/config/file_lines.rs",
+   "uses": [
+    {
+     "alias": "Itertools",
+     "glob": false,
+     "line": 3,
+     "module": [],
+     "path": [
+      "itertools",
+      "Itertools"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "HashMap",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "std",
+      "collections",
+      "HashMap"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "PathBuf",
+     "glob": false,
+     "line": 5,
+     "module": [],
+     "path": [
+      "std",
+      "path",
+      "PathBuf"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Arc",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "std",
+      "sync",
+      "Arc"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "cmp",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "std",
+      "cmp"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "fmt",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "std",
+      "fmt"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "iter",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "std",
+      "iter"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "str",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "std",
+      "str"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "SourceFile",
+     "glob": false,
+     "line": 9,
+     "module": [],
+     "path": [
+      "rustc_span",
+      "SourceFile"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Deserialize",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "Deserialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Deserializer",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "Deserializer"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Serialize",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "Serialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Serializer",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "Serializer"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "ser",
+     "glob": false,
+     "line": 10,
+     "module": [],
+     "path": [
+      "serde",
+      "ser"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "json",
+     "glob": false,
+     "line": 11,
+     "module": [],
+     "path": [
+      "serde_json"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Error",
+     "glob": false,
+     "line": 12,
+     "module": [],
+     "path": [
+      "thiserror",
+      "Error"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Range",
+     "glob": false,
+     "line": 365,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "super",
+      "Range"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "json",
+     "glob": false,
+     "line": 415,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "super",
+      "json"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "json",
+     "glob": false,
+     "line": 415,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "super",
+      "json",
+      "json"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "FileLines",
+     "glob": false,
+     "line": 416,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "super",
+      "FileLines"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "FileName",
+     "glob": false,
+     "line": 416,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "super",
+      "FileName"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "HashMap",
+     "glob": false,
+     "line": 417,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "std",
+      "collections",
+      "HashMap"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "PathBuf",
+     "glob": false,
+     "line": 417,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "std",
+      "path",
+      "PathBuf"
+     ],
+     "vis": ""
+    }
+   ]
+  },
+  {
+   "attrs": [],
+   "docs": [
+    " This module contains types and functions to support formatting specific macros."
+   ],
+   "impls": [
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 15,
+       "name": "new"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 14,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroName",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroName"
+        }
+       ]
+      },
+      "text": "MacroName"
+     },
+     "trait": null
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 21,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 20,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroName",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroName"
+        }
+       ]
+      },
+      "text": "MacroName"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 27,
+       "name": "from"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 26,
+     "module": [],
+     "negative": false,
+     "self_name": "String",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "String"
+        }
+       ]
+      },
+      "text": "String"
+     },
+     "trait": "From"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 40,
+       "name": "deserialize"
+      }
+     ],
+     "generics": {
+      "params": [
+       {
+        "bounds": [],
+        "kind": "lifetime",
+        "name": "de"
+       }
+      ],
+      "where": []
+     },
+     "line": 39,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroSelector",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroSelector"
+        }
+       ]
+      },
+      "text": "MacroSelector"
+     },
+     "trait": "Deserialize"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 50,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 49,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroSelector",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroSelector"
+        }
+       ]
+      },
+      "text": "MacroSelector"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 61,
+       "name": "from_str"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 58,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroSelector",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroSelector"
+        }
+       ]
+      },
+      "text": "MacroSelector"
+     },
+     "trait": "str::FromStr"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 74,
+       "name": "fmt"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 73,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroSelectors",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroSelectors"
+        }
+       ]
+      },
+      "text": "MacroSelectors"
+     },
+     "trait": "fmt::Display"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 89,
+       "name": "from_str"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 86,
+     "module": [],
+     "negative": false,
+     "self_name": "MacroSelectors",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "MacroSelectors"
+        }
+       ]
+      },
+      "text": "MacroSelectors"
+     },
+     "trait": "str::FromStr"
+    }
+   ],
+   "items": [
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "Debug",
+        "Eq",
+        "PartialEq",
+        "Hash",
+        "Ord",
+        "PartialOrd",
+        "Deserialize",
+        "Serialize"
+       ],
+       "line": 11,
+       "path": "derive",
+       "text": "derive (Clone , Debug , Eq , PartialEq , Hash , Ord , PartialOrd , Deserialize , Serialize)"
+      }
+     ],
+     "docs": [
+      " Defines the name of a macro."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 12,
+        "name": null,
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "String"
+           }
+          ]
+         },
+         "text": "String"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "unnamed"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 12,
+     "module": [],
+     "name": "MacroName",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "Debug",
+        "Eq",
+        "PartialEq",
+        "Hash",
+        "Ord",
+        "PartialOrd",
+        "Serialize"
+       ],
+       "line": 33,
+       "path": "derive",
+       "text": "derive (Clone , Debug , Eq , PartialEq , Hash , Ord , PartialOrd , Serialize)"
+      }
+     ],
+     "docs": [
+      " Defines a selector to match against a macro."
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 34,
+     "module": [],
+     "name": "MacroSelector",
+     "variants": [
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 35,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "MacroName"
+             }
+            ]
+           },
+           "text": "MacroName"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 35,
+       "name": "Name"
+      },
+      {
+       "attrs": [],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [],
+        "style": "unit"
+       },
+       "line": 36,
+       "name": "All"
+      }
+     ],
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Clone",
+        "Debug",
+        "Default",
+        "PartialEq",
+        "Deserialize",
+        "Serialize"
+       ],
+       "line": 70,
+       "path": "derive",
+       "text": "derive (Clone , Debug , Default , PartialEq , Deserialize , Serialize)"
+      }
+     ],
+     "docs": [
+      " A set of macro selectors."
+     ],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 71,
+        "name": null,
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "MacroSelector"
+                 }
+                ]
+               },
+               "text": "MacroSelector"
+              }
+             }
+            ],
+            "name": "Vec"
+           }
+          ]
+         },
+         "text": "Vec < MacroSelector >"
+        },
+        "vis": "pub"
+       }
+      ],
+      "style": "unnamed"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 71,
+     "module": [],
+     "name": "MacroSelectors",
+     "vis": "pub"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Error",
+        "Debug"
+       ],
+       "line": 79,
+       "path": "derive",
+       "text": "derive (Error , Debug)"
+      }
+     ],
+     "docs": [],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "enum",
+     "line": 80,
+     "module": [],
+     "name": "MacroSelectorsError",
+     "variants": [
+      {
+       "attrs": [
+        {
+         "col": 4,
+         "line": 81,
+         "path": "error",
+         "text": "error (\"{0}\")",
+         "tokens": [
+          {
+           "col": 12,
+           "line": 81,
+           "str": "{0}",
+           "suffix": "",
+           "t": "lit",
+           "v": "\"{0}\""
+          }
+         ]
+        }
+       ],
+       "discriminant": null,
+       "docs": [],
+       "fields": {
+        "fields": [
+         {
+          "attrs": [],
+          "docs": [],
+          "index": 0,
+          "line": 82,
+          "name": null,
+          "ty": {
+           "kind": "path",
+           "path": {
+            "global": false,
+            "segments": [
+             {
+              "args": [],
+              "name": "json"
+             },
+             {
+              "args": [],
+              "name": "Error"
+             }
+            ]
+           },
+           "text": "json :: Error"
+          },
+          "vis": ""
+         }
+        ],
+        "style": "unnamed"
+       },
+       "line": 82,
+       "name": "Json"
+      }
+     ],
+     "vis": "pub"
+    }
+   ],
+   "macros": [],
+   "mods": [
+    {
+     "attrs": [
+      {
+       "cfg": {
+        "name": "test"
+       },
+       "col": 0,
+       "line": 101,
+       "path": "cfg",
+       "text": "cfg (test)"
+      }
+     ],
+     "inline": true,
+     "line": 102,
+     "module": [],
+     "name": "test",
+     "vis": ""
+    }
+   ],
+   "path": "src/tools/rustfmt/src/config/macro_names.rs",
+   "uses": [
+    {
+     "alias": "Itertools",
+     "glob": false,
+     "line": 3,
+     "module": [],
+     "path": [
+      "itertools",
+      "Itertools"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "fmt",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "std",
+      "fmt"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "str",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "std",
+      "str"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Deserialize",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "serde",
+      "Deserialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Deserializer",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "serde",
+      "Deserializer"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Serialize",
+     "glob": false,
+     "line": 6,
+     "module": [],
+     "path": [
+      "serde",
+      "Serialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "json",
+     "glob": false,
+     "line": 7,
+     "module": [],
+     "path": [
+      "serde_json"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Error",
+     "glob": false,
+     "line": 8,
+     "module": [],
+     "path": [
+      "thiserror",
+      "Error"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": null,
+     "glob": true,
+     "line": 103,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "super"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "FromStr",
+     "glob": false,
+     "line": 104,
+     "module": [
+      "test"
+     ],
+     "path": [
+      "std",
+      "str",
+      "FromStr"
+     ],
+     "vis": ""
+    }
+   ]
+  },
+  {
+   "attrs": [],
+   "docs": [],
+   "impls": [
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 28,
+       "name": "emit_footer"
+      },
+      {
+       "line": 33,
+       "name": "emit_formatted_file"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 27,
+     "module": [],
+     "negative": false,
+     "self_name": "JsonEmitter",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "JsonEmitter"
+        }
+       ]
+      },
+      "text": "JsonEmitter"
+     },
+     "trait": "Emitter"
+    },
+    {
+     "attrs": [],
+     "consts": [],
+     "fns": [
+      {
+       "line": 55,
+       "name": "add_misformatted_file"
+      }
+     ],
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "line": 54,
+     "module": [],
+     "negative": false,
+     "self_name": "JsonEmitter",
+     "self_ty": {
+      "kind": "path",
+      "path": {
+       "global": false,
+       "segments": [
+        {
+         "args": [],
+         "name": "JsonEmitter"
+        }
+       ]
+      },
+      "text": "JsonEmitter"
+     },
+     "trait": null
+    }
+   ],
+   "items": [
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Debug",
+        "Default"
+       ],
+       "line": 6,
+       "path": "derive",
+       "text": "derive (Debug , Default)"
+      }
+     ],
+     "docs": [],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 8,
+        "name": "mismatched_files",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "MismatchedFile"
+                 }
+                ]
+               },
+               "text": "MismatchedFile"
+              }
+             }
+            ],
+            "name": "Vec"
+           }
+          ]
+         },
+         "text": "Vec < MismatchedFile >"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 7,
+     "module": [],
+     "name": "JsonEmitter",
+     "vis": "pub(crate)"
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Debug",
+        "Default",
+        "PartialEq",
+        "Serialize"
+       ],
+       "line": 11,
+       "path": "derive",
+       "text": "derive (Debug , Default , PartialEq , Serialize)"
+      }
+     ],
+     "docs": [],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 13,
+        "name": "original_begin_line",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 14,
+        "name": "original_end_line",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 2,
+        "line": 15,
+        "name": "expected_begin_line",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 3,
+        "line": 16,
+        "name": "expected_end_line",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "u32"
+           }
+          ]
+         },
+         "text": "u32"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 4,
+        "line": 17,
+        "name": "original",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "String"
+           }
+          ]
+         },
+         "text": "String"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 5,
+        "line": 18,
+        "name": "expected",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "String"
+           }
+          ]
+         },
+         "text": "String"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 12,
+     "module": [],
+     "name": "MismatchedBlock",
+     "vis": ""
+    },
+    {
+     "attrs": [
+      {
+       "col": 0,
+       "derives": [
+        "Debug",
+        "Default",
+        "PartialEq",
+        "Serialize"
+       ],
+       "line": 21,
+       "path": "derive",
+       "text": "derive (Debug , Default , PartialEq , Serialize)"
+      }
+     ],
+     "docs": [],
+     "fields": {
+      "fields": [
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 0,
+        "line": 23,
+        "name": "name",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [],
+            "name": "String"
+           }
+          ]
+         },
+         "text": "String"
+        },
+        "vis": ""
+       },
+       {
+        "attrs": [],
+        "docs": [],
+        "index": 1,
+        "line": 24,
+        "name": "mismatches",
+        "ty": {
+         "kind": "path",
+         "path": {
+          "global": false,
+          "segments": [
+           {
+            "args": [
+             {
+              "kind": "type",
+              "ty": {
+               "kind": "path",
+               "path": {
+                "global": false,
+                "segments": [
+                 {
+                  "args": [],
+                  "name": "MismatchedBlock"
+                 }
+                ]
+               },
+               "text": "MismatchedBlock"
+              }
+             }
+            ],
+            "name": "Vec"
+           }
+          ]
+         },
+         "text": "Vec < MismatchedBlock >"
+        },
+        "vis": ""
+       }
+      ],
+      "style": "named"
+     },
+     "generics": {
+      "params": [],
+      "where": []
+     },
+     "kind": "struct",
+     "line": 22,
+     "module": [],
+     "name": "MismatchedFile",
+     "vis": ""
+    }
+   ],
+   "macros": [],
+   "mods": [
+    {
+     "attrs": [
+      {
+       "cfg": {
+        "name": "test"
+       },
+       "col": 0,
+       "line": 106,
+       "path": "cfg",
+       "text": "cfg (test)"
+      }
+     ],
+     "inline": true,
+     "line": 107,
+     "module": [],
+     "name": "tests",
+     "vis": ""
+    }
+   ],
+   "path": "src/tools/rustfmt/src/emitter/json.rs",
+   "uses": [
+    {
+     "alias": null,
+     "glob": true,
+     "line": 1,
+     "module": [],
+     "path": [
+      "super"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "DiffLine",
+     "glob": false,
+     "line": 2,
+     "module": [],
+     "path": [
+      "crate",
+      "rustfmt_diff",
+      "DiffLine"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Mismatch",
+     "glob": false,
+     "line": 2,
+     "module": [],
+     "path": [
+      "crate",
+      "rustfmt_diff",
+      "Mismatch"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "make_diff",
+     "glob": false,
+     "line": 2,
+     "module": [],
+     "path": [
+      "crate",
+      "rustfmt_diff",
+      "make_diff"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "Serialize",
+     "glob": false,
+     "line": 3,
+     "module": [],
+     "path": [
+      "serde",
+      "Serialize"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "to_json_writer",
+     "glob": false,
+     "line": 4,
+     "module": [],
+     "path": [
+      "serde_json",
+      "to_writer"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": null,
+     "glob": true,
+     "line": 108,
+     "module": [
+      "tests"
+     ],
+     "path": [
+      "super"
+     ],
+     "vis": ""
+    },
+    {
+     "alias": "PathBuf",
+     "glob": false,
+     "line": 109,
+     "module": [
+      "tests"
+     ],
+     "path": [
+      "std",
+      "path",
+      "PathBuf"
+     ],
+     "vis": ""
+    }
+   ]
+  }
+ ],
+ "probe": "typedefs",
+ "syn": "2.0.117"
+}

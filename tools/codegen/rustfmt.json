@@ -1,0 +1,36 @@
+{
+  "comment": "tools/codegen/rustfmt.ts (plan-m8 D5, D6; lane codegen-fmt-serde): the rustfmt files whose types, serde derives and #[config_type] expansions are generated, as a tools/codegen/types.ts set (types.sets.json's SetConfig). Only this file's generator adds the serde and config_type hooks, so the set lives here, not in types.sets.json.",
+  "set": {
+    "files": [
+      "src/tools/rustfmt/src/config/options.rs",
+      "src/tools/rustfmt/src/config/lists.rs",
+      "src/tools/rustfmt/src/config/file_lines.rs",
+      "src/tools/rustfmt/src/config/macro_names.rs",
+      "src/tools/rustfmt/src/emitter/json.rs"
+    ],
+    "class": [],
+    "hand": [],
+    "discriminant": [],
+    "skip": [
+      "rustfmt::config::file_lines::LineRange",
+      "rustfmt::config::file_lines::FileLines",
+      "rustfmt::config::file_lines::Files",
+      "rustfmt::config::file_lines::FileLinesError",
+      "rustfmt::config::macro_names::MacroSelectorsError"
+    ],
+    "skip_notes": {
+      "rustfmt::config::file_lines::LineRange": "holds an `Lrc<rustc_span::SourceFile>`; not reached by the generated derives or macros: the rustfmt-contract lane's representation",
+      "rustfmt::config::file_lines::FileLines": "a `HashMap<FileName, Vec<Range>>` keyed by a data enum (PORTING §5 wants primitive or interned keys) with manual serde, Display, FromStr and Clone/Debug derives: the whole type is the rustfmt-contract lane's (config/file_lines.ts); the generated code imports it, and what it needs is in src/rustfmt/contract.gen.d.ts",
+      "rustfmt::config::file_lines::Files": "wraps a `HashMap` key iterator; not reached by the generated derives or macros",
+      "rustfmt::config::file_lines::FileLinesError": "derive(thiserror::Error) with a `serde_json::Error` field; not reached by the generated derives or macros",
+      "rustfmt::config::macro_names::MacroSelectorsError": "derive(thiserror::Error) with a `serde_json::Error` field; not reached by the generated derives or macros"
+    },
+    "auto_class": true,
+    "derive_clone": true,
+    "derive_default": true,
+    "typemap_extra": [
+      "rustfmt.typemap.json"
+    ]
+  },
+  "config_type_module": "rustfmt/config/config_type.ts"
+}
