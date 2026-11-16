@@ -2864,17 +2864,12 @@ SUITES.push(
 const M7D = (what: string) => `plan-m7 gate M7d: ${what}; report until accepted`;
 /** The compiler of an rg suite's side: the oracle toolchain's rustc by path (cargo runs it), or the port with that sysroot. */
 const rgCompiler = (side: "oracle" | "subject"): string[] => (side === "oracle" ? [join(oracleSysroot(), "bin", "rustc")] : [...bunCmd(RUSTC_DRIVER_ENTRY), "--sysroot", oracleSysroot()]);
-let rgBuildKeyMemo: string | undefined;
-/**
- * `Suite.oracleKey` of the rg-build suites: the project-build harness's sources, the oracle rustc build and the host tools that link `rg`
- * (scripts/cargo-project-build.ts `projectOracleKey`); rg-behaviour adds its own.
- */
-const rgBuildOracleKey = (): string => (rgBuildKeyMemo ??= projectOracleKey(PROJECTS.ripgrep));
 /**
  * The files each project-build suite's oracle key hashes, beyond what `projectOracleKey` adds that is not a file (the oracle rustc build,
- * `hostToolsId`, the project's own parts). Every module the suite's command loads that shapes its output must be here, as on main before
+ * the host tools, the project's own parts). Every module the suite's command loads that shapes its output must be here, as on main before
  * lane harness-m8a-build split scripts/lib/rg-build.ts (review harness-m8a-build N1); harness/m8a-suites.test.ts checks it against the
- * commands' imports.
+ * commands' imports. **All five keys are computed from this table** (`tableKey`; review harness-m8a-build-recheck R2), so a file added here
+ * is keyed, whichever entry it is added to. Each entry starts with `PROJECT_BUILD_SOURCES`, which `projectOracleKey` hashes.
  */
 export const ORACLE_KEY_FILES: Readonly<Record<string, () => string[]>> = {
   "rg-build": () => [...PROJECT_BUILD_SOURCES],
@@ -2888,7 +2883,28 @@ const extraKeyFiles = (name: string): string[] =>
   ORACLE_KEY_FILES[name]!()
     .filter((f) => !PROJECT_BUILD_SOURCES.includes(f))
     .map((f) => hash(readFileSync(f)));
-const rgBehaviourOracleKey = (): string => hash([rgBuildOracleKey(), ...extraKeyFiles("rg-behaviour")].join("\0"));
+const projectKeyMemo = new Map<string, string>();
+/** `projectOracleKey` of a project, once per process (it runs the host tools). */
+const projectKey = (p: (typeof PROJECTS)[keyof typeof PROJECTS]): string => {
+  let k = projectKeyMemo.get(p.name);
+  if (k === undefined) projectKeyMemo.set(p.name, (k = projectOracleKey(p)));
+  return k;
+};
+/**
+ * A project-build suite's oracle key from `ORACLE_KEY_FILES`: `base`, then the hashes of its entry's files beyond `PROJECT_BUILD_SOURCES`
+ * and `tail`, all hashed together; just `base` when there are neither. That is how each of the five keys was built before the table fed
+ * them (rg-build and cargo-build were `projectOracleKey` alone, with nothing beyond it), so no key's value changes.
+ */
+const tableKey = (name: string, base: string, tail: readonly string[] = []): string => {
+  const more = [...extraKeyFiles(name), ...tail];
+  return more.length === 0 ? base : hash([base, ...more].join("\0"));
+};
+/**
+ * `Suite.oracleKey` of the rg-build suites: the project-build harness's sources, the oracle rustc build and the host tools that link `rg`
+ * (scripts/cargo-project-build.ts `projectOracleKey`) and anything else rg-build's entry lists; rg-behaviour adds its own.
+ */
+const rgBuildOracleKey = (): string => tableKey("rg-build", projectKey(PROJECTS.ripgrep));
+const rgBehaviourOracleKey = (): string => tableKey("rg-behaviour", rgBuildOracleKey());
 const requireRg = () => {
   if (!rgIsSetUp()) die(`ripgrep is not set up in ${RG_ROOT}; run: bun scripts/rg-check.ts setup`);
 };
@@ -2996,7 +3012,7 @@ SUITES.push(
       requireRg();
       return [{ id: "integration", file: "", args: [] }];
     },
-    oracleKey: () => hash([rgBuildOracleKey(), ...extraKeyFiles("rg-behaviour-rgtest"), "rgtest"].join("\0")),
+    oracleKey: () => tableKey("rg-behaviour-rgtest", rgBuildOracleKey(), ["rgtest"]),
     oracle: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "oracle", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("oracle")],
     subject: () => [process.execPath, RG_BEHAVIOUR, "rgtest", "--side", "subject", "--dir", join(RG_ROOT, "rgtest-run"), "--", ...rgCompiler("subject")],
   },
@@ -3049,7 +3065,7 @@ const CARGO_HEAVY = { rssBudgetMb: 14 * 1024 };
 const M8A = (what: string) => `plan-m8 gate M8a: ${what}; a report (neverProtect) until D23 holds`;
 const CARGO_NEVER_PROTECT =
   "plan-m8 D19, D23 (root's decision 2026-11-15 \"M8 kept caches vs headroom\"): a report until the host passes D20's headroom check in steady state with M8's kept caches counted; root clears it in a reviewed harness batch";
-const cargoSmokeOracleKey = (): string => hash([projectOracleKey(PROJECTS.cargo), ...extraKeyFiles("cargo-smoke")].join("\0"));
+const cargoSmokeOracleKey = (): string => tableKey("cargo-smoke", projectKey(PROJECTS.cargo));
 /** Where the cargo project's crates are unpacked (review harness-m8a-build N6: keyed, as rg-build keys ripgrep's). */
 const CARGO_REGISTRY_SRC = join("cargo-home", "registry", "src");
 const requireCargo = () => {
@@ -3084,7 +3100,7 @@ SUITES.push(
       requireCargo();
       return [{ id: PROJECTS.cargo.src(), file: join(PROJECTS.cargo.src(), "Cargo.lock"), args: ["dev", "all-static", "-j1"] }];
     },
-    oracleKey: () => projectOracleKey(PROJECTS.cargo),
+    oracleKey: () => tableKey("cargo-build", projectKey(PROJECTS.cargo)),
     oracle: () => [process.execPath, CARGO_PROJECT_BUILD, "run", "--project", "cargo", "--side", "oracle", "--", ...rgCompiler("oracle")],
     subject: () => [process.execPath, CARGO_PROJECT_BUILD, "run", "--project", "cargo", "--side", "subject", "--", ...rgCompiler("subject")],
     criterion: { percent: 100, what: M8A("cargo-build MATCH") },

@@ -26,7 +26,9 @@
 //   binary (`ensureRgtestBinary`, under its own lock, kept per key as rg-build keeps `rg`, touched when used and not removed while
 //   recently used): it is the test harness, not what is tested. The oracle's build of it and each side's run of it run in a process group
 //   of their own (scripts/cargo-project-build.ts `runInGroup`), stopped on SIGTERM, SIGINT or SIGHUP, so an interrupted rgtest leaves no
-//   child running (harness-m7d re-check note 5); an interrupted one exits 128 + the signal's number with the mark. Each side copies it to
+//   child running (harness-m7d re-check note 5); an interrupted one exits 128 + the signal's number with the mark. Like every project
+//   build, that cargo build does not start while a cargo config exists above ripgrep's source or in its CARGO_HOME (lib
+//   `cargoConfigsAbove`; review harness-m8a-build N5, recheck R3): it ends with the mark instead. Each side copies it to
 //   `<case dir>/run/deps/integration` with the side's `rg` at `<case dir>/run/rg`, where the tests look for it (`../rg` from their own
 //   directory), and runs it with `HOME=<case dir>/home`, a fixed `PATH`, four test threads and a limit of 10 minutes, one side at a time
 //   under the lock `<case dir>.case.lock`. `TMPDIR`, where each test makes its directory, is `rust-ts-rgtest-<hash of the case dir>` in
@@ -43,7 +45,7 @@ import { oracleSysroot, rustcDriverHash } from "./lib/oracle.ts";
 import { RG_ROOT, RG_SRC, RG_VERSION, rgIsSetUp } from "./rg-check.ts";
 import { rgCargoEnv } from "./lib/rg-check.ts";
 import { PROJECTS, PROJECT_BUILD_SOURCES, ensureBinary, hostToolsId, parseSideArgs, pruneKeys, runInGroup, touchKey } from "./cargo-project-build.ts";
-import { NO_RESULT_MARK, signalNumber } from "./lib/cargo-project-build.ts";
+import { NO_RESULT_MARK, cargoConfigsAbove, signalNumber } from "./lib/cargo-project-build.ts";
 import { ancestorIgnoreFiles, corpusBytes, maskRgTimes, rgtestSections, type CorpusFile, type RgQuery } from "./lib/rg-behaviour.ts";
 
 export const RG_BEHAVIOUR = join(REPO, "scripts", "rg-behaviour.ts");
@@ -146,6 +148,10 @@ async function ensureRgtestBinary(): Promise<string> {
   }
   return withCaseLock(join(RG_ROOT, "rgtest-bin.lock"), LOCK_MAX_HOLD_MS, async () => {
     if (existsSync(bin)) return bin;
+    // No cargo config above ripgrep's source or in its CARGO_HOME, as for every project build (review harness-m8a-build N5,
+    // recheck R3): none is keyed.
+    const configs = cargoConfigsAbove(join(RG_ROOT, RG_SRC), join(RG_ROOT, "cargo"), existsSync);
+    if (configs.length) noResult(`the oracle's build of ripgrep's integration tests was not started: cargo would read ${configs.join(", ")}, which no key covers`, 1);
     const sysroot = oracleSysroot();
     const tree = join(RG_ROOT, "target", "rgtest-bin");
     rmSync(tree, { recursive: true, force: true });

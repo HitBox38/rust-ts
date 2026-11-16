@@ -2,7 +2,8 @@
 // scripts/lib/common.ts; see scripts/lib/deps.test.ts for why). No suite runs here: the cargo builds wait on the host (D20), and their
 // harness is tested in scripts/lib/cargo-project-build.test.ts.
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
@@ -135,4 +136,48 @@ console.log(JSON.stringify(Object.fromEntries(Object.keys(s.ORACLE_KEY_FILES).ma
   // An entry of UNKEYED that nothing loads any more is stale.
   const loaded = new Set(Object.values(j).flatMap(({ script }) => importClosure([relative(REPO, script), "scripts/cargo-project-build-rustc.ts"])));
   expect(Object.keys(UNKEYED).filter((m) => !loaded.has(m))).toEqual([]);
+}, 60_000);
+
+test("ORACLE_KEY_FILES feeds all five keys: a file added to any entry, rg-build's and cargo-build's too, changes its key (recheck R2)", () => {
+  const extra = join(tmpdir(), `rust-ts-m8a-key-${process.pid}.txt`);
+  writeFileSync(extra, "one\n");
+  try {
+    const code = `
+const s = await import(${JSON.stringify(join(REPO, "harness/suites.ts"))});
+const { PROJECT_BUILD_SOURCES } = await import(${JSON.stringify(join(REPO, "scripts/cargo-project-build.ts"))});
+const { writeFileSync } = await import("node:fs");
+const names = Object.keys(s.ORACLE_KEY_FILES);
+const keys = () => Object.fromEntries(names.map((n) => [n, s.suite(n).oracleKey()]));
+const k0 = keys();
+const out = { names, startsWithSources: names.filter((n) => PROJECT_BUILD_SOURCES.every((f, i) => s.ORACLE_KEY_FILES[n]()[i] === f)), runs: {} };
+for (const n of ["rg-build", "cargo-build"]) {
+  const orig = s.ORACLE_KEY_FILES[n];
+  // The re-check's demonstration: lib/common.ts added to the entry.
+  s.ORACLE_KEY_FILES[n] = () => [...orig(), ${JSON.stringify(join(REPO, "scripts/lib/common.ts"))}];
+  const withCommon = s.suite(n).oracleKey();
+  s.ORACLE_KEY_FILES[n] = () => [...orig(), ${JSON.stringify(extra)}];
+  const withExtra = s.suite(n).oracleKey();
+  writeFileSync(${JSON.stringify(extra)}, "two\\n");
+  const afterByteChange = s.suite(n).oracleKey();
+  writeFileSync(${JSON.stringify(extra)}, "one\\n");
+  s.ORACLE_KEY_FILES[n] = orig;
+  out.runs[n] = { base: k0[n], withCommon, withExtra, afterByteChange, restored: s.suite(n).oracleKey() };
+}
+out.unchanged = JSON.stringify(keys()) === JSON.stringify(k0);
+console.log(JSON.stringify(out));
+`;
+    const r = Bun.spawnSync([process.execPath, "-e", code], { cwd: REPO, stdout: "pipe", stderr: "pipe", env: { ...process.env, RUSTUP_AUTO_INSTALL: "0" } });
+    expect(r.exitCode, r.stderr.toString()).toBe(0);
+    const j = JSON.parse(r.stdout.toString().trim().split("\n").at(-1)!);
+    // Every entry declares what projectOracleKey hashes first, so the table is the whole list of each key's files.
+    expect(j.startsWithSources).toEqual(j.names);
+    for (const n of ["rg-build", "cargo-build"]) {
+      const k = j.runs[n];
+      expect(new Set([k.base, k.withCommon, k.withExtra, k.afterByteChange]).size).toBe(4);
+      expect(k.restored).toBe(k.base);
+    }
+    expect(j.unchanged).toBe(true);
+  } finally {
+    rmSync(extra, { force: true });
+  }
 }, 60_000);

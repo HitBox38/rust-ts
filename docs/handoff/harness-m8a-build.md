@@ -13,6 +13,7 @@ cases are unchanged; no `upstream.ts fetch`, no change to the oracle toolchain.
 | `scripts/cargo-project-build-rustc.ts` (was `scripts/rg-build-rustc.ts`) | the `RUSTC` wrapper; records a compiler's signal (note 4) |
 | `scripts/lib/cargo-project-build.ts` (new; the build half of `scripts/lib/rg-build.ts`) | pure parts: report lines, `-sys` and `otool` sections, `builtPathRefusal`, `cargoConfigsAbove`, `markedPids`, `signalNumber`, both no-result marks |
 | `scripts/lib/cargo-smoke.ts` (new, review fix N1) | `normaliseSmokeStream`, keyed by `cargo-smoke` only |
+| `scripts/lib/input-dirs.ts` (new, re-check fix R1) | `inputDirsText`: what `Suite.inputDirs` adds to the oracle cache key; a symlink to a directory is keyed by its link text. `scripts/difftest.ts` `inputDirsHash` calls it |
 | `scripts/lib/rg-behaviour.ts` (the behaviour half of `scripts/lib/rg-build.ts`) | unchanged functions, moved |
 | `scripts/lib/watchdog.ts` (new) | D20's watchdog |
 | `scripts/cargo-smoke.ts` (new) | `cargo-smoke`'s two sides |
@@ -308,8 +309,8 @@ Run each from the root checkout, on AC power, with nothing else heavy running. R
   - `lib/rg-behaviour.ts`: the two behaviour suites, as above. It shapes nothing in `rg-build`.
   - `lib/unstable.ts` was imported by `lib/cargo-project-build.ts` only for cargo-smoke's normaliser. That put it in rg-build's import
     closure unkeyed. The normaliser moved to a new `lib/cargo-smoke.ts`, and `cargo-smoke`'s key has both files.
-- **Keys are now declared once.** `harness/suites.ts` `ORACLE_KEY_FILES` lists, per project-build suite, every file its key hashes. The
-  keys are computed from it.
+- **Keys are now declared once.** `harness/suites.ts` `ORACLE_KEY_FILES` lists, per project-build suite, every file its key hashes. Since
+  re-check R2 (§10), all five keys are computed from it.
 - **The new test** (`harness/m8a-suites.test.ts`, "every module a project-build suite's command loads is in its oracle key…"):
   - It walks each command's import closure from its script, plus the `RUSTC` wrapper for any command that builds.
   - It fails on any module that is neither in that suite's `ORACLE_KEY_FILES` nor on a short `UNKEYED` list, each entry with a reason:
@@ -380,3 +381,63 @@ Left as root directed: N3 and N4 (root's queue), N7 and N8 (information).
   - `bunx tsc --noEmit -p .`: clean.
   - `bun test ./scripts ./harness` (`RUST_TS_DATA` set, as the gate sets it; `RUST_TS_REQUIRE_PROBES=1 CI=true`): **680 pass, 0 fail**.
   - The touched test files take 3.3 s, 0.2 s and 0.4 s alone.
+
+## 10. Re-check fixes (docs/reviews/harness-m8a-build-recheck.md at `3519d3d7`, branch `t3/recheck-harness-m8a-build`: PASS WITH NOTES)
+
+### R1 (fixed): `cargo-build`'s oracle cache key threw `EISDIR`
+- **Cause:** `scripts/difftest.ts` `inputDirsHash` read every non-directory entry. cargo's pinned source tree has 121 symlinks, and 93 of
+  them point at directories (`tests/testsuite/cargo_remove/dry_run/in -> ../remove-basic.in/`, …). So `difftest --suite cargo-build`, and
+  any gate reaching it, died before building.
+- **Fix:** the walk moved to `scripts/lib/input-dirs.ts` `inputDirsText`, and `inputDirsHash` hashes what it returns.
+  - A symlink that resolves to a directory, or to nothing, is keyed by its link text as `<path>\0-> <target>`, and never followed.
+  - A symlink to a file is keyed by the file's contents, as before.
+  - Both changed cases threw before, so only paths that could not be keyed change.
+- **Every existing suite's key is byte-identical.** In a scratch worktree of main (`a591abc3`) I ran `bun scripts/oracle-keys.ts` over
+  every registered suite, before and after applying only the R1 patch (the `difftest.ts` diff and `lib/input-dirs.ts`). Both dumps hold
+  391,641 keys over all 85 suites, with no suite unlisted, and both have sha1 `709292dbcf918cb58021c15b834b1ce1427e8c9f`. `cmp` finds them
+  identical. That includes every `inputDirs` suite: `check-core`, `check-core-bin`, `mir-core`, `check-alloc`, `rmeta-alloc`,
+  `check-rg-host`, `check-rg-encode-mir` and the three rg suites. It is also the same sha1 as harness-m8a-gate's dump.
+- **`cargo-build`'s key computes,** dry, with no build: `bun scripts/oracle-keys.ts --suite cargo-build` on this branch gives 1 key, no
+  error, `27ec0fd679a5401624d5ccde54d90a43c0f93802`, in 7.2 s. That is mostly hashing the source tree and `cargo-home/registry/src`.
+- **Test:** `scripts/lib/input-dirs.test.ts`.
+  - A tree with files and a link to a file gives exactly the old walk's text (reimplemented in the test).
+  - A link to a directory and a dangling link make the old walk throw. They are now keyed by link text, and retargeting a link changes
+    its line.
+
+### R2 (fixed): `ORACLE_KEY_FILES` feeds all five keys
+- `tableKey(name, base, tail)` builds every project-build key from the table. It starts from `base` (`projectOracleKey`, memoized per
+  project), adds the hashes of the entry's files beyond `PROJECT_BUILD_SOURCES` and any `tail`, and hashes them together. When there are
+  neither, the key is just `base`.
+- That is exactly how each key was built before: rg-build and cargo-build were `projectOracleKey` alone; rg-behaviour, rg-behaviour-rgtest
+  (tail `"rgtest"`) and cargo-smoke were `hash([base, ...extra])`. **So no key's value changed:** all five oracle keys and the kept oracle
+  `rg` key were the same before and after R1 + R2 (checked before R3's edit).
+- **New test** in `harness/m8a-suites.test.ts`: "ORACLE_KEY_FILES feeds all five keys…".
+  - Every entry starts with `PROJECT_BUILD_SOURCES`, so the table is each key's whole file list, which the module walk test reads.
+  - For `rg-build` and `cargo-build` it changes the table in memory (no repo file is edited). Adding `lib/common.ts` (the re-check's
+    demonstration), adding a temp file, and changing one byte of that temp file each give a new key. Restoring gives the original.
+  - **Checked:** with `rgBuildOracleKey` put back to `projectOracleKey` alone, the test fails. With the fix it passes.
+
+### R3 (fixed): the config refusal covers `rg-behaviour-rgtest`'s own cargo build
+- `ensureRgtestBinary` checks `cargoConfigsAbove(<ripgrep source>, <its CARGO_HOME>)` before the oracle's `cargo test --no-run`. If a
+  config exists it ends through `noResult`: the mark and exit 1, so nothing is cached. None exists here.
+
+### Keys after this round
+| Suite | after review fixes (`6245f5f6`) | now |
+|---|---|---|
+| `rg-build` | `a21ffa4a9302a30f3ee833846e9ee0325377a9c6` | unchanged |
+| `rg-behaviour` | `0a082fa19d34a1dacac4b7fe7852f22e281e3455` | `32fda38317868a7fc6d9dcb38aca5cff30545c9e` |
+| `rg-behaviour-rgtest` | `7416af8e0bec21a69266a5ab9e3c91e7ddcde64e` | `f3a2d768ab15a4da9ba96b6d97f8b8b2c5625ed4` |
+| `cargo-build` | `d3bb989051792c9e76b3f35eb77765d5f84aee6a` | unchanged |
+| `cargo-smoke` | `c39bf499890d8ae0cd07350d821bf54741c95fbc` | unchanged |
+| kept oracle `rg` (`binKey`) | `4f4206ec6f471206` | unchanged |
+
+- **Why two keys move:** only the behaviour keys change, because R3 edits `scripts/rg-behaviour.ts`, which both hash. Neither R1 nor R2
+  moves a value. The kept rgtest binary's key also moves, for the same reason. Root's first run builds it (about 1 min, oracle, `-j4`).
+- **Not re-run:** nothing in this round can change rg output. `cargo-project-build.ts`, its library and its wrapper are untouched, so
+  rg-build's code is as at `6245f5f6`. The re-check ran rg-build's oracle side there and found it byte-identical to main (R4). R3's check
+  ends the rgtest build only when a config exists, and none does. So I did not re-run rg-build.
+- **Checks:**
+  - `bunx tsc --noEmit -p .`: clean.
+  - `bun test ./scripts ./harness` (`RUST_TS_DATA` set, `RUST_TS_REQUIRE_PROBES=1 CI=true`): **683 pass, 0 fail**.
+  - The new and changed test files take 0.4 s (`m8a-suites`) and 0.02 s (`input-dirs`).
+  - The scratch main worktree is removed.
