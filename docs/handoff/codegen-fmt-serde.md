@@ -210,3 +210,16 @@ The integration unit step failed `src/std/result.test.ts` ("non-test code never 
 bare identifier). The three `expect_result` calls (`override_value`) already passed the Debug of each `FromStr::Err`. Checks:
 `bun test src/std/result.test.ts` 3 pass; `bun test tools/codegen` 72 pass; `rustfmt.ts --check` clean; `rustfmt_oracle.ts check` ok;
 `bunx tsc` clean.
+
+## Follow-up: `usize_saturating_add_signed` saturates (review rustfmt-contract-1 N1)
+
+The generated `Config::adjust_max_width` helper stopped `unported` past 2^53, so `use_small_heuristics = "Off"` (widths =
+`usize::MAX`, represented as `USIZE_MAX` = `Number.MAX_SAFE_INTEGER`, root's decision "rustfmt-contract-1 PORT decisions" (1)) followed
+by a macro body's `increase_max_width` stopped where upstream saturates. The helper (`create_config.ts` `usizeSaturatingAddSigned`) now
+clamps to `0..=USIZE_MAX`, importing `USIZE_MAX` from `config/options.ts` (a contract declaration until that hand module is on main):
+a value equal to `USIZE_MAX` is `usize::MAX` and stays it (`usize::MAX + delta` is at least 2^63 for any `isize` delta); a real width
+plus a delta saturates at `USIZE_MAX` and at 0. Exact below 2^53; results past it all read as `usize::MAX`, which compares the same
+against every real width. The `unported` listed above under "`unported(...)` and errors left" is gone. Test: `rustfmt.test.ts`
+"usize_saturating_add_signed: …" (ordinary values, underflow, saturation, the review's reduce-then-increase sequence), on the exact
+emitted lines. When rustfmt-contract-1 merges, rerun `bun tools/codegen/rustfmt.ts`: `options.ts` exists then, and its contract block
+(with `USIZE_MAX`) is dropped.

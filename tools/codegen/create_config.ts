@@ -749,10 +749,7 @@ export function createConfigTs(input: CreateConfigInput, c: CreateConfigCtx): st
   // helpers
   out.push("", "// ---- module-local helpers (std pieces src/std does not have yet) ----");
   out.push("/** `isize::MAX` as a usize (only compared with config widths, far below 2^53). */", "const ISIZE_MAX = 2 ** 63 - 1;");
-  out.push("/** `usize::saturating_add_signed` on config widths: never below 0; a result past 2^53 cannot be represented exactly, so it is not guessed. */");
-  out.push("function usize_saturating_add_signed(value: number, delta: number): number {", "  const r = value + delta;");
-  out.push(`  if (r > Number.MAX_SAFE_INTEGER) return ${use("../../std/panic.ts", "unported")}("usize::saturating_add_signed past 2^53 (Config::adjust_max_width)");`);
-  out.push("  return r < 0 ? 0 : r;", "}");
+  out.push(...usizeSaturatingAddSigned(use("./options.ts", "USIZE_MAX")));
   out.push("/** `dyn std::io::Write` as `print_docs` uses it: `writeln!(out, ..)` is `out.write_fmt(<text>)` (std::io::Write::write_fmt). */");
   out.push(`export interface Write {`, `  write_fmt(text: string): ${use("../../std/io.ts", "IoResult", "types")}<null>;`, "}");
   out.push("/** `impl FromStr for bool` (core::str::traits): only `true` and `false`. */", `function __bool_from_str(s: string): ${R}<boolean, null> {`);
@@ -779,6 +776,26 @@ export function createConfigTs(input: CreateConfigInput, c: CreateConfigCtx): st
     lines.push(`import ${allTypes ? "type " : ""}{ ${names.map(([n, k]) => (k === "types" && !allTypes ? `type ${n}` : n)).join(", ")} } from "${m}";`);
   }
   return [...head, ...lines, "", ...out, ""].join("\n");
+}
+
+/**
+ * `usize::saturating_add_signed` (core) as `adjust_max_width` uses it, over the port's `usize::MAX` (`usizeMax`: config/options.ts
+ * `USIZE_MAX`, `Number.MAX_SAFE_INTEGER`; root's decision "rustfmt-contract-1 PORT decisions" (1)). Upstream clamps `value + delta` to
+ * `0..=usize::MAX`. Here every width at or past 2^53 is that representation of `usize::MAX`: a value equal to it is `usize::MAX`, and
+ * `usize::MAX + delta` for any `isize` delta is still past 2^53 (at least 2^63), so it stays `USIZE_MAX`; a real width (below 2^53)
+ * plus a delta saturates at `USIZE_MAX` and at 0. Exact for every result below 2^53; results past it all read as `usize::MAX`, which
+ * compares the same against every real width (review rustfmt-contract-1 N1: `use_small_heuristics = "Off"` then a macro body's
+ * `increase_max_width`).
+ */
+export function usizeSaturatingAddSigned(usizeMax: string): string[] {
+  return [
+    "/** `usize::saturating_add_signed` over the port's `usize::MAX` (tools/codegen/create_config.ts `usizeSaturatingAddSigned`). */",
+    "function usize_saturating_add_signed(value: number, delta: number): number {",
+    `  if (value >= ${usizeMax}) return ${usizeMax};`,
+    "  const r = value + delta;",
+    `  return r <= 0 ? 0 : r >= ${usizeMax} ? ${usizeMax} : r;`,
+    "}",
+  ];
 }
 
 /**

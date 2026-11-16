@@ -3,24 +3,3 @@
 // augmentations, while those hand modules do not exist yet. Once a hand module lands with its own `declare module` block,
 // rerun `bun tools/codegen/rustfmt.ts`: its entry here is dropped (two declarations of one namespace member conflict).
 export {};
-
-// added by src/rustfmt/config/options.ts
-declare module "./config/options.gen.ts" {
-  interface IgnoreList {
-    // config/options.rs:443
-    add_prefix(dir: string): void;
-  }
-  namespace IgnoreList {
-    // `impl FromStr for IgnoreList` (config/options.rs:452)
-    export let from_str: (s: string) => import("../std/result.ts").Result<IgnoreList, string>;
-  }
-  namespace WidthHeuristics {
-    // config/options.rs:302, :315, :329
-    function null_(): WidthHeuristics;
-    export { null_ as null };
-    export let set: (max_width: number) => WidthHeuristics;
-    export let scaled: (max_width: number) => WidthHeuristics;
-    // `impl FromStr for WidthHeuristics` (config/options.rs:351)
-    export let from_str: (s: string) => import("../std/result.ts").Result<WidthHeuristics, string>;
-  }
-}
