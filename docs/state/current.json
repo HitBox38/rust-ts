@@ -74,10 +74,10 @@
     "pm-expanded": 282,
     "miri-pass-heavy": 8
   },
-  "updated": "2026-11-16T02:55:30.338Z",
+  "updated": "2026-11-16T11:54:09.214Z",
   "open_stops": [],
   "coverage": {
-    "ported": 26597,
+    "ported": 26809,
     "total": 33892
   }
 }
