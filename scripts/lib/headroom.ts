@@ -119,8 +119,10 @@ export interface WatchdogStop {
 }
 
 /**
- * Records a stop, for `scripts/gate.ts run` to see after the suite (`watchdogStopsSince`). The watchdog of the project-build harness
- * (lane harness-m8a-build) calls it right after the kill. Written whole, then renamed, so a reader never sees half of one. Returns its path.
+ * Records a stop, for `scripts/gate.ts run` to see after the suite (`watchdogStopsSince`). Written whole, then renamed, so a reader never
+ * sees half of one. Returns its path. **Contract (review harness-m8a-gate N2):** the record must exist before the process difftest waits on
+ * exits, because the gate reads stops right after the suite and a record written after that read is never seen. The project-build
+ * harness's watchdog (scripts/lib/watchdog.ts, lane harness-m8a-build) runs inside that process and calls this before it signals the build.
  */
 export function recordWatchdogStop(dir: string, stop: WatchdogStop): string {
   mkdirSync(dir, { recursive: true });

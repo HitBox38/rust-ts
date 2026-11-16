@@ -5,13 +5,13 @@
 //
 // `--milestone M6b` (or any prefix of a group's milestone) prints and decides only those groups; with none, every group.
 // M7a (plan-m7 §6 "Gates") is here only as far as a gate can compute it today: `ir-hello` MATCH, `mir-o2` and `mono-ui` >= 99%, and
-// `check-rg` >= 33 of its 34 crates. `ir-hello` is in no gate yet (it has no baseline): name it with `gate.ts run --suites`. M7b and M7c
-// (lane harness-m7b): `native-hello` MATCH, `run-pass-native` >= 80% and `ir-run-pass` >= 70%; then `run-pass-native` >= 98%,
-// `run-fail-native` >= 95% and `ir-run-pass` >= 95%. Those suites have no baseline either, so a gate must name them with `--suites`.
+// `check-rg` >= 33 of its 34 crates. M7b and M7c (lane harness-m7b): `native-hello` MATCH, `run-pass-native` >= 80% and `ir-run-pass` >= 70%;
+// then `run-pass-native` >= 98%, `run-fail-native` >= 95% and `ir-run-pass` >= 95%.
 // The M7 percent groups leave UNSTABLE cases out of the denominator as well as ORACLE_TIMEOUT (`excludeUnstable`, plan-m7 §6); M6's do not.
 // M7c's `run-pass-native` "+ heavy" is that suite alone until a heavy sibling exists (docs/handoff/harness-m7b.md). M7d (lane
 // harness-m7d): `rg-build` MATCH (its one case), `rg-behaviour` MATCH (the scripted queries, every case), `check-rg` 34 of its 34 crates and at
-// least one `pm-self` MATCH (`minMatch`); only `check-rg` has a baseline, so a gate must name the others with `--suites`. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
+// least one `pm-self` MATCH (`minMatch`). Every suite named here now has a baseline file, so every gate runs it (the gate's default suites are
+// the baseline files; w40t-audit N5): none needs `--suites`. The crate count needs per-case results, which gate.json has only as the protected set and its changes:
 // MATCH is exactly (the baseline at the gate's commit - lost) + gained, as scripts/gate.ts computes those two.
 //
 // Every number comes from that run's `gate.json`, one snapshot of one commit: a `<suite>.summary.json` can be overwritten
