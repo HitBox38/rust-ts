@@ -193,6 +193,50 @@ export function Range_cmp(a: Range, b: Range): number {
   return 0;
 }
 
+// PORT: upstream has the `FileLines` struct (file_lines.rs:165), then these two (:168, :184), then its impl (:205); the struct
+// and the impl are one class here, after them.
+// rustc: src/tools/rustfmt/src/config/file_lines.rs:168 fmt
+export function display_FileLines(self: FileLines): string {
+  let f = "";
+  const m = self._0;
+  if (m === undefined) {
+    f += "None";
+  } else {
+    for (const [file_name, ranges] of m) {
+      f += `${display_FileName(file_name)}: `;
+      // `ranges.iter().format(", ")` (itertools)
+      f += `${ranges.map(display_Range).join(", ")}\n`;
+    }
+  }
+  return f;
+}
+
+/// Normalizes the ranges so that the invariants for `FileLines` hold: ranges are non-overlapping,
+/// and ordered by their start point.
+// rustc: src/tools/rustfmt/src/config/file_lines.rs:184 normalize_ranges
+function normalize_ranges(ranges: KeyedMap<FileName, Range[]>): void {
+  for (const [key, ranges_] of ranges) {
+    ranges_.sort(Range_cmp);
+    const result: Range[] = [];
+    let i = 0;
+    while (i < ranges_.length) {
+      let next = ranges_[i++]!;
+      while (i < ranges_.length) {
+        const peek = ranges_[i]!;
+        const merged = next.merge(peek);
+        if (merged !== undefined) {
+          i++;
+          next = merged;
+        } else {
+          break;
+        }
+      }
+      result.push(next);
+    }
+    ranges.set(key, result);
+  }
+}
+
 /// A set of lines in files.
 ///
 /// It is represented as a multimap keyed on file names, with values a collection of
@@ -305,22 +349,6 @@ export function new_file_map(entries?: Iterable<readonly [FileName, Range[]]>): 
   return new KeyedMap<FileName, Range[]>(key_FileName, entries);
 }
 
-// rustc: src/tools/rustfmt/src/config/file_lines.rs:168 fmt
-export function display_FileLines(self: FileLines): string {
-  let f = "";
-  const m = self._0;
-  if (m === undefined) {
-    f += "None";
-  } else {
-    for (const [file_name, ranges] of m) {
-      f += `${display_FileName(file_name)}: `;
-      // `ranges.iter().format(", ")` (itertools)
-      f += `${ranges.map(display_Range).join(", ")}\n`;
-    }
-  }
-  return f;
-}
-
 /** `#[derive(Debug)]` of `FileLines` (hand-written with the type: codegen-fmt-serde PORT #7). */
 export const debug_FileLines: Debug<FileLines> = (v, f) =>
   debug_tuple(f, "FileLines", [debug_option(v._0, f, (m, f) => debug_HashMap(m, f, debug_FileName, (r, f) => debug_vec(r, f, debug_Range)))]);
@@ -347,32 +375,6 @@ export function FileLines_eq(self: FileLines, other: FileLines): boolean {
     for (let i = 0; i < ra.length; i++) if (!Range_eq(ra[i]!, rb[i]!)) return false;
   }
   return true;
-}
-
-/// Normalizes the ranges so that the invariants for `FileLines` hold: ranges are non-overlapping,
-/// and ordered by their start point.
-// rustc: src/tools/rustfmt/src/config/file_lines.rs:184 normalize_ranges
-function normalize_ranges(ranges: KeyedMap<FileName, Range[]>): void {
-  for (const [key, ranges_] of ranges) {
-    ranges_.sort(Range_cmp);
-    const result: Range[] = [];
-    let i = 0;
-    while (i < ranges_.length) {
-      let next = ranges_[i++]!;
-      while (i < ranges_.length) {
-        const peek = ranges_[i]!;
-        const merged = next.merge(peek);
-        if (merged !== undefined) {
-          i++;
-          next = merged;
-        } else {
-          break;
-        }
-      }
-      result.push(next);
-    }
-    ranges.set(key, result);
-  }
 }
 
 /// `FileLines` files iterator.

@@ -1,6 +1,6 @@
 // Port of the `#[cfg(test)] mod test` of src/tools/rustfmt/src/shape.rs:333 (lane rustfmt-contract-1).
 import { expect, test } from "bun:test";
-import { Unported } from "../std/panic.ts";
+import { Panic, Unported } from "../std/panic.ts";
 import { install_serde_stubs } from "./config/serde_stubs.test_support.ts";
 import { Indent, Shape } from "./shape.ts";
 
@@ -99,4 +99,20 @@ test("not upstream: to_string_inner past INDENT_BUFFER, checked/saturating/wrapp
   expect(s.saturating_sub_width(11).width).toBe(0);
   expect(Shape.indented(Indent.new(104, 0), config).width).toBe(0);
   expect(() => Indent.new(0, 0).sub_usize(1)).toThrow(Unported);
+});
+
+test("not upstream: hard_tabs with tab_spaces = 0 divides by zero, a Panic as in Rust (shape.rs:32, :79)", () => {
+  const config = default_Config();
+  config.set().hard_tabs(true);
+  config.set().tab_spaces(0);
+  expect(() => Indent.from_width(config, 8)).toThrow(new Panic("attempt to divide by zero"));
+  expect(() => Indent.new(8, 0).to_string(config)).toThrow(Panic);
+  // a Panic, so lib.rs's `catch_unwind` (format_snippet) discards it as upstream discards the panic
+  let caught: unknown;
+  try {
+    Indent.new(8, 0).to_string(config);
+  } catch (e) {
+    caught = e;
+  }
+  expect(caught instanceof Panic && caught.message).toBe("attempt to divide by zero");
 });

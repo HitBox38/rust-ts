@@ -3,7 +3,7 @@
 // they exist (see there). `mod x;` declarations become imports here as each module lands (PORTING §5 "Methods defined in
 // another file"): `formatting.rs` adds `Session::format_input_inner` (declared on `Session` below).
 import "./config/mod.ts";
-import { type Config, clone_Config, type EmitMode, type FileName, type NewlineStyle, type Verbosity } from "./config/mod.ts";
+import { type Config, clone_Config, type EmitMode, FileName, type NewlineStyle, type Verbosity } from "./config/mod.ts";
 import { LineClasses } from "../rustfmt/comment.ts";
 import {
   DiffEmitter,
@@ -608,7 +608,7 @@ export const Input = {
       case "File":
         return { $: "Real", _0: self._0 };
       case "Text":
-        return { $: "Stdin" };
+        return FileName.Stdin;
     }
   },
 

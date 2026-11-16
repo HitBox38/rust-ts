@@ -28,7 +28,7 @@ import { unported } from "../../std/panic.ts";
 import { Err, Ok, type Result } from "../../std/result.ts";
 
 export { is_stable_option_and_value, type ConfigType } from "./config_type.ts";
-export { FileLines, type FileName, Range } from "./file_lines.ts";
+export { FileLines, FileName, Range } from "./file_lines.ts";
 export { MacroSelector } from "./macro_names.ts";
 export * from "./options.ts";
 export * from "./create_config.gen.ts";
@@ -414,8 +414,10 @@ function dirs_config_dir(): string | undefined {
 /// found.
 // rustc: src/tools/rustfmt/src/config/mod.rs:446 config_from_user_dirs
 function config_from_user_dirs(): IoResult<string | undefined> {
+  // `[dirs::home_dir(), dirs::config_dir().map(|d| d.join("rustfmt"))]`: evaluated in this order.
+  const home_dir = dirs_home_dir();
   const config_dir = dirs_config_dir();
-  for (const dir of [dirs_home_dir(), config_dir === undefined ? undefined : path_join(config_dir, "rustfmt")]) {
+  for (const dir of [home_dir, config_dir === undefined ? undefined : path_join(config_dir, "rustfmt")]) {
     if (dir === undefined) continue;
     const r = get_toml_path(dir);
     if (r.$ === "Err") return r;
@@ -487,10 +489,11 @@ function get_toml_path(dir: string): IoResult<string | undefined> {
       const kind = IoError_kind(e);
       if (!(kind === "NotFound" || kind === "NotADirectory")) {
         const ctx = `Failed to get metadata for config file ${debug_str(config_file)}`;
-        // PORT: `anyhow::Error::new(e).context(ctx)` boxed into `Error::new(ErrorKind::Other, err)`: its `Display` is the
-        // context alone (anyhow's `{}`), which is what this `Custom` error displays. Its `Debug` (anyhow's chain) is not
-        // reproduced.
-        return Err(io_error_new("Other", ctx));
+        // `let err = anyhow::Error::new(e).context(ctx); return Err(Error::new(ErrorKind::Other, err));`
+        // PORT: the io::Error keeps the anyhow error as its payload, and bin/main.rs prints it with `{e:#}`, which walks the
+        // source chain (`<ctx>: <os error>`). The port has no model of anyhow's context chain (nor of an io::Error's source),
+        // so this arm stops instead of flattening the error to its context (review rustfmt-contract-1 N6).
+        return unported(`anyhow: io::Error::new(Other, anyhow::Error::new(e).context(ctx)) with its source chain (${ctx})`);
       }
     }
   }

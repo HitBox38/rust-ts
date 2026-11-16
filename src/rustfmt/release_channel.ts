@@ -1,7 +1,8 @@
 // Port of src/tools/rustfmt/src/release_channel.rs (lane rustfmt-contract-1).
 
 /** PORT: `option_env!("CFG_RELEASE_CHANNEL")` as bootstrap set it for the oracle's rustfmt component (the pinned nightly;
- *  as `CFG_RELEASE_CHANNEL` in rustc_driver_impl/lib.ts). Checked against the oracle in config/config_type.test.ts. */
+ *  as `CFG_RELEASE_CHANNEL` in rustc_driver_impl/lib.ts). Checked against the oracle in config/print_docs.oracle.test.ts: the
+ *  oracle accepts `--unstable-features`, which bin/main.rs refuses unless `is_nightly_channel!()`. */
 export const CFG_RELEASE_CHANNEL: string | undefined = "nightly";
 
 /// Checks if we're in a nightly build.

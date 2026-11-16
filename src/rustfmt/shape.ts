@@ -3,7 +3,7 @@ import type { Config } from "./config/mod.ts";
 import type { ExceedsMaxWidthError } from "../rustfmt/rewrite.ts";
 import type { Span } from "../rustc_span/lib.ts";
 import { type Debug, debug_int, debug_struct } from "../std/fmt.ts";
-import { unported } from "../std/panic.ts";
+import { panic, unported } from "../std/panic.ts";
 import { Err, Ok, type Result } from "../std/result.ts";
 
 /** `a - b` on usize. PORT: rustfmt ships without overflow checks, so an underflow wraps to a value past 2^53, which a
@@ -12,10 +12,25 @@ function usize_sub(a: number, b: number): number {
   const r = a - b;
   return r < 0 ? unported("usize wrapping subtraction in rustfmt's shape.rs (overflow checks are off)") : r;
 }
+/** `a / b` on usize: integer division, which panics on a zero divisor in every build (not an overflow check). */
+function usize_div(a: number, b: number): number {
+  if (b === 0) panic("attempt to divide by zero");
+  return Math.floor(a / b);
+}
+/** `a % b` on usize: panics on a zero divisor in every build. */
+function usize_rem(a: number, b: number): number {
+  if (b === 0) panic("attempt to calculate the remainder with a divisor of zero");
+  return a % b;
+}
 /** `usize::saturating_sub` */
 function saturating_sub(a: number, b: number): number {
   return a > b ? a - b : 0;
 }
+
+// PORT: upstream declares these between the `Indent` struct (shape.rs:11) and its impl (:24), which are one class here.
+// INDENT_BUFFER.len() = 81
+const INDENT_BUFFER_LEN = 80;
+const INDENT_BUFFER = "\n                                                                                ";
 
 // `#[derive(Copy, Clone, Debug)]`: a value type; every method returns a new `Indent` where Rust copies.
 export class Indent {
@@ -35,8 +50,8 @@ export class Indent {
   // rustc: src/tools/rustfmt/src/shape.rs:32 from_width
   static from_width(config: Config, width: number): Indent {
     if (config.hard_tabs()) {
-      const tab_num = Math.floor(width / config.tab_spaces());
-      const alignment = width % config.tab_spaces();
+      const tab_num = usize_div(width, config.tab_spaces());
+      const alignment = usize_rem(width, config.tab_spaces());
       return Indent.new(config.tab_spaces() * tab_num, alignment);
     } else {
       return Indent.new(width, 0);
@@ -88,7 +103,7 @@ export class Indent {
     let num_tabs: number;
     let num_spaces: number;
     if (config.hard_tabs()) {
-      [num_tabs, num_spaces] = [Math.floor(this.block_indent / config.tab_spaces()), this.alignment];
+      [num_tabs, num_spaces] = [usize_div(this.block_indent, config.tab_spaces()), this.alignment];
     } else {
       [num_tabs, num_spaces] = [0, this.width()];
     }
@@ -135,10 +150,6 @@ export const debug_Indent: Debug<Indent> = (v, f) =>
     ["block_indent", debug_int(v.block_indent, f)],
     ["alignment", debug_int(v.alignment, f)],
   ]);
-
-// INDENT_BUFFER.len() = 81
-const INDENT_BUFFER_LEN = 80;
-const INDENT_BUFFER = "\n                                                                                ";
 
 // 8096 is close enough to infinite for rustfmt.
 const INFINITE_SHAPE_WIDTH = 8096;

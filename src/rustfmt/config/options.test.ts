@@ -4,7 +4,8 @@ import { expect, test } from "bun:test";
 import { install_serde_stubs } from "./serde_stubs.test_support.ts";
 
 install_serde_stubs();
-const { StyleEdition, WidthHeuristics, Density, IgnoreList, default_IgnoreList, display_IgnoreList, display_WidthHeuristics } = await import("./mod.ts");
+const { ListTactic } = await import("./lists.ts");
+const { Edition, StyleEdition, WidthHeuristics, Density, IgnoreList, default_IgnoreList, display_IgnoreList, display_WidthHeuristics } = await import("./mod.ts");
 
 // rustc: src/tools/rustfmt/src/config/options.rs:747 style_edition_comparisons
 test("style_edition_comparisons", () => {
@@ -60,12 +61,23 @@ test("not upstream: WidthHeuristics::scaled in f32 (options.rs:329)", () => {
 });
 
 test("not upstream: Density::to_list_tactic, IgnoreList (options.rs:124, :375, :455)", () => {
-  expect(Density.to_list_tactic("Vertical", "Edition2024", 1)).toEqual({ $: "Horizontal" });
-  expect(Density.to_list_tactic("Vertical", "Edition2027", 1)).toEqual({ $: "HorizontalVertical" });
-  expect(Density.to_list_tactic("Vertical", "Edition2015", 2)).toEqual({ $: "Vertical" });
+  // the shared frozen unit variants (PORTING §5), so `=== ListTactic.X` holds
+  expect(Density.to_list_tactic("Vertical", "Edition2024", 1)).toBe(ListTactic.Horizontal);
+  expect(Density.to_list_tactic("Vertical", "Edition2027", 1)).toBe(ListTactic.HorizontalVertical);
+  expect(Density.to_list_tactic("Vertical", "Edition2015", 2)).toBe(ListTactic.Vertical);
+  expect(Density.to_list_tactic("Compressed", "Edition2015", 2)).toBe(ListTactic.Mixed);
+  expect(Density.to_list_tactic("Tall", "Edition2015", 2)).toBe(ListTactic.HorizontalVertical);
   const l = default_IgnoreList();
   expect(display_IgnoreList(l)).toBe("[]");
   l.add_prefix("/a");
   expect(l.rustfmt_toml_path_()).toBe("/a");
   expect(IgnoreList.from_str("x")).toEqual({ $: "Err", _0: "IgnoreList is not parsable" });
+});
+
+test("not upstream: Edition::default and the Edition conversions (options.rs:495, :501, :512, :523)", () => {
+  expect(Edition.default()).toBe("Edition2015");
+  expect(Edition.into_StyleEdition("Edition2021")).toBe("Edition2021");
+  expect(Edition.into_rustc_span("Edition2024")).toBe("Edition2024");
+  expect(Edition.partial_cmp("Edition2018", "Edition2021")).toBe(-1);
+  expect(StyleEdition.into_rustc_span("Edition2027")).toBe("Edition2024");
 });

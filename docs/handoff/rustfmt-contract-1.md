@@ -41,7 +41,8 @@ Also:
 - `bun tools/codegen/rustfmt.ts --check`: clean.
 - `bun test tools/codegen/rustfmt.test.ts`: 6 pass, including the contract guard.
 - `bun tools/codegen/rustfmt_oracle.ts check`: ok (fresh oracle run).
-- `bun test src/rustfmt`: 30 pass, 0 fail, about 0.6 s wall, within D13's 10 s. That includes the oracle test, about 0.3 s per oracle run.
+- `bun test src/rustfmt`: 38 pass, 0 fail, about 1.1 s wall, within D13's 10 s. That includes the oracle tests (about 0.3 s per
+  oracle run) and `contracts.test.ts`'s 7 load-order subprocesses. The same holds with `RUST_TS_REQUIRE_PROBES=1`.
 - `bun test src/std/result.test.ts src/std/panic.test.ts src/std/fmt.test.ts`: 11 pass. These are the src-wide scanners.
 - No difftest: no suite runs rustfmt yet (D12), and nothing outside `src/rustfmt/` changed.
 
@@ -49,10 +50,20 @@ Before running tools, the worktree got a copy of `.env.local` and a `node_module
 
 ## Load order (for every later lane)
 
-Each generated config module imports its hand module back. For example, `macro_names.gen.ts` imports `deserialize_MacroSelector`
-from `macro_names.ts`, and that module augments `macro_names.gen.ts`'s classes when it loads. If a `.gen.ts` is evaluated first, the
-hand module's body runs before the classes exist (TDZ). So `config/mod.ts` imports the hand modules first, and everything outside
-`config/` must import the config through `config/mod.ts` or `lib.ts`, never through a `.gen.ts`.
+Two generated config modules import their hand module back: `macro_names.gen.ts` imports `deserialize_MacroSelector` from
+`macro_names.ts`, and `file_lines.gen.ts` imports from `file_lines.ts`. Each of those hand modules augments its `.gen.ts`'s classes
+when it loads. **If one of these `.gen.ts` files is evaluated first, the hand module's body runs before the classes exist (TDZ).**
+`create_config.gen.ts` fails the same way, because it imports `macro_names.gen.ts` before `macro_names.ts`. Measured, loading a
+module first with serde stubbed (`src/rustfmt/contracts.test.ts`):
+- `macro_names.gen.ts` fails: `ReferenceError: Cannot access 'MacroName' before initialization`.
+- `file_lines.gen.ts` fails: `Cannot access 'Range' …`.
+- `create_config.gen.ts` fails: `Cannot access 'MacroName' …`.
+- `options.gen.ts`, `lists.gen.ts`, `config/mod.ts` and the hand modules load fine.
+
+The original handoff implied every `.gen.ts` was affected; `options.gen.ts` is not, since it imports no hand module back (review N2).
+`config/mod.ts` imports the hand modules first. Everything outside `config/` must import the config through `config/mod.ts` or
+`lib.ts`, never through a `config/*.gen.ts`. `contracts.test.ts` enforces this: a scan fails on any such import outside `config/`,
+though an `import type` is allowed because it is erased.
 
 ## Tests and the missing serde modules
 
@@ -127,6 +138,7 @@ attaches it to `Session.prototype` and may then drop the declaration in favour o
 | `config/file_lines.ts` | `vendor-serde_json: serde_json::from_str` (`FileLines::from_str`), `Debug`/`Display for serde_json::Error` |
 | `lib.ts` | `vendor-ignore: Debug`/`Display for ignore::Error` (`ErrorKind::InvalidGlobPattern`); `term: Terminal` (`FormatReport::fancy_print`, deprecated) |
 | `shape.ts` | `usize` wrapping subtraction in `Indent - Indent` / `Indent - usize`. rustfmt ships without overflow checks, so it wraps past 2^53. |
+| `config/mod.ts` `get_toml_path` | `anyhow: io::Error::new(Other, anyhow::Error::new(e).context(ctx)) with its source chain`. This is a metadata error other than `NotFound`/`NotADirectory`. bin/main.rs prints it with `{e:#}`, which walks the chain (`<ctx>: <os error>`), and the port has no model of anyhow contexts or io::Error sources (review N6). Revisit with bin/main.rs. |
 | `config/options.ts` (indirect) | none, but see PORT 3 on `usize::MAX` |
 | `config/serde_stubs.test_support.ts` | `vendor-serde-de: <module> <fn>` (stubs, tests only) |
 
@@ -180,4 +192,42 @@ vendor lanes land, the local helper becomes an import from the planned path.
 - `dirs::config_dir` / `dirs::home_dir` must exist (src/std or vendor) before any rustfmt suite runs without `--config-path`.
 - A tools batch is needed for the test-only `mod mock` `create_config!` expansion (mod.rs:559), which 7 `config/mod.rs` tests need.
 - When vendor-serde-de lands: delete `config/serde_stubs.test_support.ts` and its calls (5 test files plus `shape.test.ts`), then
-  re-run `bun tools/codegen/rustfmt.ts` so the serde blocks leave `contract.gen.d.ts`.
+  re-run `bun tools/codegen/rustfmt.ts` so the serde blocks leave `contract.gen.d.ts`. `contracts.test.ts` also imports its `STUBS`
+  for the load-order probe, which returns early once any serde module exists. Rewrite that probe without the stubs at the same
+  time.
+
+## Review fixes (review `rustfmt-contract-1`, PASS WITH NOTES)
+
+The review is `docs/reviews/rustfmt-contract-1.md` on `t3/review-rustfmt-contract`. N1 (`usize_saturating_add_signed` in the
+generated `create_config.gen.ts`) went to the codegen-fmt-serde lane, so `tools/codegen` is untouched here. The rest:
+
+- **N2 (load order).** New `src/rustfmt/contracts.test.ts`. It scans src/ and fails on any import of a `config/*.gen.ts` from
+  outside `src/rustfmt/config/` (an `import type` is allowed, since it is erased). A synthetic probe checks that the scan catches one.
+  A second test loads each module first in a fresh `bun` process, with serde stubbed by a `Bun.plugin` preload written to a test
+  scratch dir. `macro_names.gen.ts`, `file_lines.gen.ts` and `create_config.gen.ts` fail with `ReferenceError`; `options.gen.ts`,
+  `lists.gen.ts`, `mod.ts` and `macro_names.ts` load. The "Load order" section above is corrected.
+- **N3 (contract guard).** `contracts.test.ts` checks that every `contract_lib.d.ts` block is named `../rustfmt/<path>.ts*` and that
+  `src/rustfmt/<path>.ts` does not exist, so a stale block fails. It also checks that every import a block of either contract matches
+  is exactly the block's specifier and resolves, from the importing file, to the declared module. The reviewer's
+  `import … from "../rustfmt/utils.ts"` from `config/` fails it, as does `../../vendor/…` from `src/rustfmt/` itself (synthetic probes).
+  Lanes that create a contract module must delete its block, or this test fails.
+- **N4.** `shape.ts` `usize_div`/`usize_rem` panic (`panic(...)`, a `Panic`) with Rust's texts: "attempt to divide by zero" and
+  "attempt to calculate the remainder with a divisor of zero". They are used in `Indent::from_width` and `to_string_inner`. A new
+  `shape.test.ts` test covers `hard_tabs` with `tab_spaces = 0`.
+- **N5.** `config_from_user_dirs` calls `dirs::home_dir` before `dirs::config_dir`, as the upstream array does.
+- **N6.** `get_toml_path`'s non-`NotFound`/`NotADirectory` arm now stops with `unported("anyhow: …")`. The port has no
+  anyhow-context model to keep the source chain that `{e:#}` prints, so it stops instead of flattening.
+- **N7.** `Density::to_list_tactic` returns `ListTactic.{Mixed,HorizontalVertical,Horizontal,Vertical}` and `Input::file_name` returns
+  `FileName.Stdin`, the frozen singletons. `config/mod.ts` now re-exports `FileName`'s value as well as its type, as upstream's
+  `pub use` does. The test asserts identity (`toBe`) for every arm of `to_list_tactic`. `Input::file_name` has no runtime test,
+  because `lib.ts` cannot load until the `contract_lib.d.ts` modules exist.
+- **N8.** `contracts.test.ts` fails if any non-test file imports a `*.test_support.ts`.
+- **N9.** A new `options.test.ts` test covers `Edition::default` (the reviewer's mutation now fails it) and the `Edition`
+  conversions. `release_channel.ts` now cites `config/print_docs.oracle.test.ts`, which gains a test: the oracle accepts
+  `--unstable-features`, which bin/main.rs refuses off nightly, and `is_nightly_channel()` is true.
+- **N10.** In `file_lines.ts`, `display_FileLines` (:168) and `normalize_ranges` (:184) now come before the `FileLines` class (:205).
+  In `shape.ts`, `INDENT_BUFFER_LEN`/`INDENT_BUFFER` (:20) now come before the `Indent` class. Each has a `// PORT:` note: upstream
+  puts them between the struct and its impl, which are one class here.
+
+Checks: `bunx tsc` clean; `coverage.ts --check` ok; `rustfmt.ts --check` clean; `bun test tools/codegen/rustfmt.test.ts` 6 pass;
+`bun test src/rustfmt` 38 pass, also with `RUST_TS_REQUIRE_PROBES=1`.

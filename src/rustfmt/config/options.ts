@@ -6,7 +6,7 @@
 // `CliOptions`.
 import * as gen from "./options.gen.ts";
 import { type EmitMode, type Heuristics, IgnoreList, type Version, WidthHeuristics, debug_WidthHeuristics } from "./options.gen.ts";
-import type { ListTactic } from "./lists.ts";
+import { ListTactic } from "./lists.gen.ts";
 import type { Config } from "./create_config.gen.ts";
 import { type Edition as rustc_span_Edition, Edition_discriminant as rustc_span_Edition_discriminant } from "../../rustc_span/edition.ts";
 import { PLAIN } from "../../std/fmt.ts";
@@ -49,18 +49,18 @@ export const Density = {
   to_list_tactic(self: Density, style_edition: StyleEdition, len: number): ListTactic {
     switch (self) {
       case "Compressed":
-        return { $: "Mixed" };
+        return ListTactic.Mixed;
       case "Tall":
-        return { $: "HorizontalVertical" };
+        return ListTactic.HorizontalVertical;
       case "Vertical":
         if (len === 1) {
           if (StyleEdition.le(style_edition, "Edition2024")) {
-            return { $: "Horizontal" };
+            return ListTactic.Horizontal;
           } else {
-            return { $: "HorizontalVertical" };
+            return ListTactic.HorizontalVertical;
           }
         }
-        return { $: "Vertical" };
+        return ListTactic.Vertical;
     }
   },
 };

@@ -22,6 +22,7 @@ async function oracle(args: string[]): Promise<string | undefined> {
 
 install_serde_stubs();
 const { Config } = await import("./mod.ts");
+const { is_nightly_channel } = await import("../release_channel.ts");
 
 function print_docs(include_unstable: boolean): string {
   let out = "";
@@ -42,3 +43,14 @@ for (const [name, args, include_unstable] of [
     expect(print_docs(include_unstable)).toBe(expected);
   });
 }
+
+test("the oracle's release channel is nightly, as release_channel.ts's CFG_RELEASE_CHANNEL says", async () => {
+  // bin/main.rs refuses `--unstable-features` unless `is_nightly_channel!()` ("Unstable features are only available on Nightly
+  // channel."): the oracle accepting it (exit 0) shows its channel is nightly or dev.
+  const out = await oracle(["--unstable-features", "--help=config"]);
+  if (out === undefined) {
+    console.log(`SKIP: rustfmt tool oracle unavailable; RUST_TS_REQUIRE_PROBES=1 makes this a failure`);
+    return;
+  }
+  expect(is_nightly_channel()).toBe(true);
+});

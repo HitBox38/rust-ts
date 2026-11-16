@@ -10,7 +10,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { unported } from "../../std/panic.ts";
 
-const STUBS: Record<string, readonly string[]> = {
+/** The serde modules the generated config imports, with the names each must export (also used by contracts.test.ts). */
+export const STUBS: Record<string, readonly string[]> = {
   "../../vendor/serde/private/de.ts": ["missing_field"],
   "../../vendor/serde_core/de/ignored_any.ts": ["deserialize_IgnoredAny"],
   "../../vendor/serde_core/de/impls.ts": [
