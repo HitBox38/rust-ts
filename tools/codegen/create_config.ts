@@ -585,11 +585,14 @@ export function createConfigTs(input: CreateConfigInput, c: CreateConfigCtx): st
   out.push('    const HIDE_OPTIONS: string[] = ["verbose", "verbose_diff", "file_lines", "width_heuristics", "merge_imports", "fn_args_layout", "hide_parse_errors"];');
   out.push("    return HIDE_OPTIONS.includes(name);", "  }");
   // print_docs
-  const unwrap_result = use("../../std/result.ts", "unwrap_result");
+  const unwrapResult = use("../../std/result.ts", "unwrap_result");
+  // `writeln!(out, ..).unwrap()` on `out: &mut dyn std::io::Write` (the macro's `use std::io::Write;`): an `io::Result<()>`, so a
+  // failure panics with the `io::Error`'s Debug, as `Result::unwrap` does
+  const debug_IoError = use("../../std/io.ts", "debug_IoError");
   out.push("", `  ${L("print_docs")}`, "  static print_docs(out: Write, include_unstable: boolean): void {");
   out.push(`    const style_edition: ${SE} = "Edition2015";`, "    let max = 0;");
   for (const o of os) out.push(`    max = Math.max(max, ${new TextEncoder().encode(o.name).length} /* ${JSON.stringify(o.name)}.len() */ + 1);`);
-  out.push('    const space_str = " ".repeat(max);', `    ${unwrap_result}(out.write_fmt("Configuration Options:\\n"));`);
+  out.push('    const space_str = " ".repeat(max);', `    ${unwrapResult}(out.write_fmt("Configuration Options:\\n"), ${debug_IoError});`);
   for (const o of os) {
     const t = ty(o);
     out.push(`    if (${o.stb} || include_unstable) {`, `      const name_raw = ${JSON.stringify(o.name)};`, "      if (!Config.is_hidden_option(name_raw)) {");
@@ -597,9 +600,9 @@ export function createConfigTs(input: CreateConfigInput, c: CreateConfigCtx): st
     out.push("        name_out += name_raw;", '        name_out += " ";');
     out.push(`        const default_value = ${o.ty}.style_edition_default(style_edition);`);
     out.push(`        let default_str = ${t.display("default_value")};`, '        if (default_str === "") default_str = \'""\';');
-    out.push(`        ${unwrap_result}(out.write_fmt(\`\${name_out}\${${t.config_type}.doc_hint()} Default: \${default_str}\${!${o.stb} ? " (unstable)" : ""}\\n\`));`);
-    for (const s of o.dstrings) out.push(`        ${unwrap_result}(out.write_fmt(\`\${space_str}\${${JSON.stringify(s.value)}}\\n\`));`);
-    out.push(`        ${unwrap_result}(out.write_fmt("\\n"));`, "      }", "    }");
+    out.push(`        ${unwrapResult}(out.write_fmt(\`\${name_out}\${${t.config_type}.doc_hint()} Default: \${default_str}\${!${o.stb} ? " (unstable)" : ""}\\n\`), ${debug_IoError});`);
+    for (const s of o.dstrings) out.push(`        ${unwrapResult}(out.write_fmt(\`\${space_str}\${${JSON.stringify(s.value)}}\\n\`), ${debug_IoError});`);
+    out.push(`        ${unwrapResult}(out.write_fmt("\\n"), ${debug_IoError});`, "      }", "    }");
   }
   out.push("  }");
   // reduce / increase / adjust max width

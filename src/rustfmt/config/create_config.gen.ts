@@ -3,7 +3,7 @@
 // Generated items of the other config files are imported from their .gen.ts (types and derived fns only); hand-written
 // impls from the hand modules (src/rustfmt/contract.gen.d.ts lists what they must export while they do not exist).
 import { type Fmt, debug_bool, debug_int, debug_str, debug_struct } from "../../std/fmt.ts";
-import { type IoResult, write_stderr } from "../../std/io.ts";
+import { type IoResult, debug_IoError, write_stderr } from "../../std/io.ts";
 import { type ParseIntError, usize_from_str } from "../../std/num.ts";
 import { panic, unported, unreachable } from "../../std/panic.ts";
 import { Err, Ok, type Result, expect_result, unwrap_result } from "../../std/result.ts";
@@ -3855,7 +3855,7 @@ export class Config {
     max = Math.max(max, 11 /* "make_backup".len() */ + 1);
     max = Math.max(max, 29 /* "print_misformatted_file_names".len() */ + 1);
     const space_str = " ".repeat(max);
-    unwrap_result(out.write_fmt("Configuration Options:\n"));
+    unwrap_result(out.write_fmt("Configuration Options:\n"), debug_IoError);
     if (true || include_unstable) {
       const name_raw = "max_width";
       if (!Config.is_hidden_option(name_raw)) {
@@ -3866,9 +3866,9 @@ export class Config {
         const default_value = MaxWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of each line"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of each line"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -3881,9 +3881,9 @@ export class Config {
         const default_value = HardTabs.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Use tab characters for indentation, spaces for alignment"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Use tab characters for indentation, spaces for alignment"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -3896,9 +3896,9 @@ export class Config {
         const default_value = TabSpaces.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Number of spaces per tab"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Number of spaces per tab"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -3911,9 +3911,9 @@ export class Config {
         const default_value = NewlineStyleConfig.style_edition_default(style_edition);
         let default_str = display_NewlineStyle(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_NewlineStyle.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Unix or Windows line endings"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_NewlineStyle.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Unix or Windows line endings"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -3926,9 +3926,9 @@ export class Config {
         const default_value = IndentStyleConfig.style_edition_default(style_edition);
         let default_str = display_IndentStyle(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_IndentStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"How do we indent expressions or items"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_IndentStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"How do we indent expressions or items"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -3941,9 +3941,9 @@ export class Config {
         const default_value = UseSmallHeuristics.style_edition_default(style_edition);
         let default_str = display_Heuristics(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Heuristics.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Whether to use different formatting for items and expressions if they satisfy a heuristic notion of 'small'"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Heuristics.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Whether to use different formatting for items and expressions if they satisfy a heuristic notion of 'small'"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -3956,9 +3956,9 @@ export class Config {
         const default_value = WidthHeuristicsConfig.style_edition_default(style_edition);
         let default_str = display_WidthHeuristics(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_WidthHeuristics.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"'small' heuristic values"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_WidthHeuristics.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"'small' heuristic values"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -3971,9 +3971,9 @@ export class Config {
         const default_value = FnCallWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of the args of a function call before falling back to vertical formatting."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of the args of a function call before falling back to vertical formatting."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -3986,9 +3986,9 @@ export class Config {
         const default_value = AttrFnLikeWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of the args of a function-like attributes before falling back to vertical formatting."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of the args of a function-like attributes before falling back to vertical formatting."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4001,9 +4001,9 @@ export class Config {
         const default_value = StructLitWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width in the body of a struct lit before falling back to vertical formatting."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width in the body of a struct lit before falling back to vertical formatting."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4016,9 +4016,9 @@ export class Config {
         const default_value = StructVariantWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width in the body of a struct variant before falling back to vertical formatting."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width in the body of a struct variant before falling back to vertical formatting."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4031,9 +4031,9 @@ export class Config {
         const default_value = ArrayWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of an array literal before falling back to vertical formatting."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width of an array literal before falling back to vertical formatting."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4046,9 +4046,9 @@ export class Config {
         const default_value = ChainWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum length of a chain to fit on a single line."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum length of a chain to fit on a single line."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4061,9 +4061,9 @@ export class Config {
         const default_value = SingleLineIfElseMaxWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum line length for single line if-else expressions. A value of zero means always break if-else expressions."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum line length for single line if-else expressions. A value of zero means always break if-else expressions."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4076,9 +4076,9 @@ export class Config {
         const default_value = SingleLineLetElseMaxWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum line length for single line let-else statements. A value of zero means always format the divergent `else` block over multiple lines."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum line length for single line let-else statements. A value of zero means always format the divergent `else` block over multiple lines."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4091,9 +4091,9 @@ export class Config {
         const default_value = WrapComments.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Break comments to fit on the line"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Break comments to fit on the line"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4106,9 +4106,9 @@ export class Config {
         const default_value = FormatCodeInDocComments.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Format the code snippet in doc comments."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Format the code snippet in doc comments."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4121,9 +4121,9 @@ export class Config {
         const default_value = DocCommentCodeBlockWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum width for code snippets in doc comments. No effect unless format_code_in_doc_comments = true"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum width for code snippets in doc comments. No effect unless format_code_in_doc_comments = true"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4136,9 +4136,9 @@ export class Config {
         const default_value = DocUseSmallHeuristics.style_edition_default(style_edition);
         let default_str = display_DocCodeHeuristics(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_DocCodeHeuristics.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Value for use_small_heuristics for code blocks in doc comments. No effect unless format_code_in_doc_comments = true"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_DocCodeHeuristics.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Value for use_small_heuristics for code blocks in doc comments. No effect unless format_code_in_doc_comments = true"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4151,9 +4151,9 @@ export class Config {
         const default_value = CommentWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum length of comments. No effect unless wrap_comments = true"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum length of comments. No effect unless wrap_comments = true"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4166,9 +4166,9 @@ export class Config {
         const default_value = NormalizeComments.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Convert /* */ comments to // comments where possible"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Convert /* */ comments to // comments where possible"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4181,9 +4181,9 @@ export class Config {
         const default_value = NormalizeDocAttributes.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Normalize doc attributes as doc comments"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Normalize doc attributes as doc comments"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4196,9 +4196,9 @@ export class Config {
         const default_value = FormatStrings.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Format string literals where necessary"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Format string literals where necessary"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4211,9 +4211,9 @@ export class Config {
         const default_value = FormatMacroMatchers.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Format the metavariable matching patterns in macros"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Format the metavariable matching patterns in macros"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4226,9 +4226,9 @@ export class Config {
         const default_value = FormatMacroBodies.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Format the bodies of declarative macro definitions"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Format the bodies of declarative macro definitions"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4241,9 +4241,9 @@ export class Config {
         const default_value = SkipMacroInvocations.style_edition_default(style_edition);
         let default_str = display_MacroSelectors(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_MacroSelectors.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Skip formatting the bodies of macros invoked with the following names."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_MacroSelectors.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Skip formatting the bodies of macros invoked with the following names."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4256,9 +4256,9 @@ export class Config {
         const default_value = HexLiteralCaseConfig.style_edition_default(style_edition);
         let default_str = display_HexLiteralCase(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_HexLiteralCase.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Format hexadecimal integer literals"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_HexLiteralCase.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Format hexadecimal integer literals"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4271,9 +4271,9 @@ export class Config {
         const default_value = FloatLiteralTrailingZeroConfig.style_edition_default(style_edition);
         let default_str = display_FloatLiteralTrailingZero(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_FloatLiteralTrailingZero.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Add or remove trailing zero in floating-point literals"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_FloatLiteralTrailingZero.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Add or remove trailing zero in floating-point literals"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4286,9 +4286,9 @@ export class Config {
         const default_value = EmptyItemSingleLine.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Put empty-body functions and impls on a single line"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Put empty-body functions and impls on a single line"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4301,9 +4301,9 @@ export class Config {
         const default_value = StructLitSingleLine.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Put small struct literals on a single line"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Put small struct literals on a single line"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4316,9 +4316,9 @@ export class Config {
         const default_value = FnSingleLine.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Put single-expression functions on a single line"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Put single-expression functions on a single line"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4331,9 +4331,9 @@ export class Config {
         const default_value = WhereSingleLine.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Force where-clauses to be on a single line"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Force where-clauses to be on a single line"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4346,9 +4346,9 @@ export class Config {
         const default_value = ImportsIndent.style_edition_default(style_edition);
         let default_str = display_IndentStyle(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_IndentStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Indent of imports"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_IndentStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Indent of imports"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4361,9 +4361,9 @@ export class Config {
         const default_value = ImportsLayout.style_edition_default(style_edition);
         let default_str = display_ListTactic(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_ListTactic.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Item layout inside a import block"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_ListTactic.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Item layout inside a import block"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4376,9 +4376,9 @@ export class Config {
         const default_value = ImportsGranularityConfig.style_edition_default(style_edition);
         let default_str = display_ImportGranularity(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_ImportGranularity.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Merge or split imports to the provided granularity"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_ImportGranularity.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Merge or split imports to the provided granularity"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4391,9 +4391,9 @@ export class Config {
         const default_value = GroupImportsTacticConfig.style_edition_default(style_edition);
         let default_str = display_GroupImportsTactic(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_GroupImportsTactic.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Controls the strategy for how imports are grouped together"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_GroupImportsTactic.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Controls the strategy for how imports are grouped together"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4406,9 +4406,9 @@ export class Config {
         const default_value = MergeImports.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"(deprecated: use imports_granularity instead)"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"(deprecated: use imports_granularity instead)"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4421,9 +4421,9 @@ export class Config {
         const default_value = ReorderImports.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Reorder import and extern crate statements alphabetically"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Reorder import and extern crate statements alphabetically"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4436,9 +4436,9 @@ export class Config {
         const default_value = ReorderModules.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Reorder module statements alphabetically in group"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Reorder module statements alphabetically in group"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4451,9 +4451,9 @@ export class Config {
         const default_value = ReorderImplItems.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Reorder impl items"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Reorder impl items"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4466,9 +4466,9 @@ export class Config {
         const default_value = TypePunctuationDensity.style_edition_default(style_edition);
         let default_str = display_TypeDensity(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_TypeDensity.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Determines if '+' or '=' are wrapped in spaces in the punctuation of types"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_TypeDensity.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Determines if '+' or '=' are wrapped in spaces in the punctuation of types"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4481,9 +4481,9 @@ export class Config {
         const default_value = SpaceBeforeColon.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Leave a space before the colon"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Leave a space before the colon"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4496,9 +4496,9 @@ export class Config {
         const default_value = SpaceAfterColon.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Leave a space after the colon"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Leave a space after the colon"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4511,9 +4511,9 @@ export class Config {
         const default_value = SpacesAroundRanges.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Put spaces around the  .. and ..= range operators"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Put spaces around the  .. and ..= range operators"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4526,9 +4526,9 @@ export class Config {
         const default_value = BinopSeparator.style_edition_default(style_edition);
         let default_str = display_SeparatorPlace(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_SeparatorPlace.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Where to put a binary operator when a binary expression goes multiline"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_SeparatorPlace.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Where to put a binary operator when a binary expression goes multiline"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4541,9 +4541,9 @@ export class Config {
         const default_value = RemoveNestedParens.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Remove nested parens"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Remove nested parens"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4556,9 +4556,9 @@ export class Config {
         const default_value = CombineControlExpr.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Combine control expressions with function calls"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Combine control expressions with function calls"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4571,9 +4571,9 @@ export class Config {
         const default_value = ShortArrayElementWidthThreshold.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Width threshold for an array element to be considered short"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Width threshold for an array element to be considered short"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4586,9 +4586,9 @@ export class Config {
         const default_value = OverflowDelimitedExpr.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Allow trailing bracket/brace delimited expressions to overflow"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Allow trailing bracket/brace delimited expressions to overflow"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4601,9 +4601,9 @@ export class Config {
         const default_value = StructFieldAlignThreshold.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Align struct fields if their diffs fits within threshold"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Align struct fields if their diffs fits within threshold"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4616,9 +4616,9 @@ export class Config {
         const default_value = EnumDiscrimAlignThreshold.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Align enum variants discrims, if their diffs fit within threshold"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Align enum variants discrims, if their diffs fit within threshold"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4631,9 +4631,9 @@ export class Config {
         const default_value = MatchArmBlocks.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Wrap the body of arms in blocks when it does not fit on the same line with the pattern of arms"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Wrap the body of arms in blocks when it does not fit on the same line with the pattern of arms"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4646,9 +4646,9 @@ export class Config {
         const default_value = MatchArmLeadingPipeConfig.style_edition_default(style_edition);
         let default_str = display_MatchArmLeadingPipe(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_MatchArmLeadingPipe.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Determines whether leading pipes are emitted on match arms"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_MatchArmLeadingPipe.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Determines whether leading pipes are emitted on match arms"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4661,9 +4661,9 @@ export class Config {
         const default_value = MatchArmIndent.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Determines whether match arms are indented"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Determines whether match arms are indented"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4676,9 +4676,9 @@ export class Config {
         const default_value = ForceMultilineBlocks.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Force multiline closure bodies and match arms to be wrapped in a block"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Force multiline closure bodies and match arms to be wrapped in a block"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4691,9 +4691,9 @@ export class Config {
         const default_value = FnArgsLayout.style_edition_default(style_edition);
         let default_str = display_Density(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Density.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"(deprecated: use fn_params_layout instead)"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Density.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"(deprecated: use fn_params_layout instead)"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4706,9 +4706,9 @@ export class Config {
         const default_value = FnParamsLayout.style_edition_default(style_edition);
         let default_str = display_Density(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Density.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Control the layout of parameters in function signatures."}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Density.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Control the layout of parameters in function signatures."}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4721,9 +4721,9 @@ export class Config {
         const default_value = BraceStyleConfig.style_edition_default(style_edition);
         let default_str = display_BraceStyle(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_BraceStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Brace style for items"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_BraceStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Brace style for items"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4736,9 +4736,9 @@ export class Config {
         const default_value = ControlBraceStyleConfig.style_edition_default(style_edition);
         let default_str = display_ControlBraceStyle(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_ControlBraceStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Brace style for control flow constructs"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_ControlBraceStyle.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Brace style for control flow constructs"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4751,9 +4751,9 @@ export class Config {
         const default_value = TrailingSemicolon.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Add trailing semicolon after break, continue and return"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Add trailing semicolon after break, continue and return"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4766,9 +4766,9 @@ export class Config {
         const default_value = TrailingComma.style_edition_default(style_edition);
         let default_str = display_SeparatorTactic(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_SeparatorTactic.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"How to handle trailing commas for lists"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_SeparatorTactic.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"How to handle trailing commas for lists"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4781,9 +4781,9 @@ export class Config {
         const default_value = MatchBlockTrailingComma.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Put a trailing comma after a block based match arm (non-block arms are not affected)"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Put a trailing comma after a block based match arm (non-block arms are not affected)"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4796,9 +4796,9 @@ export class Config {
         const default_value = BlankLinesUpperBound.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Maximum number of blank lines which can be put between items"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Maximum number of blank lines which can be put between items"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4811,9 +4811,9 @@ export class Config {
         const default_value = BlankLinesLowerBound.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Minimum number of blank lines which must be put between items"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Minimum number of blank lines which must be put between items"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4826,9 +4826,9 @@ export class Config {
         const default_value = EditionConfig.style_edition_default(style_edition);
         let default_str = display_Edition(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Edition.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"The edition of the parser (RFC 2052)"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Edition.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"The edition of the parser (RFC 2052)"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4841,9 +4841,9 @@ export class Config {
         const default_value = StyleEditionConfig.style_edition_default(style_edition);
         let default_str = display_StyleEdition(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_StyleEdition.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"The edition of the Style Guide (RFC 3338)"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_StyleEdition.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"The edition of the Style Guide (RFC 3338)"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4856,9 +4856,9 @@ export class Config {
         const default_value = VersionConfig.style_edition_default(style_edition);
         let default_str = display_Version(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Version.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Version of formatting rules"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Version.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Version of formatting rules"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4871,9 +4871,9 @@ export class Config {
         const default_value = InlineAttributeWidth.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Write an item and its attribute on the same line if their combined width is below a threshold"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Write an item and its attribute on the same line if their combined width is below a threshold"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4886,9 +4886,9 @@ export class Config {
         const default_value = FormatGeneratedFiles.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Format generated files"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Format generated files"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4901,9 +4901,9 @@ export class Config {
         const default_value = GeneratedMarkerLineSearchLimit.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Number of lines to check for a `@generated` marker when `format_generated_files` is enabled"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_usize.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Number of lines to check for a `@generated` marker when `format_generated_files` is enabled"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4916,9 +4916,9 @@ export class Config {
         const default_value = MergeDerives.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Merge multiple `#[derive(...)]` into a single one"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Merge multiple `#[derive(...)]` into a single one"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4931,9 +4931,9 @@ export class Config {
         const default_value = UseTryShorthand.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Replace uses of the try! macro by the ? shorthand"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Replace uses of the try! macro by the ? shorthand"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4946,9 +4946,9 @@ export class Config {
         const default_value = UseFieldInitShorthand.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Use field initialization shorthand if possible"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Use field initialization shorthand if possible"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -4961,9 +4961,9 @@ export class Config {
         const default_value = ForceExplicitAbi.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Always print the abi for extern items"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Always print the abi for extern items"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4976,9 +4976,9 @@ export class Config {
         const default_value = CondenseWildcardSuffixes.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Replace strings of _ wildcards by a single .. in tuple patterns"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Replace strings of _ wildcards by a single .. in tuple patterns"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -4991,9 +4991,9 @@ export class Config {
         const default_value = ColorConfig.style_edition_default(style_edition);
         let default_str = display_Color(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Color.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"What Color option to use when none is supplied: Always, Never, Auto"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Color.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"What Color option to use when none is supplied: Always, Never, Auto"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5006,9 +5006,9 @@ export class Config {
         const default_value = RequiredVersion.style_edition_default(style_edition);
         let default_str = default_value;
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_String.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Require a specific version of rustfmt"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_String.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Require a specific version of rustfmt"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5021,9 +5021,9 @@ export class Config {
         const default_value = UnstableFeatures.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Enables unstable features. Only available on nightly channel"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Enables unstable features. Only available on nightly channel"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -5036,9 +5036,9 @@ export class Config {
         const default_value = DisableAllFormatting.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Don't reformat anything"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Don't reformat anything"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5051,9 +5051,9 @@ export class Config {
         const default_value = SkipChildren.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Don't reformat out of line modules"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Don't reformat out of line modules"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5066,9 +5066,9 @@ export class Config {
         const default_value = HideParseErrors.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Hide errors from the parser"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Hide errors from the parser"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5081,9 +5081,9 @@ export class Config {
         const default_value = ShowParseErrors.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Show errors from the parser (unstable)"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Show errors from the parser (unstable)"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5096,9 +5096,9 @@ export class Config {
         const default_value = ErrorOnLineOverflow.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Error if unable to get all lines within max_width"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Error if unable to get all lines within max_width"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5111,9 +5111,9 @@ export class Config {
         const default_value = ErrorOnUnformatted.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Error if unable to get comments or string literals within max_width, or they are left with trailing whitespaces"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Error if unable to get comments or string literals within max_width, or they are left with trailing whitespaces"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5126,9 +5126,9 @@ export class Config {
         const default_value = Ignore.style_edition_default(style_edition);
         let default_str = display_IgnoreList(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_IgnoreList.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Skip formatting the specified files and directories"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_IgnoreList.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Skip formatting the specified files and directories"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5141,9 +5141,9 @@ export class Config {
         const default_value = Verbose.style_edition_default(style_edition);
         let default_str = display_Verbosity(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_Verbosity.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"How much to information to emit to the user"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_Verbosity.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"How much to information to emit to the user"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5156,9 +5156,9 @@ export class Config {
         const default_value = FileLinesConfig.style_edition_default(style_edition);
         let default_str = display_FileLines(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_FileLines.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Lines to format; this is not supported in rustfmt.toml, and can only be specified via the --file-lines option"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_FileLines.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Lines to format; this is not supported in rustfmt.toml, and can only be specified via the --file-lines option"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5171,9 +5171,9 @@ export class Config {
         const default_value = EmitModeConfig.style_edition_default(style_edition);
         let default_str = display_EmitMode(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_EmitMode.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"What emit Mode to use when none is supplied"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_EmitMode.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"What emit Mode to use when none is supplied"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (false || include_unstable) {
@@ -5186,9 +5186,9 @@ export class Config {
         const default_value = MakeBackup.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Backup changed files"}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!false ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Backup changed files"}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
     if (true || include_unstable) {
@@ -5201,9 +5201,9 @@ export class Config {
         const default_value = PrintMisformattedFileNames.style_edition_default(style_edition);
         let default_str = String(default_value);
         if (default_str === "") default_str = '""';
-        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`));
-        unwrap_result(out.write_fmt(`${space_str}${"Prints the names of mismatched files that were formatted. Prints the names of files that would be formatted when used with `--check` mode. "}\n`));
-        unwrap_result(out.write_fmt("\n"));
+        unwrap_result(out.write_fmt(`${name_out}${config_type_bool.doc_hint()} Default: ${default_str}${!true ? " (unstable)" : ""}\n`), debug_IoError);
+        unwrap_result(out.write_fmt(`${space_str}${"Prints the names of mismatched files that were formatted. Prints the names of files that would be formatted when used with `--check` mode. "}\n`), debug_IoError);
+        unwrap_result(out.write_fmt("\n"), debug_IoError);
       }
     }
   }
